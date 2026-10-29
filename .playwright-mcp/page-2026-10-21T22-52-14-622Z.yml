@@ -1,0 +1,137 @@
+- generic [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - link "StudyAir" [ref=f2e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f2e9]:
+        - link [ref=f2e436] [cursor=pointer]:
+          - /url: /calendar
+        - link [ref=f2e437] [cursor=pointer]:
+          - /url: /subjects
+        - link [ref=f2e438] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f2e23]
+  - main [ref=f2e24]:
+    - generic [ref=f2e439]:
+      - generic [ref=f2e440]:
+        - generic [ref=f2e445]:
+          - heading "Syllabus Deconstructor" [level=1] [ref=f2e446]
+          - paragraph [ref=f2e447]: Break subjects down into atomic study units with cognitive load estimates and target exam dates.
+        - generic [ref=f2e448]:
+          - button "Curriculum & Import" [ref=f2e449]
+          - button "Auto-Schedule to Calendar" [ref=f2e450]
+          - button "New Subject" [ref=f2e451]
+      - generic [ref=f2e452]:
+        - generic [ref=f2e454]:
+          - generic [ref=f2e455]:
+            - heading "Subjects" [level=2] [ref=f2e456]
+            - button "Add" [ref=f2e457]
+          - generic [ref=f2e459] [cursor=pointer]:
+            - generic [ref=f2e460]:
+              - button [ref=f2e461]
+              - generic [ref=f2e465]: Linear Algebra
+              - generic [ref=f2e466]: 14d left
+            - generic [ref=f2e467]:
+              - generic [ref=f2e468]:
+                - generic [ref=f2e469]: 2/5 units
+                - generic [ref=f2e470]: 40%
+              - progressbar [ref=f2e471]: x
+          - generic [ref=f2e475] [cursor=pointer]:
+            - generic [ref=f2e476]:
+              - button [ref=f2e477]
+              - generic [ref=f2e481]: Organic Chemistry
+              - generic [ref=f2e482]: 21d left
+            - generic [ref=f2e483]:
+              - generic [ref=f2e484]:
+                - generic [ref=f2e485]: 1/5 units
+                - generic [ref=f2e486]: 20%
+              - progressbar [ref=f2e487]: x
+          - generic [ref=f2e491] [cursor=pointer]:
+            - generic [ref=f2e492]:
+              - button [ref=f2e493]
+              - generic [ref=f2e497]: Data Structures
+              - generic [ref=f2e498]: 10d left
+            - generic [ref=f2e499]:
+              - generic [ref=f2e500]:
+                - generic [ref=f2e501]: 2/5 units
+                - generic [ref=f2e502]: 40%
+              - progressbar [ref=f2e503]: x
+        - generic [ref=f2e507]:
+          - generic [ref=f2e508]:
+            - generic [ref=f2e509]:
+              - generic [ref=f2e512]:
+                - heading "Linear Algebra" [level=2] [ref=f2e513]
+                - generic [ref=f2e514]:
+                  - generic [ref=f2e515]: "Exam: Nov 5, 2026 (14 days left)"
+                  - generic [ref=f2e518]: •
+                  - generic [ref=f2e519]: 12h total
+              - generic [ref=f2e523]:
+                - button "Add Study Unit" [ref=f2e524]
+                - button "Delete subject" [ref=f2e525]
+            - generic [ref=f2e526]:
+              - generic [ref=f2e527]:
+                - generic [ref=f2e528]: "5"
+                - generic [ref=f2e529]: Total Units
+              - generic [ref=f2e530]:
+                - generic [ref=f2e531]: "2"
+                - generic [ref=f2e532]: Completed Units
+              - generic [ref=f2e533]:
+                - generic [ref=f2e534]: 40%
+                - generic [ref=f2e535]: Syllabus Mastery
+          - generic [ref=f2e537]:
+            - generic [ref=f2e538]:
+              - heading "Linear Algebra" [level=3] [ref=f2e540]
+              - generic [ref=f2e541]: 5 units
+              - button "+ Add Unit" [ref=f2e542]
+            - generic [ref=f2e543]:
+              - generic [ref=f2e544]:
+                - generic [ref=f2e545]: Title
+                - generic [ref=f2e546]: Duration
+                - generic [ref=f2e547]: Load
+              - generic [ref=f2e548]:
+                - generic [ref=f2e556]:
+                  - button "Mark as incomplete" [ref=f2e557]
+                  - generic [ref=f2e561]: Matrix Operations
+                - generic [ref=f2e562]: 60m
+                - generic [ref=f2e563]: Med
+                - button [ref=f2e565]
+              - generic [ref=f2e566]:
+                - generic [ref=f2e574]:
+                  - button "Mark as complete" [ref=f2e575]
+                  - generic [ref=f2e578]: Eigenvalues & Eigenvectors
+                - generic [ref=f2e579]: 90m
+                - generic [ref=f2e580]: High
+                - button [ref=f2e582]
+              - generic [ref=f2e583]:
+                - generic [ref=f2e591]:
+                  - button "Mark as complete" [ref=f2e592]
+                  - generic [ref=f2e595]: Vector Spaces
+                - generic [ref=f2e596]: 60m
+                - generic [ref=f2e597]: Med
+                - button [ref=f2e599]
+              - generic [ref=f2e600]:
+                - generic [ref=f2e608]:
+                  - button "Mark as complete" [ref=f2e609]
+                  - generic [ref=f2e612]: Linear Transformations
+                - generic [ref=f2e613]: 75m
+                - generic [ref=f2e614]: High
+                - button [ref=f2e616]
+              - generic [ref=f2e617]:
+                - generic [ref=f2e625]:
+                  - button "Mark as incomplete" [ref=f2e626]
+                  - generic [ref=f2e630]: Determinants
+                - generic [ref=f2e631]: 45m
+                - generic [ref=f2e632]: Low
+                - button [ref=f2e634]
+  - navigation [ref=f2e635]:
+    - link "Home" [ref=f2e636] [cursor=pointer]:
+      - /url: /
+    - link "Calendar" [ref=f2e642] [cursor=pointer]:
+      - /url: /calendar
+    - link "Syllabus" [active] [ref=f2e647] [cursor=pointer]:
+      - /url: /subjects
+    - link "Analytics" [ref=f2e652] [cursor=pointer]:
+      - /url: /dashboard
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f2e427] [cursor=pointer]
+  - alert [ref=f2e431]

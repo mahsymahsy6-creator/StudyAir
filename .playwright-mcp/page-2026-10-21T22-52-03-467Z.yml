@@ -1,0 +1,305 @@
+- generic [active] [ref=f2e1]:
+  - banner [ref=f2e2]:
+    - generic [ref=f2e3]:
+      - link "StudyAir" [ref=f2e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f2e9]:
+        - link "Calendar" [ref=f2e10] [cursor=pointer]:
+          - /url: /calendar
+        - link "Subjects" [ref=f2e14] [cursor=pointer]:
+          - /url: /subjects
+        - link "Dashboard" [ref=f2e18] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f2e23]
+  - main [ref=f2e24]:
+    - generic [ref=f2e25]:
+      - generic [ref=f2e26]:
+        - generic [ref=f2e31]:
+          - heading "Study Calendar" [level=1] [ref=f2e32]
+          - paragraph [ref=f2e33]: Drag and drop blocks to reschedule. Time-blocking with cognitive load tracking.
+        - generic [ref=f2e34]:
+          - button "Schedule" [ref=f2e35]
+          - button "Auto-Schedule" [ref=f2e36]
+          - button "Reset" [ref=f2e37]
+          - button "Clear" [ref=f2e38]
+      - generic [ref=f2e40]:
+        - generic [ref=f2e51]:
+          - generic [ref=f2e52]:
+            - generic [ref=f2e53]: Fatigue Overload Warning
+            - generic [ref=f2e54]: Fri, Oct 23
+          - paragraph [ref=f2e55]: High cognitive load makes up 73% of study time on Fri, Oct 23.
+          - paragraph [ref=f2e56]: Balance the schedule with medium or low cognitive load units to sustain focus.
+        - button "Dismiss warning" [ref=f2e60]
+      - generic [ref=f2e61]:
+        - generic [ref=f2e62]:
+          - generic [ref=f2e63]:
+            - generic [ref=f2e64]:
+              - button "Today" [ref=f2e65]
+              - generic [ref=f2e66]:
+                - button "Previous" [ref=f2e67]
+                - button "Next" [ref=f2e68]
+              - heading "Week of Oct 22, 2026" [level=2] [ref=f2e69]
+            - tablist [ref=f2e71]:
+              - tab "Day" [ref=f2e72]
+              - tab "Week" [selected] [ref=f2e73]
+          - generic [ref=f2e74]:
+            - generic [ref=f2e76]:
+              - generic [ref=f2e77]:
+                - generic [ref=f2e79]: 07:00
+                - generic [ref=f2e81]: 08:00
+                - generic [ref=f2e83]: 09:00
+                - generic [ref=f2e85]: 10:00
+                - generic [ref=f2e87]: 11:00
+                - generic [ref=f2e89]: 12:00
+                - generic [ref=f2e91]: 13:00
+                - generic [ref=f2e93]: 14:00
+                - generic [ref=f2e95]: 15:00
+                - generic [ref=f2e97]: 16:00
+                - generic [ref=f2e99]: 17:00
+                - generic [ref=f2e101]: 18:00
+                - generic [ref=f2e103]: 19:00
+                - generic [ref=f2e105]: 20:00
+                - generic [ref=f2e107]: 21:00
+              - generic [ref=f2e109]:
+                - generic [ref=f2e110]:
+                  - generic [ref=f2e111]:
+                    - generic [ref=f2e112]: Mon
+                    - generic [ref=f2e113]: "19"
+                  - generic [ref=f2e114] [cursor=pointer]
+                  - generic [ref=f2e115] [cursor=pointer]
+                  - generic [ref=f2e116] [cursor=pointer]
+                  - generic [ref=f2e117] [cursor=pointer]
+                  - generic [ref=f2e118] [cursor=pointer]
+                  - generic [ref=f2e119] [cursor=pointer]
+                  - generic [ref=f2e120] [cursor=pointer]
+                  - generic [ref=f2e121] [cursor=pointer]
+                  - generic [ref=f2e122] [cursor=pointer]
+                  - generic [ref=f2e123] [cursor=pointer]
+                  - generic [ref=f2e124] [cursor=pointer]
+                  - generic [ref=f2e125] [cursor=pointer]
+                  - generic [ref=f2e126] [cursor=pointer]
+                  - generic [ref=f2e127] [cursor=pointer]
+                  - generic [ref=f2e128] [cursor=pointer]
+                - generic [ref=f2e129]:
+                  - generic [ref=f2e130]:
+                    - generic [ref=f2e131]: Tue
+                    - generic [ref=f2e132]: "20"
+                  - generic [ref=f2e133] [cursor=pointer]
+                  - generic [ref=f2e134] [cursor=pointer]
+                  - generic [ref=f2e135] [cursor=pointer]
+                  - generic [ref=f2e136] [cursor=pointer]
+                  - generic [ref=f2e137] [cursor=pointer]
+                  - generic [ref=f2e138] [cursor=pointer]
+                  - generic [ref=f2e139] [cursor=pointer]
+                  - generic [ref=f2e140] [cursor=pointer]
+                  - generic [ref=f2e141] [cursor=pointer]
+                  - generic [ref=f2e142] [cursor=pointer]
+                  - generic [ref=f2e143] [cursor=pointer]
+                  - generic [ref=f2e144] [cursor=pointer]
+                  - generic [ref=f2e145] [cursor=pointer]
+                  - generic [ref=f2e146] [cursor=pointer]
+                  - generic [ref=f2e147] [cursor=pointer]
+                - generic [ref=f2e148]:
+                  - generic [ref=f2e149]:
+                    - generic [ref=f2e150]: Wed
+                    - generic [ref=f2e151]: "21"
+                  - generic [ref=f2e152] [cursor=pointer]
+                  - generic [ref=f2e153] [cursor=pointer]
+                  - generic [ref=f2e154] [cursor=pointer]
+                  - button "Arrays & Linked Lists 10:00 · 45m Low" [ref=f2e156]:
+                    - generic [ref=f2e157]: Arrays & Linked Lists
+                    - generic [ref=f2e162]:
+                      - generic [ref=f2e163]: 10:00 · 45m
+                      - generic [ref=f2e164]: Low
+                  - generic [ref=f2e165] [cursor=pointer]
+                  - generic [ref=f2e166] [cursor=pointer]
+                  - generic [ref=f2e167] [cursor=pointer]
+                  - button "Determinants 14:00 · 45m Low" [ref=f2e169]:
+                    - generic [ref=f2e170]: Determinants
+                    - generic [ref=f2e172]:
+                      - generic [ref=f2e173]: 14:00 · 45m
+                      - generic [ref=f2e174]: Low
+                  - generic [ref=f2e175] [cursor=pointer]
+                  - generic [ref=f2e176] [cursor=pointer]
+                  - generic [ref=f2e177] [cursor=pointer]
+                  - generic [ref=f2e178] [cursor=pointer]
+                  - generic [ref=f2e179] [cursor=pointer]
+                  - generic [ref=f2e180] [cursor=pointer]
+                  - generic [ref=f2e181] [cursor=pointer]
+                - generic [ref=f2e182]:
+                  - generic [ref=f2e183]:
+                    - generic [ref=f2e184]: Thu
+                    - generic [ref=f2e185]: "22"
+                  - generic [ref=f2e186] [cursor=pointer]
+                  - generic [ref=f2e187] [cursor=pointer]
+                  - generic [ref=f2e188] [cursor=pointer]:
+                    - button "Eigenvalues & Eigenvectors 09:00 · 90m High" [ref=f2e189]:
+                      - generic [ref=f2e190]: Eigenvalues & Eigenvectors
+                      - generic [ref=f2e192]:
+                        - generic [ref=f2e193]: 09:00 · 90m
+                        - generic [ref=f2e194]: High
+                    - button "Matrix Operations 09:00 · 60m Med" [ref=f2e195]:
+                      - generic [ref=f2e196]: Matrix Operations
+                      - generic [ref=f2e198]:
+                        - generic [ref=f2e199]: 09:00 · 60m
+                        - generic [ref=f2e200]: Med
+                    - button "Matrix Operations 09:00 · 60m Med" [ref=f2e201]:
+                      - generic [ref=f2e202]: Matrix Operations
+                      - generic [ref=f2e204]:
+                        - generic [ref=f2e205]: 09:00 · 60m
+                        - generic [ref=f2e206]: Med
+                  - generic [ref=f2e207] [cursor=pointer]
+                  - button "Trees & BST 11:00 · 60m Med" [ref=f2e209]:
+                    - generic [ref=f2e210]: Trees & BST
+                    - generic [ref=f2e212]:
+                      - generic [ref=f2e213]: 11:00 · 60m
+                      - generic [ref=f2e214]: Med
+                  - generic [ref=f2e215] [cursor=pointer]
+                  - generic [ref=f2e216] [cursor=pointer]
+                  - button "Stereochemistry 14:00 · 90m High" [ref=f2e218]:
+                    - generic [ref=f2e219]: Stereochemistry
+                    - generic [ref=f2e221]:
+                      - generic [ref=f2e222]: 14:00 · 90m
+                      - generic [ref=f2e223]: High
+                  - generic [ref=f2e224] [cursor=pointer]
+                  - button "Matrix Operations 16:00 · 30m Med" [ref=f2e226]:
+                    - generic [ref=f2e227]: Matrix Operations
+                    - generic [ref=f2e235]:
+                      - generic [ref=f2e236]: 16:00 · 30m
+                      - generic [ref=f2e237]: Med
+                  - generic [ref=f2e238] [cursor=pointer]
+                  - generic [ref=f2e239] [cursor=pointer]
+                  - generic [ref=f2e240] [cursor=pointer]
+                  - generic [ref=f2e241] [cursor=pointer]
+                  - generic [ref=f2e242] [cursor=pointer]
+                - generic [ref=f2e243]:
+                  - generic [ref=f2e244]:
+                    - generic [ref=f2e245]: Fri
+                    - generic [ref=f2e246]: "23"
+                  - generic [ref=f2e247] [cursor=pointer]
+                  - generic [ref=f2e248] [cursor=pointer]
+                  - button "Vector Spaces 09:00 · 60m Med" [ref=f2e250]:
+                    - generic [ref=f2e251]: Vector Spaces
+                    - generic [ref=f2e253]:
+                      - generic [ref=f2e254]: 09:00 · 60m
+                      - generic [ref=f2e255]: Med
+                  - button "Substitution Reactions 10:00 · 75m High Start focus session" [ref=f2e432]:
+                    - generic [ref=f2e258]: Substitution Reactions
+                    - generic [ref=f2e260]:
+                      - generic [ref=f2e261]: 10:00 · 75m
+                      - generic [ref=f2e262]: High
+                    - button "Start focus session" [ref=f2e433]
+                  - generic [ref=f2e263] [cursor=pointer]
+                  - generic [ref=f2e264] [cursor=pointer]
+                  - generic [ref=f2e265] [cursor=pointer]
+                  - button "Graphs & BFS/DFS 14:00 · 90m High" [ref=f2e267]:
+                    - generic [ref=f2e268]: Graphs & BFS/DFS
+                    - generic [ref=f2e270]:
+                      - generic [ref=f2e271]: 14:00 · 90m
+                      - generic [ref=f2e272]: High
+                  - generic [ref=f2e273] [cursor=pointer]
+                  - generic [ref=f2e274] [cursor=pointer]
+                  - generic [ref=f2e275] [cursor=pointer]
+                  - generic [ref=f2e276] [cursor=pointer]
+                  - generic [ref=f2e277] [cursor=pointer]
+                  - generic [ref=f2e278] [cursor=pointer]
+                  - generic [ref=f2e279] [cursor=pointer]
+                - generic [ref=f2e280]:
+                  - generic [ref=f2e281]:
+                    - generic [ref=f2e282]: Sat
+                    - generic [ref=f2e283]: "24"
+                  - generic [ref=f2e284] [cursor=pointer]
+                  - generic [ref=f2e285] [cursor=pointer]
+                  - generic [ref=f2e286] [cursor=pointer]
+                  - generic [ref=f2e287] [cursor=pointer]
+                  - button "Elimination Reactions 11:00 · 60m Med" [ref=f2e289]:
+                    - generic [ref=f2e290]: Elimination Reactions
+                    - generic [ref=f2e292]:
+                      - generic [ref=f2e293]: 11:00 · 60m
+                      - generic [ref=f2e294]: Med
+                  - generic [ref=f2e295] [cursor=pointer]
+                  - generic [ref=f2e296] [cursor=pointer]
+                  - button "Dynamic Programming 14:00 · 90m High" [ref=f2e298]:
+                    - generic [ref=f2e299]: Dynamic Programming
+                    - generic [ref=f2e301]:
+                      - generic [ref=f2e302]: 14:00 · 90m
+                      - generic [ref=f2e303]: High
+                  - generic [ref=f2e304] [cursor=pointer]
+                  - generic [ref=f2e305] [cursor=pointer]
+                  - generic [ref=f2e306] [cursor=pointer]
+                  - generic [ref=f2e307] [cursor=pointer]
+                  - generic [ref=f2e308] [cursor=pointer]
+                  - generic [ref=f2e309] [cursor=pointer]
+                  - generic [ref=f2e310] [cursor=pointer]
+                - generic [ref=f2e311]:
+                  - generic [ref=f2e312]:
+                    - generic [ref=f2e313]: Sun
+                    - generic [ref=f2e314]: "25"
+                  - generic [ref=f2e315] [cursor=pointer]
+                  - generic [ref=f2e316] [cursor=pointer]
+                  - generic [ref=f2e317] [cursor=pointer]
+                  - button "Spectroscopy 10:00 · 60m Med" [ref=f2e319]:
+                    - generic [ref=f2e320]: Spectroscopy
+                    - generic [ref=f2e322]:
+                      - generic [ref=f2e323]: 10:00 · 60m
+                      - generic [ref=f2e324]: Med
+                  - generic [ref=f2e325] [cursor=pointer]
+                  - generic [ref=f2e326] [cursor=pointer]
+                  - generic [ref=f2e327] [cursor=pointer]
+                  - button "Eigenvalues & Eigenvectors 14:00 · 60m High" [ref=f2e329]:
+                    - generic [ref=f2e330]: Eigenvalues & Eigenvectors
+                    - generic [ref=f2e335]:
+                      - generic [ref=f2e336]: 14:00 · 60m
+                      - generic [ref=f2e337]: High
+                  - generic [ref=f2e338] [cursor=pointer]
+                  - generic [ref=f2e339] [cursor=pointer]
+                  - generic [ref=f2e340] [cursor=pointer]
+                  - generic [ref=f2e341] [cursor=pointer]
+                  - generic [ref=f2e342] [cursor=pointer]
+                  - generic [ref=f2e343] [cursor=pointer]
+                  - generic [ref=f2e344] [cursor=pointer]
+            - complementary [ref=f2e346]:
+              - generic [ref=f2e347]:
+                - generic [ref=f2e348]: Today's Progress
+                - generic [ref=f2e355]:
+                  - generic [ref=f2e356]:
+                    - generic [ref=f2e357]:
+                      - generic [ref=f2e358]: 1/6 blocks
+                      - generic [ref=f2e359]: 17%
+                    - progressbar [ref=f2e360]: x
+                  - generic [ref=f2e363]:
+                    - generic [ref=f2e364]: 6.5h planned
+                    - generic [ref=f2e369]: 6 sessions
+              - generic [ref=f2e373]:
+                - generic [ref=f2e374]: Upcoming Blocks
+                - generic [ref=f2e376]:
+                  - generic [ref=f2e379]:
+                    - paragraph [ref=f2e380]: Matrix Operations
+                    - paragraph [ref=f2e381]: 09:00 · 60m · Linear Algebra
+                  - generic [ref=f2e384]:
+                    - paragraph [ref=f2e385]: Matrix Operations
+                    - paragraph [ref=f2e386]: 09:00 · 60m · Linear Algebra
+                  - generic [ref=f2e389]:
+                    - paragraph [ref=f2e390]: Eigenvalues & Eigenvectors
+                    - paragraph [ref=f2e391]: 09:00 · 90m · Linear Algebra
+                  - generic [ref=f2e394]:
+                    - paragraph [ref=f2e395]: Trees & BST
+                    - paragraph [ref=f2e396]: 11:00 · 60m · Data Structures
+                  - generic [ref=f2e399]:
+                    - paragraph [ref=f2e400]: Stereochemistry
+                    - paragraph [ref=f2e401]: 14:00 · 90m · Organic Chemistry
+                  - generic [ref=f2e402]:
+                    - generic [ref=f2e404]:
+                      - paragraph [ref=f2e405]: Matrix Operations
+                      - paragraph [ref=f2e406]: 16:00 · 30m · Linear Algebra
+                    - generic [ref=f2e407]: Review
+              - generic [ref=f2e408]:
+                - generic [ref=f2e409]: Subjects
+                - generic [ref=f2e411]:
+                  - generic [ref=f2e412]: Linear Algebra
+                  - generic [ref=f2e415]: Organic Chemistry
+                  - generic [ref=f2e418]: Data Structures
+        - status [ref=f2e421]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f2e427] [cursor=pointer]
+  - alert [ref=f2e431]

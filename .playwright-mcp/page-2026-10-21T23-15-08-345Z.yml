@@ -1,0 +1,328 @@
+- generic [ref=f9e1]:
+  - banner [ref=f9e2]:
+    - generic [ref=f9e3]:
+      - link "StudyAir" [ref=f9e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f9e10]:
+        - link "Calendar" [ref=f9e11] [cursor=pointer]:
+          - /url: /calendar
+        - link "Syllabus" [ref=f9e15] [cursor=pointer]:
+          - /url: /subjects
+        - link "Analytics" [ref=f9e19] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f9e24]
+  - main [ref=f9e25]:
+    - generic [ref=f9e26]:
+      - generic [ref=f9e27]:
+        - generic [ref=f9e28]:
+          - generic [ref=f9e37]: Thu, Oct 22
+          - generic [ref=f9e38]: High cognitive load makes up 67% of study time on Thu, Oct 22.
+          - generic [ref=f9e39]: • Balance the schedule with medium or low cognitive load units to sustain focus.
+        - button "Dismiss warning" [ref=f9e40]
+      - generic [ref=f9e44]:
+        - generic [ref=f9e45]:
+          - generic [ref=f9e46]:
+            - generic [ref=f9e47]:
+              - heading "Week of Oct 22, 2026" [level=1] [ref=f9e48]
+              - generic [ref=f9e49]:
+                - button "Previous" [ref=f9e50]
+                - button "Next" [ref=f9e51]
+              - button "Today" [ref=f9e52]
+            - generic [ref=f9e53]:
+              - tablist [ref=f9e55]:
+                - tab "Day" [ref=f9e56]
+                - tab "Week" [selected] [ref=f9e57]
+              - button "Schedule" [ref=f9e59]
+              - button "Auto-Schedule" [ref=f9e60]
+              - button "Reset" [active] [ref=f9e62]
+              - button "Clear calendar blocks" [ref=f9e64]
+          - generic [ref=f9e65]:
+            - generic [ref=f9e67]:
+              - generic [ref=f9e68]:
+                - generic [ref=f9e70]: 07:00
+                - generic [ref=f9e72]: 08:00
+                - generic [ref=f9e74]: 09:00
+                - generic [ref=f9e76]: 10:00
+                - generic [ref=f9e78]: 11:00
+                - generic [ref=f9e80]: 12:00
+                - generic [ref=f9e82]: 13:00
+                - generic [ref=f9e84]: 14:00
+                - generic [ref=f9e86]: 15:00
+                - generic [ref=f9e88]: 16:00
+                - generic [ref=f9e90]: 17:00
+                - generic [ref=f9e92]: 18:00
+                - generic [ref=f9e94]: 19:00
+                - generic [ref=f9e96]: 20:00
+                - generic [ref=f9e98]: 21:00
+              - generic [ref=f9e100]:
+                - generic [ref=f9e101]:
+                  - generic [ref=f9e102]:
+                    - generic [ref=f9e103]: Mon
+                    - generic [ref=f9e104]: "19"
+                  - generic [ref=f9e105] [cursor=pointer]
+                  - generic [ref=f9e106] [cursor=pointer]
+                  - generic [ref=f9e107] [cursor=pointer]
+                  - generic [ref=f9e108] [cursor=pointer]
+                  - generic [ref=f9e109] [cursor=pointer]
+                  - generic [ref=f9e110] [cursor=pointer]
+                  - generic [ref=f9e111] [cursor=pointer]
+                  - generic [ref=f9e112] [cursor=pointer]
+                  - generic [ref=f9e113] [cursor=pointer]
+                  - generic [ref=f9e114] [cursor=pointer]
+                  - generic [ref=f9e115] [cursor=pointer]
+                  - generic [ref=f9e116] [cursor=pointer]
+                  - generic [ref=f9e117] [cursor=pointer]
+                  - generic [ref=f9e118] [cursor=pointer]
+                  - generic [ref=f9e119] [cursor=pointer]
+                - generic [ref=f9e120]:
+                  - generic [ref=f9e121]:
+                    - generic [ref=f9e122]: Tue
+                    - generic [ref=f9e123]: "20"
+                  - generic [ref=f9e124] [cursor=pointer]
+                  - generic [ref=f9e125] [cursor=pointer]
+                  - generic [ref=f9e126] [cursor=pointer]
+                  - generic [ref=f9e127] [cursor=pointer]
+                  - generic [ref=f9e128] [cursor=pointer]
+                  - generic [ref=f9e129] [cursor=pointer]
+                  - generic [ref=f9e130] [cursor=pointer]
+                  - generic [ref=f9e131] [cursor=pointer]
+                  - generic [ref=f9e132] [cursor=pointer]
+                  - generic [ref=f9e133] [cursor=pointer]
+                  - generic [ref=f9e134] [cursor=pointer]
+                  - generic [ref=f9e135] [cursor=pointer]
+                  - generic [ref=f9e136] [cursor=pointer]
+                  - generic [ref=f9e137] [cursor=pointer]
+                  - generic [ref=f9e138] [cursor=pointer]
+                - generic [ref=f9e139]:
+                  - generic [ref=f9e140]:
+                    - generic [ref=f9e141]: Wed
+                    - generic [ref=f9e142]: "21"
+                  - generic [ref=f9e143] [cursor=pointer]
+                  - generic [ref=f9e144] [cursor=pointer]
+                  - button "Organic Chemistry Nomenclature" [ref=f9e450]:
+                    - generic [ref=f9e452]:
+                      - generic [ref=f9e453]: Organic Chemistry
+                      - generic [ref=f9e458]: Nomenclature
+                  - button "Data Structures Arrays & Linked Lists" [ref=f9e147]:
+                    - generic [ref=f9e149]:
+                      - generic [ref=f9e150]: Data Structures
+                      - generic [ref=f9e155]: Arrays & Linked Lists
+                  - generic [ref=f9e156] [cursor=pointer]
+                  - generic [ref=f9e157] [cursor=pointer]
+                  - generic [ref=f9e158] [cursor=pointer]
+                  - button "Linear Algebra Determinants" [ref=f9e160]:
+                    - generic [ref=f9e162]:
+                      - generic [ref=f9e163]: Linear Algebra
+                      - generic [ref=f9e165]: Determinants
+                  - generic [ref=f9e166] [cursor=pointer]
+                  - generic [ref=f9e167] [cursor=pointer]
+                  - generic [ref=f9e168] [cursor=pointer]
+                  - generic [ref=f9e169] [cursor=pointer]
+                  - generic [ref=f9e170] [cursor=pointer]
+                  - generic [ref=f9e171] [cursor=pointer]
+                  - generic [ref=f9e172] [cursor=pointer]
+                - generic [ref=f9e173]:
+                  - generic [ref=f9e174]:
+                    - generic [ref=f9e175]: Thu
+                    - generic [ref=f9e176]: "22"
+                  - generic [ref=f9e177] [cursor=pointer]
+                  - generic [ref=f9e178] [cursor=pointer]
+                  - button "Linear Algebra Eigenvalues & Eigenvectors 09:00 • 90m High" [ref=f9e459]:
+                    - generic [ref=f9e181]:
+                      - generic [ref=f9e182]:
+                        - generic [ref=f9e460]: Linear Algebra
+                        - generic [ref=f9e462]: Eigenvalues & Eigenvectors
+                      - generic [ref=f9e463]:
+                        - generic [ref=f9e464]: 09:00 • 90m
+                        - generic [ref=f9e465]: High
+                  - generic [ref=f9e195] [cursor=pointer]
+                  - button "Data Structures Trees & BST 11:00 • 60m Med" [ref=f9e197]:
+                    - generic [ref=f9e198]:
+                      - generic [ref=f9e199]:
+                        - generic [ref=f9e200]: Data Structures
+                        - generic [ref=f9e202]: Trees & BST
+                      - generic [ref=f9e203]:
+                        - generic [ref=f9e204]: 11:00 • 60m
+                        - generic [ref=f9e205]: Med
+                  - generic [ref=f9e206] [cursor=pointer]
+                  - generic [ref=f9e207] [cursor=pointer]
+                  - button "Organic Chemistry Stereochemistry 14:00 • 90m High" [ref=f9e209]:
+                    - generic [ref=f9e210]:
+                      - generic [ref=f9e211]:
+                        - generic [ref=f9e212]: Organic Chemistry
+                        - generic [ref=f9e214]: Stereochemistry
+                      - generic [ref=f9e215]:
+                        - generic [ref=f9e216]: 14:00 • 90m
+                        - generic [ref=f9e217]: High
+                  - generic [ref=f9e218] [cursor=pointer]
+                  - button "Matrix Operations 16:00 • 30m" [ref=f9e220]:
+                    - generic [ref=f9e221]:
+                      - generic [ref=f9e222]: Matrix Operations
+                      - generic: 16:00 • 30m
+                  - generic [ref=f9e227] [cursor=pointer]
+                  - generic [ref=f9e228] [cursor=pointer]
+                  - generic [ref=f9e229] [cursor=pointer]
+                  - generic [ref=f9e230] [cursor=pointer]
+                  - generic [ref=f9e231] [cursor=pointer]
+                - generic [ref=f9e232]:
+                  - generic [ref=f9e233]:
+                    - generic [ref=f9e234]: Fri
+                    - generic [ref=f9e235]: "23"
+                  - generic [ref=f9e236] [cursor=pointer]
+                  - generic [ref=f9e237] [cursor=pointer]
+                  - button "Linear Algebra Vector Spaces 09:00 • 60m Med" [ref=f9e239]:
+                    - generic [ref=f9e240]:
+                      - generic [ref=f9e241]:
+                        - generic [ref=f9e242]: Linear Algebra
+                        - generic [ref=f9e244]: Vector Spaces
+                      - generic [ref=f9e245]:
+                        - generic [ref=f9e246]: 09:00 • 60m
+                        - generic [ref=f9e247]: Med
+                  - button "Organic Chemistry Substitution Reactions 10:00 • 75m High" [ref=f9e249]:
+                    - generic [ref=f9e250]:
+                      - generic [ref=f9e251]:
+                        - generic [ref=f9e252]: Organic Chemistry
+                        - generic [ref=f9e254]: Substitution Reactions
+                      - generic [ref=f9e255]:
+                        - generic [ref=f9e256]: 10:00 • 75m
+                        - generic [ref=f9e257]: High
+                  - generic [ref=f9e258] [cursor=pointer]
+                  - generic [ref=f9e259] [cursor=pointer]
+                  - generic [ref=f9e260] [cursor=pointer]
+                  - button "Data Structures Graphs & BFS/DFS 14:00 • 90m High" [ref=f9e262]:
+                    - generic [ref=f9e263]:
+                      - generic [ref=f9e264]:
+                        - generic [ref=f9e265]: Data Structures
+                        - generic [ref=f9e267]: Graphs & BFS/DFS
+                      - generic [ref=f9e268]:
+                        - generic [ref=f9e269]: 14:00 • 90m
+                        - generic [ref=f9e270]: High
+                  - generic [ref=f9e271] [cursor=pointer]
+                  - generic [ref=f9e272] [cursor=pointer]
+                  - generic [ref=f9e273] [cursor=pointer]
+                  - generic [ref=f9e274] [cursor=pointer]
+                  - generic [ref=f9e275] [cursor=pointer]
+                  - generic [ref=f9e276] [cursor=pointer]
+                  - generic [ref=f9e277] [cursor=pointer]
+                - generic [ref=f9e278]:
+                  - generic [ref=f9e279]:
+                    - generic [ref=f9e280]: Sat
+                    - generic [ref=f9e281]: "24"
+                  - generic [ref=f9e282] [cursor=pointer]
+                  - generic [ref=f9e283] [cursor=pointer]
+                  - button "Linear Algebra Linear Transformations 09:00 • 75m High" [ref=f9e466]:
+                    - generic [ref=f9e467]:
+                      - generic [ref=f9e468]:
+                        - generic [ref=f9e469]: Linear Algebra
+                        - generic [ref=f9e471]: Linear Transformations
+                      - generic [ref=f9e472]:
+                        - generic [ref=f9e473]: 09:00 • 75m
+                        - generic [ref=f9e474]: High
+                  - generic [ref=f9e285] [cursor=pointer]
+                  - button "Organic Chemistry Elimination Reactions 11:00 • 60m Med" [ref=f9e287]:
+                    - generic [ref=f9e288]:
+                      - generic [ref=f9e289]:
+                        - generic [ref=f9e290]: Organic Chemistry
+                        - generic [ref=f9e292]: Elimination Reactions
+                      - generic [ref=f9e293]:
+                        - generic [ref=f9e294]: 11:00 • 60m
+                        - generic [ref=f9e295]: Med
+                  - generic [ref=f9e296] [cursor=pointer]
+                  - generic [ref=f9e297] [cursor=pointer]
+                  - button "Data Structures Dynamic Programming 14:00 • 90m High" [ref=f9e299]:
+                    - generic [ref=f9e300]:
+                      - generic [ref=f9e301]:
+                        - generic [ref=f9e302]: Data Structures
+                        - generic [ref=f9e304]: Dynamic Programming
+                      - generic [ref=f9e305]:
+                        - generic [ref=f9e306]: 14:00 • 90m
+                        - generic [ref=f9e307]: High
+                  - generic [ref=f9e308] [cursor=pointer]
+                  - generic [ref=f9e309] [cursor=pointer]
+                  - generic [ref=f9e310] [cursor=pointer]
+                  - generic [ref=f9e311] [cursor=pointer]
+                  - generic [ref=f9e312] [cursor=pointer]
+                  - generic [ref=f9e313] [cursor=pointer]
+                  - generic [ref=f9e314] [cursor=pointer]
+                - generic [ref=f9e315]:
+                  - generic [ref=f9e316]:
+                    - generic [ref=f9e317]: Sun
+                    - generic [ref=f9e318]: "25"
+                  - generic [ref=f9e319] [cursor=pointer]
+                  - generic [ref=f9e320] [cursor=pointer]
+                  - generic [ref=f9e321] [cursor=pointer]
+                  - button "Organic Chemistry Spectroscopy 10:00 • 60m Med" [ref=f9e323]:
+                    - generic [ref=f9e324]:
+                      - generic [ref=f9e325]:
+                        - generic [ref=f9e326]: Organic Chemistry
+                        - generic [ref=f9e328]: Spectroscopy
+                      - generic [ref=f9e329]:
+                        - generic [ref=f9e330]: 10:00 • 60m
+                        - generic [ref=f9e331]: Med
+                  - generic [ref=f9e332] [cursor=pointer]
+                  - generic [ref=f9e333] [cursor=pointer]
+                  - generic [ref=f9e334] [cursor=pointer]
+                  - button "Review • Linear Algebra Eigenvalues & Eigenvectors 14:00 • 60m High" [ref=f9e336]:
+                    - generic [ref=f9e337]:
+                      - generic [ref=f9e338]:
+                        - generic [ref=f9e339]: Review • Linear Algebra
+                        - generic [ref=f9e341]: Eigenvalues & Eigenvectors
+                      - generic [ref=f9e342]:
+                        - generic [ref=f9e343]: 14:00 • 60m
+                        - generic [ref=f9e344]: High
+                  - generic [ref=f9e345] [cursor=pointer]
+                  - generic [ref=f9e346] [cursor=pointer]
+                  - generic [ref=f9e347] [cursor=pointer]
+                  - generic [ref=f9e348] [cursor=pointer]
+                  - generic [ref=f9e349] [cursor=pointer]
+                  - generic [ref=f9e350] [cursor=pointer]
+                  - generic [ref=f9e351] [cursor=pointer]
+            - complementary [ref=f9e353]:
+              - generic [ref=f9e354]:
+                - generic [ref=f9e355]: Today's Focus
+                - generic [ref=f9e361]:
+                  - generic [ref=f9e362]:
+                    - generic [ref=f9e363]:
+                      - generic [ref=f9e364]: 1 of 4 completed
+                      - generic [ref=f9e365]: 25%
+                    - progressbar [ref=f9e366]: x
+                  - generic [ref=f9e369]:
+                    - generic [ref=f9e370]: 4.5h planned
+                    - generic [ref=f9e375]: 4 sessions
+              - generic [ref=f9e379]:
+                - generic [ref=f9e381]:
+                  - generic [ref=f9e382]: Day Schedule
+                  - generic [ref=f9e383]: 4 Total
+                - generic [ref=f9e384]:
+                  - generic [ref=f9e405]:
+                    - generic [ref=f9e406]:
+                      - generic [ref=f9e407]: Linear Algebra
+                      - generic [ref=f9e408]: High
+                    - generic [ref=f9e409]: Eigenvalues & Eigenvectors
+                    - generic [ref=f9e410]: 09:00 • 90m
+                  - generic [ref=f9e415]:
+                    - generic [ref=f9e416]:
+                      - generic [ref=f9e417]: Data Structures
+                      - generic [ref=f9e418]: Med
+                    - generic [ref=f9e419]: Trees & BST
+                    - generic [ref=f9e420]: 11:00 • 60m
+                  - generic [ref=f9e425]:
+                    - generic [ref=f9e426]:
+                      - generic [ref=f9e427]: Organic Chemistry
+                      - generic [ref=f9e428]: High
+                    - generic [ref=f9e429]: Stereochemistry
+                    - generic [ref=f9e430]: 14:00 • 90m
+                  - generic [ref=f9e435]:
+                    - generic [ref=f9e436]:
+                      - generic [ref=f9e437]: Linear Algebra
+                      - generic [ref=f9e438]: Done
+                    - generic [ref=f9e442]: Matrix Operations
+                    - generic [ref=f9e443]: 16:00 • 30m
+        - status [ref=f9e448]
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=f9e475]:
+        - generic [ref=f9e480]:
+          - generic [ref=f9e481]: Schedule reset to default
+          - generic [ref=f9e482]: Baseline study blocks restored and warnings refreshed.
+  - alert [ref=f9e449]

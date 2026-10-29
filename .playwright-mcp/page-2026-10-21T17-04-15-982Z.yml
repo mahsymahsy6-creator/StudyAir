@@ -1,0 +1,126 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link "StudyAir" [ref=e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=e9]:
+        - link "Calendar" [ref=e10] [cursor=pointer]:
+          - /url: /calendar
+        - link "Subjects" [ref=e14] [cursor=pointer]:
+          - /url: /subjects
+        - link "Dashboard" [ref=e18] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=e23]
+  - main [ref=e24]:
+    - generic [ref=e25]:
+      - generic [ref=e27]:
+        - generic [ref=e28]: Adaptive Spaced-Repetition Study Engine
+        - heading "Master your syllabus before exam day." [level=1] [ref=e32]
+        - paragraph [ref=e33]: Time-blocking calendar with cognitive load tracking, automated SM-2 review intervals, and an intelligent auto-rescheduler that protects you from burnout.
+        - generic [ref=e34]:
+          - link [ref=e35] [cursor=pointer]:
+            - /url: /calendar
+            - button "Open Time-Blocking Calendar" [ref=e36]
+          - link [ref=e37] [cursor=pointer]:
+            - /url: /subjects
+            - button "Syllabus Deconstructor" [ref=e38]
+          - link [ref=e39] [cursor=pointer]:
+            - /url: /dashboard
+            - button "View Analytics" [ref=e40]
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - generic [ref=e46]: Today's Study Schedule
+                - generic [ref=e49]: Thursday, October 22, 2026 • 1/4 completed
+              - link [ref=e50] [cursor=pointer]:
+                - /url: /calendar
+                - button "Full Calendar" [ref=e51]
+            - generic [ref=e53]:
+              - generic [ref=e54]:
+                - generic [ref=e57]:
+                  - generic [ref=e58]: Eigenvalues & Eigenvectors
+                  - generic [ref=e60]:
+                    - generic [ref=e61]: Linear Algebra
+                    - generic [ref=e62]: •
+                    - generic [ref=e63]: 09:00 – 10:30
+                - generic [ref=e67]:
+                  - generic [ref=e68]: High
+                  - button "Focus" [ref=e69]
+              - generic [ref=e70]:
+                - generic [ref=e73]:
+                  - generic [ref=e74]: Trees & BST
+                  - generic [ref=e76]:
+                    - generic [ref=e77]: Data Structures
+                    - generic [ref=e78]: •
+                    - generic [ref=e79]: 11:00 – 12:00
+                - generic [ref=e83]:
+                  - generic [ref=e84]: Med
+                  - button "Focus" [ref=e85]
+              - generic [ref=e86]:
+                - generic [ref=e89]:
+                  - generic [ref=e90]: Stereochemistry
+                  - generic [ref=e92]:
+                    - generic [ref=e93]: Organic Chemistry
+                    - generic [ref=e94]: •
+                    - generic [ref=e95]: 14:00 – 15:30
+                - generic [ref=e99]:
+                  - generic [ref=e100]: High
+                  - button "Focus" [ref=e101]
+              - generic [ref=e102]:
+                - generic [ref=e105]:
+                  - generic [ref=e106]:
+                    - generic [ref=e107]: Matrix Operations
+                    - generic [ref=e108]: Review
+                  - generic [ref=e109]:
+                    - generic [ref=e110]: Linear Algebra
+                    - generic [ref=e111]: •
+                    - generic [ref=e112]: 16:00 – 16:30
+                - generic [ref=e116]:
+                  - generic [ref=e117]: Med
+                  - generic [ref=e118]: Done
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - generic [ref=e121]: Target Exam Deadlines
+              - generic [ref=e126]: Days remaining until your exams.
+            - generic [ref=e127]:
+              - generic [ref=e128]:
+                - generic [ref=e129]:
+                  - generic [ref=e130]: Linear Algebra
+                  - generic [ref=e133]: 14d left
+                - progressbar [ref=e134]: x
+                - generic [ref=e137]:
+                  - generic [ref=e138]: 2/5 units
+                  - generic [ref=e139]: 40% mastered
+              - generic [ref=e140]:
+                - generic [ref=e141]:
+                  - generic [ref=e142]: Organic Chemistry
+                  - generic [ref=e145]: 21d left
+                - progressbar [ref=e146]: x
+                - generic [ref=e149]:
+                  - generic [ref=e150]: 1/5 units
+                  - generic [ref=e151]: 20% mastered
+              - generic [ref=e152]:
+                - generic [ref=e153]:
+                  - generic [ref=e154]: Data Structures
+                  - generic [ref=e157]: 10d left
+                - progressbar [ref=e158]: x
+                - generic [ref=e161]:
+                  - generic [ref=e162]: 2/5 units
+                  - generic [ref=e163]: 40% mastered
+              - link [ref=e164] [cursor=pointer]:
+                - /url: /subjects
+                - button "Manage Syllabus & Units" [ref=e165]
+        - generic [ref=e166]:
+          - generic [ref=e167]:
+            - heading "Time-Blocking Calendar" [level=3] [ref=e171]
+            - paragraph [ref=e172]: Drag-and-drop schedule planner color-coded by subject and cognitive load, keeping your daily workload predictable.
+          - generic [ref=e173]:
+            - heading "Cognitive Load Guard" [level=3] [ref=e183]
+            - paragraph [ref=e184]: Detects consecutive high-demand problem sessions and alerts you to fatigue overload before burnout strikes.
+          - generic [ref=e185]:
+            - heading "SM-2 Spaced Repetition" [level=3] [ref=e190]
+            - paragraph [ref=e191]: Post-session confidence rating automatically computes optimal memory intervals and books follow-up reviews.
+  - region "Notifications alt+T"
+  - alert [ref=e192]

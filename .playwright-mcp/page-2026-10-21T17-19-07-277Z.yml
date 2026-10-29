@@ -1,0 +1,127 @@
+- generic [active] [ref=f1e1]:
+  - banner [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - link "StudyAir" [ref=f1e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f1e9]:
+        - link "Calendar" [ref=f1e10] [cursor=pointer]:
+          - /url: /calendar
+        - link "Subjects" [ref=f1e14] [cursor=pointer]:
+          - /url: /subjects
+        - link "Dashboard" [ref=f1e18] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f1e23]
+  - main [ref=f1e24]:
+    - generic [ref=f1e25]:
+      - generic [ref=f1e26]:
+        - generic [ref=f1e31]:
+          - heading "Syllabus Deconstructor" [level=1] [ref=f1e32]
+          - paragraph [ref=f1e33]: Break subjects down into atomic study units with cognitive load estimates and target exam dates.
+        - generic [ref=f1e34]:
+          - button "Auto-Schedule to Calendar" [ref=f1e35]
+          - button "New Subject" [ref=f1e36]
+      - generic [ref=f1e37]:
+        - generic [ref=f1e39]:
+          - generic [ref=f1e40]:
+            - heading "Subjects" [level=2] [ref=f1e41]
+            - button "Add" [ref=f1e42]
+          - generic [ref=f1e44] [cursor=pointer]:
+            - generic [ref=f1e45]:
+              - button [ref=f1e46]
+              - generic [ref=f1e50]: Linear Algebra
+              - generic [ref=f1e51]: 14d left
+            - generic [ref=f1e52]:
+              - generic [ref=f1e53]:
+                - generic [ref=f1e54]: 2/5 units
+                - generic [ref=f1e55]: 40%
+              - progressbar [ref=f1e56]: x
+          - generic [ref=f1e60] [cursor=pointer]:
+            - generic [ref=f1e61]:
+              - button [ref=f1e62]
+              - generic [ref=f1e66]: Organic Chemistry
+              - generic [ref=f1e67]: 21d left
+            - generic [ref=f1e68]:
+              - generic [ref=f1e69]:
+                - generic [ref=f1e70]: 1/5 units
+                - generic [ref=f1e71]: 20%
+              - progressbar [ref=f1e72]: x
+          - generic [ref=f1e76] [cursor=pointer]:
+            - generic [ref=f1e77]:
+              - button [ref=f1e78]
+              - generic [ref=f1e82]: Data Structures
+              - generic [ref=f1e83]: 10d left
+            - generic [ref=f1e84]:
+              - generic [ref=f1e85]:
+                - generic [ref=f1e86]: 2/5 units
+                - generic [ref=f1e87]: 40%
+              - progressbar [ref=f1e88]: x
+        - generic [ref=f1e92]:
+          - generic [ref=f1e93]:
+            - generic [ref=f1e94]:
+              - generic [ref=f1e97]:
+                - heading "Linear Algebra" [level=2] [ref=f1e98]
+                - generic [ref=f1e99]:
+                  - generic [ref=f1e100]: "Exam: Nov 4, 2026 (14 days left)"
+                  - generic [ref=f1e103]: •
+                  - generic [ref=f1e104]: 12h total
+              - generic [ref=f1e108]:
+                - button "Add Study Unit" [ref=f1e109]
+                - button "Delete subject" [ref=f1e110]
+            - generic [ref=f1e111]:
+              - generic [ref=f1e112]:
+                - generic [ref=f1e113]: "5"
+                - generic [ref=f1e114]: Total Units
+              - generic [ref=f1e115]:
+                - generic [ref=f1e116]: "2"
+                - generic [ref=f1e117]: Completed Units
+              - generic [ref=f1e118]:
+                - generic [ref=f1e119]: 40%
+                - generic [ref=f1e120]: Syllabus Mastery
+          - generic [ref=f1e122]:
+            - generic [ref=f1e123]:
+              - heading "Linear Algebra" [level=3] [ref=f1e125]
+              - generic [ref=f1e126]: 5 units
+              - button "+ Add Unit" [ref=f1e127]
+            - generic [ref=f1e128]:
+              - generic [ref=f1e129]:
+                - generic [ref=f1e130]: Title
+                - generic [ref=f1e131]: Duration
+                - generic [ref=f1e132]: Load
+              - generic [ref=f1e133]:
+                - generic [ref=f1e141]:
+                  - button "Mark as incomplete" [ref=f1e142]
+                  - generic [ref=f1e146]: Matrix Operations
+                - generic [ref=f1e147]: 60m
+                - generic [ref=f1e148]: Med
+                - button [ref=f1e150]
+              - generic [ref=f1e151]:
+                - generic [ref=f1e159]:
+                  - button "Mark as complete" [ref=f1e160]
+                  - generic [ref=f1e163]: Eigenvalues & Eigenvectors
+                - generic [ref=f1e164]: 90m
+                - generic [ref=f1e165]: High
+                - button [ref=f1e167]
+              - generic [ref=f1e168]:
+                - generic [ref=f1e176]:
+                  - button "Mark as complete" [ref=f1e177]
+                  - generic [ref=f1e180]: Vector Spaces
+                - generic [ref=f1e181]: 60m
+                - generic [ref=f1e182]: Med
+                - button [ref=f1e184]
+              - generic [ref=f1e185]:
+                - generic [ref=f1e193]:
+                  - button "Mark as complete" [ref=f1e194]
+                  - generic [ref=f1e197]: Linear Transformations
+                - generic [ref=f1e198]: 75m
+                - generic [ref=f1e199]: High
+                - button [ref=f1e201]
+              - generic [ref=f1e202]:
+                - generic [ref=f1e210]:
+                  - button "Mark as incomplete" [ref=f1e211]
+                  - generic [ref=f1e215]: Determinants
+                - generic [ref=f1e216]: 45m
+                - generic [ref=f1e217]: Low
+                - button [ref=f1e219]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f1e225] [cursor=pointer]
+  - alert [ref=f1e229]

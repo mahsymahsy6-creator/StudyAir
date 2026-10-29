@@ -1,0 +1,127 @@
+- generic [active] [ref=f5e1]:
+  - banner [ref=f5e2]:
+    - generic [ref=f5e3]:
+      - link "StudyAir" [ref=f5e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f5e9]:
+        - link "Calendar" [ref=f5e10] [cursor=pointer]:
+          - /url: /calendar
+        - link "Subjects" [ref=f5e14] [cursor=pointer]:
+          - /url: /subjects
+        - link "Dashboard" [ref=f5e18] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f5e23]
+  - main [ref=f5e24]:
+    - generic [ref=f5e25]:
+      - generic [ref=f5e27]:
+        - generic [ref=f5e28]: Adaptive Spaced-Repetition Study Engine
+        - heading "Master your syllabus before exam day." [level=1] [ref=f5e32]
+        - paragraph [ref=f5e33]: Time-blocking calendar with cognitive load tracking, automated SM-2 review intervals, and an intelligent auto-rescheduler that protects you from burnout.
+        - generic [ref=f5e34]:
+          - link [ref=f5e35] [cursor=pointer]:
+            - /url: /calendar
+            - button "Open Time-Blocking Calendar" [ref=f5e36]
+          - link [ref=f5e37] [cursor=pointer]:
+            - /url: /subjects
+            - button "Syllabus Deconstructor" [ref=f5e38]
+          - link [ref=f5e39] [cursor=pointer]:
+            - /url: /dashboard
+            - button "View Analytics" [ref=f5e40]
+      - generic [ref=f5e41]:
+        - generic [ref=f5e42]:
+          - generic [ref=f5e43]:
+            - generic [ref=f5e44]:
+              - generic [ref=f5e45]:
+                - generic [ref=f5e46]: Today's Study Schedule
+                - generic [ref=f5e49]: Thursday, October 22, 2026 • 1/4 completed
+              - link [ref=f5e50] [cursor=pointer]:
+                - /url: /calendar
+                - button "Full Calendar" [ref=f5e51]
+            - generic [ref=f5e53]:
+              - generic [ref=f5e54]:
+                - generic [ref=f5e57]:
+                  - generic [ref=f5e58]: Eigenvalues & Eigenvectors
+                  - generic [ref=f5e60]:
+                    - generic [ref=f5e61]: Linear Algebra
+                    - generic [ref=f5e62]: •
+                    - generic [ref=f5e63]: 09:00 – 10:30
+                - generic [ref=f5e67]:
+                  - generic [ref=f5e68]: High
+                  - button "Focus" [ref=f5e69]
+              - generic [ref=f5e70]:
+                - generic [ref=f5e73]:
+                  - generic [ref=f5e74]: Trees & BST
+                  - generic [ref=f5e76]:
+                    - generic [ref=f5e77]: Data Structures
+                    - generic [ref=f5e78]: •
+                    - generic [ref=f5e79]: 11:00 – 12:00
+                - generic [ref=f5e83]:
+                  - generic [ref=f5e84]: Med
+                  - button "Focus" [ref=f5e85]
+              - generic [ref=f5e86]:
+                - generic [ref=f5e89]:
+                  - generic [ref=f5e90]: Stereochemistry
+                  - generic [ref=f5e92]:
+                    - generic [ref=f5e93]: Organic Chemistry
+                    - generic [ref=f5e94]: •
+                    - generic [ref=f5e95]: 14:00 – 15:30
+                - generic [ref=f5e99]:
+                  - generic [ref=f5e100]: High
+                  - button "Focus" [ref=f5e101]
+              - generic [ref=f5e102]:
+                - generic [ref=f5e105]:
+                  - generic [ref=f5e106]:
+                    - generic [ref=f5e107]: Matrix Operations
+                    - generic [ref=f5e108]: Review
+                  - generic [ref=f5e109]:
+                    - generic [ref=f5e110]: Linear Algebra
+                    - generic [ref=f5e111]: •
+                    - generic [ref=f5e112]: 16:00 – 16:30
+                - generic [ref=f5e116]:
+                  - generic [ref=f5e117]: Med
+                  - generic [ref=f5e118]: Done
+          - generic [ref=f5e119]:
+            - generic [ref=f5e120]:
+              - generic [ref=f5e121]: Target Exam Deadlines
+              - generic [ref=f5e126]: Days remaining until your exams.
+            - generic [ref=f5e127]:
+              - generic [ref=f5e128]:
+                - generic [ref=f5e129]:
+                  - generic [ref=f5e130]: Linear Algebra
+                  - generic [ref=f5e133]: 14d left
+                - progressbar [ref=f5e134]: x
+                - generic [ref=f5e137]:
+                  - generic [ref=f5e138]: 2/5 units
+                  - generic [ref=f5e139]: 40% mastered
+              - generic [ref=f5e140]:
+                - generic [ref=f5e141]:
+                  - generic [ref=f5e142]: Organic Chemistry
+                  - generic [ref=f5e145]: 21d left
+                - progressbar [ref=f5e146]: x
+                - generic [ref=f5e149]:
+                  - generic [ref=f5e150]: 1/5 units
+                  - generic [ref=f5e151]: 20% mastered
+              - generic [ref=f5e152]:
+                - generic [ref=f5e153]:
+                  - generic [ref=f5e154]: Data Structures
+                  - generic [ref=f5e157]: 10d left
+                - progressbar [ref=f5e158]: x
+                - generic [ref=f5e161]:
+                  - generic [ref=f5e162]: 2/5 units
+                  - generic [ref=f5e163]: 40% mastered
+              - link [ref=f5e164] [cursor=pointer]:
+                - /url: /subjects
+                - button "Manage Syllabus & Units" [ref=f5e165]
+        - generic [ref=f5e166]:
+          - generic [ref=f5e167]:
+            - heading "Time-Blocking Calendar" [level=3] [ref=f5e171]
+            - paragraph [ref=f5e172]: Drag-and-drop schedule planner color-coded by subject and cognitive load, keeping your daily workload predictable.
+          - generic [ref=f5e173]:
+            - heading "Cognitive Load Guard" [level=3] [ref=f5e183]
+            - paragraph [ref=f5e184]: Detects consecutive high-demand problem sessions and alerts you to fatigue overload before burnout strikes.
+          - generic [ref=f5e185]:
+            - heading "SM-2 Spaced Repetition" [level=3] [ref=f5e190]
+            - paragraph [ref=f5e191]: Post-session confidence rating automatically computes optimal memory intervals and books follow-up reviews.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f5e197] [cursor=pointer]
+  - alert [ref=f5e201]

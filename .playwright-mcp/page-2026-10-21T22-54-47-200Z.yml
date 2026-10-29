@@ -1,0 +1,324 @@
+- generic [ref=f7e1]:
+  - banner [aria-hidden] [ref=f7e2]:
+    - generic [ref=f7e3]:
+      - link [ref=f7e366] [cursor=pointer]:
+        - /url: /calendar
+        - generic [ref=f7e8]: StudyAir
+      - navigation [ref=f7e9]:
+        - link [ref=f7e10] [cursor=pointer]:
+          - /url: /calendar
+        - link [ref=f7e13] [cursor=pointer]:
+          - /url: /subjects
+        - link [ref=f7e16] [cursor=pointer]:
+          - /url: /dashboard
+      - button [ref=f7e367]
+  - main [ref=f7e21]:
+    - generic [ref=f7e22]:
+      - generic [aria-hidden] [ref=f7e23]:
+        - generic [ref=f7e28]:
+          - heading [level=1] [ref=f7e368]: Study Calendar
+          - paragraph [ref=f7e30]: Drag and drop blocks to reschedule. Time-blocking with cognitive load tracking.
+        - generic [ref=f7e31]:
+          - button [ref=f7e369]: Schedule
+          - button [ref=f7e370]: Auto-Schedule
+          - button [ref=f7e371]: Reset
+          - button [ref=f7e372]: Clear
+      - generic [ref=f7e37]:
+        - generic [ref=f7e48]:
+          - generic [ref=f7e49]:
+            - generic [ref=f7e50]: Fatigue Overload Warning
+            - generic [ref=f7e51]: Fri, Oct 23
+          - paragraph [ref=f7e52]: High cognitive load makes up 73% of study time on Fri, Oct 23.
+          - paragraph [ref=f7e53]: Balance the schedule with medium or low cognitive load units to sustain focus.
+        - button [ref=f7e373]
+      - generic [ref=f7e58]:
+        - generic [aria-hidden] [ref=f7e59]:
+          - generic [ref=f7e60]:
+            - generic [ref=f7e61]:
+              - button [ref=f7e374]: Today
+              - generic [ref=f7e63]:
+                - button [ref=f7e375]
+                - button [ref=f7e376]
+              - heading [level=2] [ref=f7e377]: Week of Oct 22, 2026
+            - tablist [ref=f7e68]:
+              - tab [ref=f7e378]: Day
+              - tab [selected] [ref=f7e379]: Week
+          - generic [ref=f7e73]:
+            - generic [ref=f7e74]:
+              - generic [ref=f7e76]: 07:00
+              - generic [ref=f7e78]: 08:00
+              - generic [ref=f7e80]: 09:00
+              - generic [ref=f7e82]: 10:00
+              - generic [ref=f7e84]: 11:00
+              - generic [ref=f7e86]: 12:00
+              - generic [ref=f7e88]: 13:00
+              - generic [ref=f7e90]: 14:00
+              - generic [ref=f7e92]: 15:00
+              - generic [ref=f7e94]: 16:00
+              - generic [ref=f7e96]: 17:00
+              - generic [ref=f7e98]: 18:00
+              - generic [ref=f7e100]: 19:00
+              - generic [ref=f7e102]: 20:00
+              - generic [ref=f7e104]: 21:00
+            - generic [ref=f7e106]:
+              - generic [ref=f7e107]:
+                - generic [ref=f7e108]:
+                  - generic [ref=f7e109]: Mon
+                  - generic [ref=f7e110]: "19"
+                - generic [ref=f7e111] [cursor=pointer]
+                - generic [ref=f7e112] [cursor=pointer]
+                - generic [ref=f7e113] [cursor=pointer]
+                - generic [ref=f7e114] [cursor=pointer]
+                - generic [ref=f7e115] [cursor=pointer]
+                - generic [ref=f7e116] [cursor=pointer]
+                - generic [ref=f7e117] [cursor=pointer]
+                - generic [ref=f7e118] [cursor=pointer]
+                - generic [ref=f7e119] [cursor=pointer]
+                - generic [ref=f7e120] [cursor=pointer]
+                - generic [ref=f7e121] [cursor=pointer]
+                - generic [ref=f7e122] [cursor=pointer]
+                - generic [ref=f7e123] [cursor=pointer]
+                - generic [ref=f7e124] [cursor=pointer]
+                - generic [ref=f7e125] [cursor=pointer]
+              - generic [ref=f7e126]:
+                - generic [ref=f7e127]:
+                  - generic [ref=f7e128]: Tue
+                  - generic [ref=f7e129]: "20"
+                - generic [ref=f7e130] [cursor=pointer]
+                - generic [ref=f7e131] [cursor=pointer]
+                - generic [ref=f7e132] [cursor=pointer]
+                - generic [ref=f7e133] [cursor=pointer]
+                - generic [ref=f7e134] [cursor=pointer]
+                - generic [ref=f7e135] [cursor=pointer]
+                - generic [ref=f7e136] [cursor=pointer]
+                - generic [ref=f7e137] [cursor=pointer]
+                - generic [ref=f7e138] [cursor=pointer]
+                - generic [ref=f7e139] [cursor=pointer]
+                - generic [ref=f7e140] [cursor=pointer]
+                - generic [ref=f7e141] [cursor=pointer]
+                - generic [ref=f7e142] [cursor=pointer]
+                - generic [ref=f7e143] [cursor=pointer]
+                - generic [ref=f7e144] [cursor=pointer]
+              - generic [ref=f7e145]:
+                - generic [ref=f7e146]:
+                  - generic [ref=f7e147]: Wed
+                  - generic [ref=f7e148]: "21"
+                - generic [ref=f7e149] [cursor=pointer]
+                - generic [ref=f7e150] [cursor=pointer]
+                - generic [ref=f7e151] [cursor=pointer]
+                - button [ref=f7e380]:
+                  - generic [ref=f7e154]: Arrays & Linked Lists
+                  - generic [ref=f7e159]:
+                    - generic [ref=f7e160]: 10:00 · 45m
+                    - generic [ref=f7e161]: Low
+                - generic [ref=f7e162] [cursor=pointer]
+                - generic [ref=f7e163] [cursor=pointer]
+                - generic [ref=f7e164] [cursor=pointer]
+                - button [ref=f7e381]:
+                  - generic [ref=f7e167]: Determinants
+                  - generic [ref=f7e169]:
+                    - generic [ref=f7e170]: 14:00 · 45m
+                    - generic [ref=f7e171]: Low
+                - generic [ref=f7e172] [cursor=pointer]
+                - generic [ref=f7e173] [cursor=pointer]
+                - generic [ref=f7e174] [cursor=pointer]
+                - generic [ref=f7e175] [cursor=pointer]
+                - generic [ref=f7e176] [cursor=pointer]
+                - generic [ref=f7e177] [cursor=pointer]
+                - generic [ref=f7e178] [cursor=pointer]
+              - generic [ref=f7e179]:
+                - generic [ref=f7e180]:
+                  - generic [ref=f7e181]: Thu
+                  - generic [ref=f7e182]: "22"
+                - generic [ref=f7e183] [cursor=pointer]
+                - generic [ref=f7e184] [cursor=pointer]
+                - generic [ref=f7e185] [cursor=pointer]:
+                  - button [ref=f7e382]:
+                    - generic [ref=f7e187]: Eigenvalues & Eigenvectors
+                    - generic [ref=f7e189]:
+                      - generic [ref=f7e190]: 09:00 · 90m
+                      - generic [ref=f7e191]: High
+                  - button [ref=f7e383]:
+                    - generic [ref=f7e193]: Matrix Operations
+                    - generic [ref=f7e195]:
+                      - generic [ref=f7e196]: 09:00 · 60m
+                      - generic [ref=f7e197]: Med
+                  - button [ref=f7e384]:
+                    - generic [ref=f7e199]: Matrix Operations
+                    - generic [ref=f7e201]:
+                      - generic [ref=f7e202]: 09:00 · 60m
+                      - generic [ref=f7e203]: Med
+                - generic [ref=f7e204] [cursor=pointer]
+                - button [ref=f7e385]:
+                  - generic [ref=f7e207]: Trees & BST
+                  - generic [ref=f7e209]:
+                    - generic [ref=f7e210]: 11:00 · 60m
+                    - generic [ref=f7e211]: Med
+                - generic [ref=f7e212] [cursor=pointer]
+                - generic [ref=f7e213] [cursor=pointer]
+                - button [ref=f7e386]:
+                  - generic [ref=f7e216]: Stereochemistry
+                  - generic [ref=f7e218]:
+                    - generic [ref=f7e219]: 14:00 · 90m
+                    - generic [ref=f7e220]: High
+                - generic [ref=f7e221] [cursor=pointer]
+                - button [ref=f7e387]:
+                  - generic [ref=f7e224]: Matrix Operations
+                  - generic [ref=f7e232]:
+                    - generic [ref=f7e233]: 16:00 · 30m
+                    - generic [ref=f7e234]: Med
+                - generic [ref=f7e235] [cursor=pointer]
+                - generic [ref=f7e236] [cursor=pointer]
+                - generic [ref=f7e237] [cursor=pointer]
+                - generic [ref=f7e238] [cursor=pointer]
+                - generic [ref=f7e239] [cursor=pointer]
+              - generic [ref=f7e240]:
+                - generic [ref=f7e241]:
+                  - generic [ref=f7e242]: Fri
+                  - generic [ref=f7e243]: "23"
+                - generic [ref=f7e244] [cursor=pointer]
+                - generic [ref=f7e245] [cursor=pointer]
+                - button [ref=f7e388]:
+                  - generic [ref=f7e248]: Vector Spaces
+                  - generic [ref=f7e250]:
+                    - generic [ref=f7e251]: 09:00 · 60m
+                    - generic [ref=f7e252]: Med
+                - button [ref=f7e389]:
+                  - generic [ref=f7e255]: Substitution Reactions
+                  - generic [ref=f7e257]:
+                    - generic [ref=f7e258]: 10:00 · 75m
+                    - generic [ref=f7e259]: High
+                - generic [ref=f7e260] [cursor=pointer]
+                - generic [ref=f7e261] [cursor=pointer]
+                - generic [ref=f7e262] [cursor=pointer]
+                - button [ref=f7e390]:
+                  - generic [ref=f7e265]: Graphs & BFS/DFS
+                  - generic [ref=f7e267]:
+                    - generic [ref=f7e268]: 14:00 · 90m
+                    - generic [ref=f7e269]: High
+                - generic [ref=f7e270] [cursor=pointer]
+                - generic [ref=f7e271] [cursor=pointer]
+                - generic [ref=f7e272] [cursor=pointer]
+                - generic [ref=f7e273] [cursor=pointer]
+                - generic [ref=f7e274] [cursor=pointer]
+                - generic [ref=f7e275] [cursor=pointer]
+                - generic [ref=f7e276] [cursor=pointer]
+              - generic [ref=f7e277]:
+                - generic [ref=f7e278]:
+                  - generic [ref=f7e279]: Sat
+                  - generic [ref=f7e280]: "24"
+                - generic [ref=f7e281] [cursor=pointer]
+                - generic [ref=f7e282] [cursor=pointer]
+                - generic [ref=f7e283] [cursor=pointer]
+                - generic [ref=f7e284] [cursor=pointer]
+                - button [ref=f7e391]:
+                  - generic [ref=f7e287]: Elimination Reactions
+                  - generic [ref=f7e289]:
+                    - generic [ref=f7e290]: 11:00 · 60m
+                    - generic [ref=f7e291]: Med
+                - generic [ref=f7e292] [cursor=pointer]
+                - generic [ref=f7e293] [cursor=pointer]
+                - button [ref=f7e392]:
+                  - generic [ref=f7e296]: Dynamic Programming
+                  - generic [ref=f7e298]:
+                    - generic [ref=f7e299]: 14:00 · 90m
+                    - generic [ref=f7e300]: High
+                - generic [ref=f7e301] [cursor=pointer]
+                - generic [ref=f7e302] [cursor=pointer]
+                - generic [ref=f7e303] [cursor=pointer]
+                - generic [ref=f7e304] [cursor=pointer]
+                - generic [ref=f7e305] [cursor=pointer]
+                - generic [ref=f7e306] [cursor=pointer]
+                - generic [ref=f7e307] [cursor=pointer]
+              - generic [ref=f7e308]:
+                - generic [ref=f7e309]:
+                  - generic [ref=f7e310]: Sun
+                  - generic [ref=f7e311]: "25"
+                - generic [ref=f7e312] [cursor=pointer]
+                - generic [ref=f7e313] [cursor=pointer]
+                - generic [ref=f7e314] [cursor=pointer]
+                - button [ref=f7e393]:
+                  - generic [ref=f7e317]: Spectroscopy
+                  - generic [ref=f7e319]:
+                    - generic [ref=f7e320]: 10:00 · 60m
+                    - generic [ref=f7e321]: Med
+                - generic [ref=f7e322] [cursor=pointer]
+                - generic [ref=f7e323] [cursor=pointer]
+                - generic [ref=f7e324] [cursor=pointer]
+                - button [ref=f7e394]:
+                  - generic [ref=f7e327]: Eigenvalues & Eigenvectors
+                  - generic [ref=f7e332]:
+                    - generic [ref=f7e333]: 14:00 · 60m
+                    - generic [ref=f7e334]: High
+                - generic [ref=f7e335] [cursor=pointer]
+                - generic [ref=f7e336] [cursor=pointer]
+                - generic [ref=f7e337] [cursor=pointer]
+                - generic [ref=f7e338] [cursor=pointer]
+                - generic [ref=f7e339] [cursor=pointer]
+                - generic [ref=f7e340] [cursor=pointer]
+                - generic [ref=f7e341] [cursor=pointer]
+        - status [ref=f7e342]
+  - navigation [aria-hidden] [ref=f7e343]:
+    - link [ref=f7e395] [cursor=pointer]:
+      - /url: /
+      - generic [ref=f7e349]: Home
+    - link [ref=f7e396] [cursor=pointer]:
+      - /url: /calendar
+      - generic [ref=f7e354]: Calendar
+    - link [ref=f7e397] [cursor=pointer]:
+      - /url: /subjects
+      - generic [ref=f7e359]: Syllabus
+    - link [ref=f7e398] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=f7e364]: Analytics
+  - region "Notifications alt+T"
+  - alert [ref=f7e365]
+  - dialog [ref=f7e402]:
+    - generic [ref=f7e403]:
+      - heading "Schedule Study Session" [level=2] [ref=f7e404]
+      - paragraph [ref=f7e407]: Place an atomic study unit or review block into your calendar.
+    - generic [ref=f7e408]:
+      - generic [ref=f7e409]:
+        - generic [ref=f7e410]: Subject
+        - combobox "Subject" [active] [ref=f7e411]:
+          - generic [ref=f7e412]: subj-1
+          - img [aria-hidden]: ▼
+        - textbox [aria-hidden] [ref=f7e413]: subj-1
+      - generic [ref=f7e414]:
+        - generic [ref=f7e415]: Atomic Study Unit
+        - combobox "Atomic Study Unit" [ref=f7e416]:
+          - generic [ref=f7e417]: su-1
+          - img [aria-hidden]: ▼
+        - textbox [aria-hidden] [ref=f7e418]: su-1
+      - generic [ref=f7e419]:
+        - generic [ref=f7e420]:
+          - generic [ref=f7e421]: Date
+          - textbox "Date" [ref=f7e422]: 2026-10-22
+        - generic [ref=f7e423]:
+          - generic [ref=f7e424]: Start Time
+          - generic [ref=f7e425]:
+            - combobox "Start Time" [ref=f7e426]:
+              - generic [ref=f7e427]: "9"
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f7e428]: "9"
+            - combobox [ref=f7e429]:
+              - generic [ref=f7e430]: "00"
+              - img [aria-hidden]: ▼
+            - textbox [aria-hidden] [ref=f7e431]: "00"
+      - generic [ref=f7e432]:
+        - generic [ref=f7e433]:
+          - generic [ref=f7e434]: Duration
+          - combobox "Duration" [ref=f7e435]:
+            - generic [ref=f7e436]: "60"
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f7e437]: "60"
+        - generic [ref=f7e438]:
+          - generic [ref=f7e439]: Session Type
+          - combobox "Session Type" [ref=f7e440]:
+            - generic [ref=f7e441]: STUDY
+            - img [aria-hidden]: ▼
+          - textbox [aria-hidden] [ref=f7e442]: STUDY
+      - generic [ref=f7e443]:
+        - button "Cancel" [ref=f7e444]
+        - button "Add to Calendar" [ref=f7e445]
+    - button "Close" [ref=f7e446]

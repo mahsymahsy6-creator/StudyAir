@@ -1,0 +1,21 @@
+- generic [active] [ref=f14e1]:
+  - banner [ref=f14e2]:
+    - generic [ref=f14e3]:
+      - link "StudyAir" [ref=f14e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f14e9]:
+        - link "Calendar" [ref=f14e10] [cursor=pointer]:
+          - /url: /calendar
+        - link "Subjects" [ref=f14e14] [cursor=pointer]:
+          - /url: /subjects
+        - link "Dashboard" [ref=f14e18] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f14e23]
+  - main [ref=f14e24]:
+    - generic [ref=f14e26]:
+      - generic [ref=f14e31]:
+        - heading "Study Calendar" [level=1] [ref=f14e32]
+        - paragraph [ref=f14e33]: Drag and drop blocks to reschedule. Time-blocking with cognitive load tracking.
+      - button "Auto-Reschedule Missed" [ref=f14e35]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f14e49] [cursor=pointer]

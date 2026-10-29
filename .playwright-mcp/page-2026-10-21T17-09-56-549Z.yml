@@ -1,0 +1,16 @@
+- generic [active] [ref=f9e1]:
+  - banner [ref=f9e2]:
+    - generic [ref=f9e3]:
+      - link "StudyAir" [ref=f9e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f9e9]:
+        - link "Calendar" [ref=f9e10] [cursor=pointer]:
+          - /url: /calendar
+        - link "Subjects" [ref=f9e14] [cursor=pointer]:
+          - /url: /subjects
+        - link "Dashboard" [ref=f9e18] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f9e23]
+  - main [ref=f9e24]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f9e32] [cursor=pointer]

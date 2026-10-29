@@ -1,0 +1,131 @@
+- generic [active] [ref=f10e1]:
+  - banner [ref=f10e2]:
+    - generic [ref=f10e3]:
+      - link "StudyAir" [ref=f10e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f10e10]:
+        - link "Calendar" [ref=f10e11] [cursor=pointer]:
+          - /url: /calendar
+        - link "Syllabus" [ref=f10e15] [cursor=pointer]:
+          - /url: /subjects
+        - link "Analytics" [ref=f10e19] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f10e24]
+  - main [ref=f10e25]:
+    - generic [ref=f10e26]:
+      - generic [ref=f10e27]:
+        - generic [ref=f10e32]:
+          - heading "Syllabus Deconstructor" [level=1] [ref=f10e33]
+          - paragraph [ref=f10e34]: Break subjects into atomic study units with cognitive load estimates and target exam dates.
+        - generic [ref=f10e35]:
+          - button "Curriculum & Import" [ref=f10e36]
+          - button "Auto-Schedule to Calendar" [ref=f10e37]
+          - button "New Subject" [ref=f10e38]
+      - generic [ref=f10e39]:
+        - generic [ref=f10e41]:
+          - generic [ref=f10e42]:
+            - heading "Subjects (3)" [level=2] [ref=f10e43]
+            - button "Add" [ref=f10e44]
+          - generic [ref=f10e46] [cursor=pointer]:
+            - generic [ref=f10e47]:
+              - generic [ref=f10e48]: Linear Algebra
+              - generic [ref=f10e51]:
+                - generic [ref=f10e52]: 14d left
+                - button "Toggle details" [ref=f10e53]
+            - generic [ref=f10e56]:
+              - generic [ref=f10e57]:
+                - generic [ref=f10e58]: 2 of 5 units
+                - generic [ref=f10e59]: 40%
+              - progressbar [ref=f10e60]: x
+          - generic [ref=f10e64] [cursor=pointer]:
+            - generic [ref=f10e65]:
+              - generic [ref=f10e66]: Organic Chemistry
+              - generic [ref=f10e69]:
+                - generic [ref=f10e70]: 21d left
+                - button "Toggle details" [ref=f10e71]
+            - generic [ref=f10e74]:
+              - generic [ref=f10e75]:
+                - generic [ref=f10e76]: 1 of 5 units
+                - generic [ref=f10e77]: 20%
+              - progressbar [ref=f10e78]: x
+          - generic [ref=f10e82] [cursor=pointer]:
+            - generic [ref=f10e83]:
+              - generic [ref=f10e84]: Data Structures
+              - generic [ref=f10e87]:
+                - generic [ref=f10e88]: 10d left
+                - button "Toggle details" [ref=f10e89]
+            - generic [ref=f10e92]:
+              - generic [ref=f10e93]:
+                - generic [ref=f10e94]: 2 of 5 units
+                - generic [ref=f10e95]: 40%
+              - progressbar [ref=f10e96]: x
+        - generic [ref=f10e100]:
+          - generic [ref=f10e101]:
+            - generic [ref=f10e102]:
+              - generic [ref=f10e105]:
+                - heading "Linear Algebra" [level=2] [ref=f10e106]
+                - generic [ref=f10e107]:
+                  - generic [ref=f10e108]: "Exam: Nov 5, 2026 (14 days left)"
+                  - generic [ref=f10e111]: •
+                  - generic [ref=f10e112]: 12h total
+              - generic [ref=f10e116]:
+                - button "Add Study Unit" [ref=f10e117]
+                - button "Delete subject" [ref=f10e118]
+            - generic [ref=f10e119]:
+              - generic [ref=f10e120]:
+                - generic [ref=f10e121]: "5"
+                - generic [ref=f10e122]: Total Units
+              - generic [ref=f10e123]:
+                - generic [ref=f10e124]: "2"
+                - generic [ref=f10e125]: Completed Units
+              - generic [ref=f10e126]:
+                - generic [ref=f10e127]: 40%
+                - generic [ref=f10e128]: Syllabus Mastery
+          - generic [ref=f10e130]:
+            - generic [ref=f10e131]:
+              - generic [ref=f10e132]:
+                - heading "Linear Algebra Curriculum" [level=3] [ref=f10e134]
+                - generic [ref=f10e135]: 5 units
+              - button "Add Unit" [ref=f10e136]
+            - generic [ref=f10e137]:
+              - generic [ref=f10e138]:
+                - generic [ref=f10e139]: Atomic Study Unit
+                - generic [ref=f10e140]: Duration
+                - generic [ref=f10e141]: Cognitive Load
+              - generic [ref=f10e142]:
+                - generic [ref=f10e151]:
+                  - button "Mark as incomplete" [ref=f10e152]
+                  - generic [ref=f10e156]: Matrix Operations
+                - generic [ref=f10e157]: 60 min
+                - generic [ref=f10e158]: Med
+                - button "Delete unit" [ref=f10e161]
+              - generic [ref=f10e165]:
+                - generic [ref=f10e174]:
+                  - button "Mark as complete" [ref=f10e175]
+                  - generic [ref=f10e178]: Eigenvalues & Eigenvectors
+                - generic [ref=f10e179]: 90 min
+                - generic [ref=f10e180]: High
+                - button "Delete unit" [ref=f10e183]
+              - generic [ref=f10e187]:
+                - generic [ref=f10e196]:
+                  - button "Mark as complete" [ref=f10e197]
+                  - generic [ref=f10e200]: Vector Spaces
+                - generic [ref=f10e201]: 60 min
+                - generic [ref=f10e202]: Med
+                - button "Delete unit" [ref=f10e205]
+              - generic [ref=f10e209]:
+                - generic [ref=f10e218]:
+                  - button "Mark as complete" [ref=f10e219]
+                  - generic [ref=f10e222]: Linear Transformations
+                - generic [ref=f10e223]: 75 min
+                - generic [ref=f10e224]: High
+                - button "Delete unit" [ref=f10e227]
+              - generic [ref=f10e231]:
+                - generic [ref=f10e240]:
+                  - button "Mark as incomplete" [ref=f10e241]
+                  - generic [ref=f10e245]: Determinants
+                - generic [ref=f10e246]: 45 min
+                - generic [ref=f10e247]: Low
+                - button "Delete unit" [ref=f10e250]
+  - region "Notifications alt+T"
+  - alert [ref=f10e254]

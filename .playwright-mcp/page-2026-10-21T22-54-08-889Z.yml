@@ -1,0 +1,33 @@
+- generic [active] [ref=f4e1]:
+  - banner [ref=f4e2]:
+    - generic [ref=f4e3]:
+      - link "StudyAir" [ref=f4e4] [cursor=pointer]:
+        - /url: /calendar
+      - navigation [ref=f4e9]:
+        - link [ref=f4e10] [cursor=pointer]:
+          - /url: /calendar
+        - link [ref=f4e13] [cursor=pointer]:
+          - /url: /subjects
+        - link [ref=f4e16] [cursor=pointer]:
+          - /url: /dashboard
+      - button "Toggle theme" [ref=f4e20]
+  - main [ref=f4e21]:
+    - generic [ref=f4e23]:
+      - generic [ref=f4e28]:
+        - heading "Study Calendar" [level=1] [ref=f4e29]
+        - paragraph [ref=f4e30]: Drag and drop blocks to reschedule. Time-blocking with cognitive load tracking.
+      - generic [ref=f4e31]:
+        - button "Schedule" [ref=f4e32]
+        - button "Auto-Schedule" [ref=f4e33]
+        - button "Reset" [ref=f4e34]
+        - button "Clear" [ref=f4e35]
+  - navigation [ref=f4e44]:
+    - link "Home" [ref=f4e45] [cursor=pointer]:
+      - /url: /
+    - link "Calendar" [ref=f4e51] [cursor=pointer]:
+      - /url: /calendar
+    - link "Syllabus" [ref=f4e56] [cursor=pointer]:
+      - /url: /subjects
+    - link "Analytics" [ref=f4e61] [cursor=pointer]:
+      - /url: /dashboard
+  - region "Notifications alt+T"
