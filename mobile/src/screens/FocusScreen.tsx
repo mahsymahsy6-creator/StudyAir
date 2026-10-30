@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, radius, typography } from "../theme";
+import { colors, spacing, radius, typography, touchTarget, tidySpacing } from "../theme";
 import { useMobileStudyStore } from "../store";
 import { ConfidenceRating, Subject } from "../types";
 import { HapticFeedback } from "../lib/haptics";
@@ -43,30 +43,42 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
     completeFocusSession,
     logIndependentFocusSession,
     subjects,
+    streakState,
   } = useMobileStudyStore();
 
   const passedBlockId = route?.params?.blockId;
+  const passedTaskId = route?.params?.taskId;
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const currentStudyBlock = useMemo(() => {
     if (passedBlockId) {
       return studyBlocks.find((b) => b.id === passedBlockId) || null;
     }
+    if (passedTaskId) {
+      return (
+        studyBlocks.find(
+          (b) => b.taskId === passedTaskId && b.status !== "COMPLETED" && b.status !== "SKIPPED"
+        ) || null
+      );
+    }
     return (
       studyBlocks.find(
         (b) => b.date === todayStr && b.status !== "COMPLETED" && b.status !== "SKIPPED"
       ) || null
     );
-  }, [passedBlockId, studyBlocks, todayStr]);
+  }, [passedBlockId, passedTaskId, studyBlocks, todayStr]);
 
   const targetTask = useMemo(() => {
+    if (passedTaskId) {
+      return tasks.find((t) => t.id === passedTaskId) || null;
+    }
     if (!currentStudyBlock) return null;
     return tasks.find((t) => t.id === currentStudyBlock.taskId) || null;
-  }, [currentStudyBlock, tasks]);
+  }, [passedTaskId, currentStudyBlock, tasks]);
 
   const [selectedPreset, setSelectedPreset] = useState<number>(25);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(
-    subjects.length > 0 ? subjects[0].id : "general"
+    targetTask?.subjectId || (subjects.length > 0 ? subjects[0].id : "general")
   );
 
   const initialDuration = currentStudyBlock
@@ -78,14 +90,12 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
   const [secondsRemaining, setSecondsRemaining] = useState<number>(initialDuration * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [ratingModalVisible, setRatingModalVisible] = useState<boolean>(false);
-  const [finishEarlyModalVisible, setFinishEarlyModalVisible] = useState<boolean>(false);
   const [taskCompletionPromptVisible, setTaskCompletionPromptVisible] = useState<boolean>(false);
-  const targetEndTimeRef = React.useRef<number | null>(null);
+  const targetEndTimeRef = useRef<number | null>(null);
 
   const triggerFinishHaptics = () => {
     HapticFeedback.success();
     setTimeout(() => HapticFeedback.success(), 300);
-    setTimeout(() => HapticFeedback.success(), 600);
   };
 
   // Sync timer if activeFocusBlock changes
@@ -164,7 +174,7 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
     : selectedPreset) * 60;
 
   const handleSelectPreset = (minutes: number) => {
-    if (isRunning) return; // don't change mid-session
+    if (isRunning) return;
     HapticFeedback.light();
     setSelectedPreset(minutes);
     setSecondsRemaining(minutes * 60);
@@ -220,31 +230,59 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
   const handleFinishEarly = () => {
     setIsRunning(false);
     targetEndTimeRef.current = null;
-    setFinishEarlyModalVisible(true);
+    setRatingModalVisible(true);
   };
 
   const currentSubject: Subject | undefined = currentStudyBlock
     ? subjects.find((s) => s.id === currentStudyBlock.subjectId)
+    : targetTask
+    ? subjects.find((s) => s.id === targetTask.subjectId)
     : activeFocusBlock
     ? activeFocusBlock.subject
     : subjects.find((s) => s.id === selectedSubjectId);
 
   const subjectTitle = currentSubject
     ? currentSubject.name || currentSubject.title
-    : "Fokus Mandiri";
+    : "Fokus Belajar";
   const subjectColor = currentSubject
     ? currentSubject.color || currentSubject.color_hex || colors.primary
     : colors.primary;
 
   const unitTitle = targetTask
     ? targetTask.title
-    : activeFocusBlock?.study_unit.title || "Deep Focus & Active Recall";
+    : activeFocusBlock?.study_unit.title || "Fokus Mendalam & Latihan Soal";
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* ─── Minimalist Header ─── */}
+      <View style={styles.headerRow}>
+        <Pressable
+          style={styles.backButton}
+          onPress={() => {
+            HapticFeedback.light();
+            if (navigation.goBack) navigation.goBack();
+            else navigation.navigate("Today");
+          }}
+          hitSlop={touchTarget.min / 4}
+          accessibilityLabel="Kembali"
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        </Pressable>
 
-        {/* ─── Active Target Card ─── */}
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>
+            {isRunning ? (t("zen_mode_running") || "Sesi Fokus Berjalan") : "Ruang Fokus"}
+          </Text>
+        </View>
+
+        <View style={styles.streakBadge}>
+          <Ionicons name="flame" size={16} color={colors.amber} />
+          <Text style={styles.streakBadgeText}>{streakState?.currentStreak || 0}d</Text>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ─── Active Task Pill ─── */}
         <View style={styles.targetCard}>
           <View style={[styles.subjectDot, { backgroundColor: subjectColor }]} />
           <View style={{ flex: 1 }}>
@@ -253,121 +291,127 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
               {unitTitle}
             </Text>
           </View>
+          <View style={styles.modeBadge}>
+            <Ionicons name="sparkles" size={13} color={colors.accent} />
+            <Text style={styles.modeBadgeText}>Zen Mode</Text>
+          </View>
         </View>
 
-        {/* ─── Subject Selector (If Independent) ─── */}
-        {!activeFocusBlock && (
-          <View style={styles.selectorSection}>
-            <Text style={styles.sectionLabel}>PILIH MATA PELAJARAN</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.subjectChipsRow}
-            >
-              <Pressable
-                style={[
-                  styles.subjectChip,
-                  selectedSubjectId === "general" && styles.subjectChipActive,
-                ]}
-                onPress={() => !isRunning && setSelectedSubjectId("general")}
-              >
-                <Text
-                  style={[
-                    styles.subjectChipText,
-                    selectedSubjectId === "general" && styles.subjectChipTextActive,
-                  ]}
+        {/* ─── In Idle Mode: Subject & Duration Pickers ─── */}
+        {!isRunning && (
+          <>
+            {/* Subject selector if independent */}
+            {!activeFocusBlock && !currentStudyBlock && (
+              <View style={styles.selectorSection}>
+                <Text style={styles.sectionLabel}>MATA PELAJARAN</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.subjectChipsRow}
                 >
-                  Fokus Mandiri
-                </Text>
-              </Pressable>
-              {subjects.map((sub) => {
-                const isSelected = selectedSubjectId === sub.id;
-                const dotColor = sub.color || sub.color_hex || colors.primary;
-                return (
                   <Pressable
-                    key={sub.id}
                     style={[
                       styles.subjectChip,
-                      isSelected && {
-                        borderColor: dotColor,
-                        backgroundColor: `${dotColor}20`,
-                      },
+                      selectedSubjectId === "general" && styles.subjectChipActive,
                     ]}
-                    onPress={() => !isRunning && setSelectedSubjectId(sub.id)}
+                    onPress={() => setSelectedSubjectId("general")}
                   >
-                    <View
-                      style={[
-                        styles.chipDot,
-                        { backgroundColor: dotColor },
-                      ]}
-                    />
                     <Text
                       style={[
                         styles.subjectChipText,
-                        isSelected && { color: colors.text, fontWeight: "700" },
+                        selectedSubjectId === "general" && styles.subjectChipTextActive,
                       ]}
                     >
-                      {sub.title || sub.name}
+                      Fokus Mandiri
                     </Text>
                   </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+                  {subjects.map((sub) => {
+                    const isSelected = selectedSubjectId === sub.id;
+                    const dotColor = sub.color || sub.color_hex || colors.primary;
+                    return (
+                      <Pressable
+                        key={sub.id}
+                        style={[
+                          styles.subjectChip,
+                          isSelected && {
+                            borderColor: dotColor,
+                            backgroundColor: `${dotColor}25`,
+                          },
+                        ]}
+                        onPress={() => setSelectedSubjectId(sub.id)}
+                      >
+                        <View style={[styles.chipDot, { backgroundColor: dotColor }]} />
+                        <Text
+                          style={[
+                            styles.subjectChipText,
+                            isSelected && { color: colors.text, fontWeight: "700" },
+                          ]}
+                        >
+                          {sub.title || sub.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Duration Presets */}
+            <View style={styles.durationSection}>
+              <Text style={styles.sectionLabel}>DURASI FOKUS</Text>
+              <View style={styles.durationPillsRow}>
+                {DURATION_PRESETS.map((minsPreset) => {
+                  const isSelected =
+                    (activeFocusBlock
+                      ? activeFocusBlock.study_unit.estimated_minutes
+                      : selectedPreset) === minsPreset;
+                  return (
+                    <Pressable
+                      key={minsPreset}
+                      style={[
+                        styles.durationPill,
+                        isSelected && styles.durationPillActive,
+                      ]}
+                      onPress={() => handleSelectPreset(minsPreset)}
+                    >
+                      <Text
+                        style={[
+                          styles.durationPillText,
+                          isSelected && styles.durationPillTextActive,
+                        ]}
+                      >
+                        {minsPreset}m
+                      </Text>
+                      {minsPreset === 25 && (
+                        <Text style={styles.pomodoroBadge}>Pomodoro</Text>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </>
         )}
 
-        {/* ─── Duration Presets (Pills) ─── */}
-        <View style={styles.durationSection}>
-          <Text style={styles.sectionLabel}>DURASI WAKTU</Text>
-          <View style={styles.durationPillsRow}>
-            {DURATION_PRESETS.map((minsPreset) => {
-              const isSelected =
-                (activeFocusBlock
-                  ? activeFocusBlock.study_unit.estimated_minutes
-                  : selectedPreset) === minsPreset;
-              return (
-                <Pressable
-                  key={minsPreset}
-                  disabled={isRunning || !!activeFocusBlock}
-                  style={[
-                    styles.durationPill,
-                    isSelected && styles.durationPillActive,
-                    (isRunning || !!activeFocusBlock) && { opacity: 0.8 },
-                  ]}
-                  onPress={() => handleSelectPreset(minsPreset)}
-                >
-                  <Text
-                    style={[
-                      styles.durationPillText,
-                      isSelected && styles.durationPillTextActive,
-                    ]}
-                  >
-                    {minsPreset}m
-                  </Text>
-                  {minsPreset === 25 && (
-                    <Text style={styles.pomodoroBadge}>Pomodoro</Text>
-                  )}
-                </Pressable>
-              );
-            })}
+        {/* ─── Zen Minimalist Circular Timer Visual ─── */}
+        <View style={styles.timerContainer}>
+          <View style={[styles.timerCircleOuter, isRunning && styles.timerCircleOuterRunning]}>
+            <View style={styles.timerCircleInner}>
+              <Text style={styles.timerDigits}>{timeFormatted}</Text>
+              <Text style={styles.timerStatus}>
+                {isRunning ? "SEDANG FOKUS" : "SIAP DIMULAI"}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* ─── Circular Timer Visual ─── */}
-        <View style={styles.timerCircleOuter}>
-          <View style={styles.timerCircleInner}>
-            <Text style={styles.timerDigits}>{timeFormatted}</Text>
-            <Text style={styles.timerStatus}>
-              {isRunning ? "SEDANG FOKUS" : "JEDA / SIAP"}
-            </Text>
-          </View>
-        </View>
-
-        {/* ─── Controls ─── */}
+        {/* ─── Zen Controls Row ─── */}
         <View style={styles.controlsRow}>
+          {/* Reset / Ulangi */}
           <Pressable
             style={styles.secondaryButton}
             onPress={() => {
+              HapticFeedback.light();
               setIsRunning(false);
               setSecondsRemaining(
                 (activeFocusBlock
@@ -378,203 +422,139 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
           >
             <Ionicons
               name="refresh"
-              size={15}
+              size={18}
               color={colors.textSecondary}
-              style={{ marginRight: 4 }}
             />
-            <Text style={styles.secondaryButtonText}>{t("repeatTimer") || "Ulangi"}</Text>
+            <Text style={styles.secondaryButtonText}>Reset</Text>
           </Pressable>
 
+          {/* Primary Play / Pause Button */}
           <Pressable
             style={[
               styles.primaryButton,
-              isRunning && styles.primaryButtonRunning,
+              isRunning ? styles.primaryButtonRunning : styles.primaryButtonIdle,
             ]}
             onPress={toggleTimer}
           >
             <Ionicons
               name={isRunning ? "pause" : "play"}
-              size={18}
+              size={22}
               color="#ffffff"
               style={{ marginRight: 6 }}
             />
             <Text style={styles.primaryButtonText}>
-              {isRunning ? (t("pauseFocus") || "Jeda") : (t("startFocus") || "Mulai fokus")}
+              {isRunning ? (t("pauseFocus") || "Jeda") : (t("startFocus") || "Mulai Fokus")}
             </Text>
           </Pressable>
 
+          {/* Finish Early Button */}
           <Pressable style={styles.secondaryButton} onPress={handleFinishEarly}>
             <Ionicons
-              name="checkmark"
-              size={16}
-              color={colors.textSecondary}
-              style={{ marginRight: 4 }}
+              name="checkmark-done"
+              size={18}
+              color={colors.emerald}
             />
-            <Text style={styles.secondaryButtonText}>{t("completeFocus") || "Selesai"}</Text>
+            <Text style={[styles.secondaryButtonText, { color: colors.emerald }]}>
+              {t("completeFocus") || "Selesai"}
+            </Text>
           </Pressable>
         </View>
+      </ScrollView>
 
-        {/* ─── Post-Session SM-2 Confidence Rating Modal ─── */}
-        <Modal
-          visible={ratingModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setRatingModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={{ alignItems: "center", marginBottom: 12 }}>
-                <Ionicons
-                  name="trophy-outline"
-                  size={46}
-                  color={colors.primary}
-                />
-              </View>
-              <Text style={styles.modalTitle}>Session Completed!</Text>
-              <Text style={styles.modalSubtitle}>
-                Rate your mastery or recall confidence to update your spaced
-                repetition schedule and study log:
-              </Text>
-
-              <View style={styles.ratingsList}>
-                <Pressable
-                  style={[styles.ratingItem, { borderColor: colors.danger }]}
-                  onPress={() => handleRating(1)}
-                >
-                  <Text style={[styles.ratingNumber, { color: colors.danger }]}>
-                    1
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.ratingLabel}>Again</Text>
-                    <Text style={styles.ratingDesc}>
-                      Blackout or high difficulty; review soon
-                    </Text>
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.ratingItem, { borderColor: colors.amber }]}
-                  onPress={() => handleRating(2)}
-                >
-                  <Text style={[styles.ratingNumber, { color: colors.amber }]}>
-                    2
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.ratingLabel}>Hard</Text>
-                    <Text style={styles.ratingDesc}>
-                      Struggled with parts of the material
-                    </Text>
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.ratingItem, { borderColor: colors.primary }]}
-                  onPress={() => handleRating(3)}
-                >
-                  <Text style={[styles.ratingNumber, { color: colors.primary }]}>
-                    3
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.ratingLabel}>Good</Text>
-                    <Text style={styles.ratingDesc}>
-                      Solid recall with moderate effort
-                    </Text>
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  style={[styles.ratingItem, { borderColor: colors.success }]}
-                  onPress={() => handleRating(4)}
-                >
-                  <Text style={[styles.ratingNumber, { color: colors.success }]}>
-                    4
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.ratingLabel}>Easy</Text>
-                    <Text style={styles.ratingDesc}>
-                      Mastered topic; expand review interval
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
+      {/* ─── Post-Session Confidence Rating Modal ─── */}
+      <Modal
+        visible={ratingModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRatingModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.trophyIconBadge}>
+              <Ionicons name="trophy" size={32} color={colors.amber} />
             </View>
-          </View>
-        </Modal>
+            <Text style={styles.modalTitle}>Sesi Fokus Berhasil! 🎉</Text>
+            <Text style={styles.modalSubtitle}>
+              Bagaimana pemahamanmu terhadap materi tugas ini?
+            </Text>
 
-        {/* ─── Themed Finish Early Confirmation Modal ─── */}
-        <Modal
-          visible={finishEarlyModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setFinishEarlyModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={{ alignItems: "center", marginBottom: 12 }}>
-                <Ionicons name="timer" size={44} color={colors.primary} />
-              </View>
-              <Text style={styles.modalTitle}>Selesaikan Sesi Belajar?</Text>
-              <Text style={styles.modalSubtitle}>
-                Waktu fokus yang sudah berjalan akan tetap tercatat dan dihitung ke statistik streak harianmu.
-              </Text>
-
+            <View style={styles.ratingsList}>
               <Pressable
-                style={[styles.primaryButton, { width: "100%", marginTop: 16 }]}
-                onPress={() => {
-                  setFinishEarlyModalVisible(false);
-                  setRatingModalVisible(true);
-                }}
+                style={[styles.ratingItem, { borderColor: colors.emerald }]}
+                onPress={() => handleRating(4)}
               >
-                <Text style={styles.primaryButtonText}>Simpan & Nilai Pemahaman</Text>
+                <View style={[styles.ratingIconCircle, { backgroundColor: `${colors.emerald}20` }]}>
+                  <Ionicons name="sparkles" size={18} color={colors.emerald} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ratingLabel}>Sangat Paham & Lancar</Text>
+                  <Text style={styles.ratingDesc}>Materi tuntas, siap untuk materi baru.</Text>
+                </View>
               </Pressable>
 
               <Pressable
-                style={[styles.secondaryButton, { width: "100%", marginTop: 8 }]}
-                onPress={() => {
-                  setFinishEarlyModalVisible(false);
-                  targetEndTimeRef.current = Date.now() + secondsRemaining * 1000;
-                  setIsRunning(true);
-                }}
+                style={[styles.ratingItem, { borderColor: colors.primary }]}
+                onPress={() => handleRating(3)}
               >
-                <Text style={styles.secondaryButtonText}>Lanjutkan Fokus</Text>
+                <View style={[styles.ratingIconCircle, { backgroundColor: `${colors.primary}20` }]}>
+                  <Ionicons name="book-outline" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ratingLabel}>Cukup Mengerti</Text>
+                  <Text style={styles.ratingDesc}>Perlu sedikit review dan latihan soal.</Text>
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={[styles.ratingItem, { borderColor: colors.rose }]}
+                onPress={() => handleRating(1)}
+              >
+                <View style={[styles.ratingIconCircle, { backgroundColor: `${colors.rose}20` }]}>
+                  <Ionicons name="alert-circle-outline" size={18} color={colors.rose} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ratingLabel}>Masih Sulit</Text>
+                  <Text style={styles.ratingDesc}>Jadwalkan review ulang dalam waktu dekat.</Text>
+                </View>
               </Pressable>
             </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        {/* ─── Task Completion Prompt Modal ─── */}
-        <Modal
-          visible={taskCompletionPromptVisible}
-          transparent
-          animationType="fade"
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={{ alignItems: "center", marginBottom: 12 }}>
-                <Ionicons name="checkmark-circle" size={44} color={colors.emerald} />
-              </View>
-              <Text style={styles.modalTitle}>Blok Belajar Selesai! 🎉</Text>
-              <Text style={styles.modalSubtitle}>
-                {t("apakah_tugas_selesai", { task: targetTask?.title || "Tugas" })}
-              </Text>
+      {/* ─── Task Completion Confirm Prompt ─── */}
+      <Modal
+        visible={taskCompletionPromptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => handleConfirmTaskCompletion(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="checkbox-outline" size={36} color={colors.primary} style={{ alignSelf: "center", marginBottom: spacing.xs }} />
+            <Text style={styles.modalTitle}>Tugas Sudah Selesai?</Text>
+            <Text style={styles.modalSubtitle}>
+              Apakah kamu sudah menuntaskan "{targetTask?.title}" sepenuhnya?
+            </Text>
 
+            <View style={styles.confirmPromptButtons}>
               <Pressable
-                style={[styles.primaryButton, { width: "100%", marginTop: 16, backgroundColor: colors.emerald, borderColor: colors.emeraldBottom }]}
-                onPress={() => handleConfirmTaskCompletion(true)}
-              >
-                <Text style={styles.primaryButtonText}>{t("tandai_tugas_selesai")}</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.secondaryButton, { width: "100%", marginTop: 8 }]}
+                style={styles.cancelPromptBtn}
                 onPress={() => handleConfirmTaskCompletion(false)}
               >
-                <Text style={styles.secondaryButtonText}>{t("masih_ada_sisa")}</Text>
+                <Text style={styles.cancelPromptBtnText}>Belum, Lanjut Nanti</Text>
+              </Pressable>
+              <Pressable
+                style={styles.confirmPromptBtn}
+                onPress={() => handleConfirmTaskCompletion(true)}
+              >
+                <Ionicons name="checkmark" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+                <Text style={styles.confirmPromptBtnText}>Ya, Tandai Selesai</Text>
               </Pressable>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -584,82 +564,116 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
-    padding: spacing.lg,
-    justifyContent: "space-between",
-    minHeight: "100%",
-  },
-  header: {
+  headerRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: tidySpacing.screen,
     paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surface,
   },
   backButton: {
-    fontSize: typography.fontSizes.sm,
-    color: colors.primary,
-    fontWeight: typography.fontWeights.semibold,
+    padding: 6,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
   },
   headerTitle: {
-    fontSize: typography.fontSizes.md,
+    fontSize: typography.fontSizes.section,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
   },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    gap: 4,
+  },
+  streakBadgeText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.amber,
+  },
+  scrollContent: {
+    paddingHorizontal: tidySpacing.screen,
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+  },
   targetCard: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
     padding: spacing.md,
-    marginTop: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginBottom: spacing.md,
   },
   subjectDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: spacing.md,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: spacing.sm,
   },
   subjectText: {
-    fontSize: typography.fontSizes.xs,
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
     color: colors.textSecondary,
-    fontWeight: typography.fontWeights.medium,
+    marginBottom: 2,
   },
   unitText: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
     color: colors.text,
-    marginTop: 2,
+  },
+  modeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(168, 85, 247, 0.12)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    gap: 4,
+  },
+  modeBadgeText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.accent,
   },
   selectorSection: {
-    marginTop: spacing.md,
+    width: "100%",
+    marginBottom: spacing.md,
   },
   sectionLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    letterSpacing: 1,
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textMuted,
     marginBottom: spacing.xs,
+    letterSpacing: 0.5,
   },
   subjectChipsRow: {
-    flexDirection: "row",
     gap: spacing.xs,
-    paddingVertical: 2,
   },
   subjectChip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
   },
   subjectChipActive: {
+    backgroundColor: colors.primaryLight,
     borderColor: colors.primary,
-    backgroundColor: "rgba(59, 130, 246, 0.15)",
   },
   chipDot: {
     width: 8,
@@ -668,16 +682,17 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   subjectChipText: {
-    fontSize: 11,
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
-    fontWeight: "500",
+    fontWeight: typography.fontWeights.medium,
   },
   subjectChipTextActive: {
-    color: colors.text,
-    fontWeight: "700",
+    color: colors.primary,
+    fontWeight: typography.fontWeights.bold,
   },
   durationSection: {
-    marginTop: spacing.md,
+    width: "100%",
+    marginBottom: spacing.lg,
   },
   durationPillsRow: {
     flexDirection: "row",
@@ -687,127 +702,150 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
+    paddingVertical: 10,
     borderRadius: radius.md,
   },
   durationPillActive: {
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
-    backgroundColor: "rgba(59, 130, 246, 0.18)",
   },
   durationPillText: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: typography.fontWeights.semibold,
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
     color: colors.textSecondary,
   },
   durationPillTextActive: {
-    color: colors.primary,
-    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
   },
   pomodoroBadge: {
-    fontSize: 8,
-    color: colors.primary,
+    fontSize: 9,
+    color: "#FFFFFF",
+    fontWeight: typography.fontWeights.bold,
     marginTop: 2,
-    fontWeight: "700",
+  },
+  // Circular Timer
+  timerContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: spacing.xl,
   },
   timerCircleOuter: {
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    borderWidth: 4,
-    borderColor: "rgba(59, 130, 246, 0.35)",
-    alignSelf: "center",
-    justifyContent: "center",
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: colors.surface,
+    borderWidth: 6,
+    borderColor: colors.borderLight,
     alignItems: "center",
-    backgroundColor: "rgba(17, 23, 38, 0.7)",
-    marginVertical: spacing.lg,
+    justifyContent: "center",
+  },
+  timerCircleOuterRunning: {
+    borderColor: colors.accent,
   },
   timerCircleInner: {
     alignItems: "center",
   },
   timerDigits: {
     fontSize: 48,
-    fontWeight: typography.fontWeights.heavy,
+    fontWeight: "800",
     color: colors.text,
-    fontFamily: "monospace",
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   timerStatus: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: colors.textSecondary,
-    letterSpacing: 1.5,
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textMuted,
     marginTop: 6,
+    letterSpacing: 1,
   },
+  // Controls
   controlsRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginVertical: spacing.md,
-  },
-  secondaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  secondaryButtonText: {
-    color: colors.textSecondary,
-    fontSize: typography.fontSizes.xs,
-    fontWeight: typography.fontWeights.semibold,
+    width: "100%",
+    gap: spacing.md,
+    marginTop: spacing.md,
   },
   primaryButton: {
+    flex: 2,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radius.xl,
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: radius.full,
+  },
+  primaryButtonIdle: {
     backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
   },
   primaryButtonRunning: {
-    backgroundColor: colors.danger,
-    shadowColor: colors.danger,
+    backgroundColor: colors.accent,
   },
   primaryButtonText: {
-    color: colors.text,
-    fontSize: typography.fontSizes.md,
+    fontSize: typography.fontSizes.section,
     fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
   },
+  secondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingVertical: 14,
+    borderRadius: radius.full,
+    gap: 4,
+  },
+  secondaryButtonText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  // Modal Rating
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
+    alignItems: "center",
     padding: spacing.lg,
   },
   modalContent: {
+    width: "100%",
+    maxWidth: 340,
     backgroundColor: colors.surface,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     padding: spacing.xl,
-    borderColor: colors.border,
     borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  trophyIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: spacing.sm,
   },
   modalTitle: {
-    fontSize: typography.fontSizes.xl,
+    fontSize: typography.fontSizes.section,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
     textAlign: "center",
+    marginBottom: 4,
   },
   modalSubtitle: {
-    fontSize: typography.fontSizes.xs,
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
     textAlign: "center",
-    marginTop: spacing.xs,
-    marginBottom: spacing.lg,
     lineHeight: 18,
+    marginBottom: spacing.md,
   },
   ratingsList: {
     gap: spacing.sm,
@@ -819,20 +857,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     padding: spacing.md,
+    gap: spacing.sm,
   },
-  ratingNumber: {
-    fontSize: typography.fontSizes.lg,
-    fontWeight: "800",
-    color: colors.text,
-    width: 30,
+  ratingIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   ratingLabel: {
-    fontSize: typography.fontSizes.sm,
+    fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
   },
   ratingDesc: {
-    fontSize: 11,
-    color: colors.textMuted,
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  confirmPromptButtons: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  cancelPromptBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+  },
+  cancelPromptBtnText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  confirmPromptBtn: {
+    flex: 1,
+    flexDirection: "row",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+  },
+  confirmPromptBtnText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
   },
 });

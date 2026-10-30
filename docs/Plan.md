@@ -89,6 +89,7 @@ Cloud sync, social features, new analytics, Copilot chat, share-timetable (revis
 | - | O3 Space UI Redesign & Clean Navigation | `done` |
 | - | Remastered Tugas & PR Hari Ini (Gamified Progress & 1-Tap Focus) | `done` |
 | - | Transformed "Subjects" into "Next Exams/Ulangan Selanjutnya" | `done` |
+| - | Whole-App Remaster (O3 Space Ergonomics & Zen Focus Loop) | `done` |
 
 ### Superseded Packets (v1)
 

@@ -5,20 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  LayoutAnimation,
+  Modal,
 } from "react-native";
 import {
   format,
   addDays,
-  addWeeks,
-  subWeeks,
-  startOfWeek,
-  endOfWeek,
+  subDays,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
   isSameDay,
-  isSameMonth,
   parseISO,
   subMonths,
   addMonths,
@@ -34,7 +30,6 @@ import { ScreenHeader } from "../components/common/ScreenHeader";
 import { Card } from "../components/common/Card";
 import { StatusPill } from "../components/common/StatusPill";
 import { EmptyState } from "../components/common/EmptyState";
-import { PrimaryButton } from "../components/common/PrimaryButton";
 import { DaysOffModal } from "../components/calendar/DaysOffModal";
 import { ClassOverrideModal, ClassOverrideTarget } from "../components/calendar/ClassOverrideModal";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
@@ -75,9 +70,9 @@ export function collateDayEvents({
     if (item.kind === "break") continue;
     const sub = subjectsMap.get(item.subjectId);
     events.push({
-      id: `class-${item.id}`,
+      id: `class-${item.id || item.entryId || Math.random()}`,
       kind: "class",
-      title: sub?.name || item.customLabel || "Kelas",
+      title: sub?.name || sub?.title || item.customLabel || "Kelas",
       subtitle: item.room ? `Ruang ${item.room}` : (item.teacher || "Jadwal Sekolah"),
       startTime: item.startTime || "07:00",
       endTime: item.endTime || "08:00",
@@ -163,10 +158,6 @@ export function deriveDayIndicators({
   return { hasClass, hasStudyBlock, hasDeadline, hasExam };
 }
 
-const WEEKDAY_NAMES_ID = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
-const ALL_DAY_HOURS = Array.from({ length: 16 }).map((_, i) => i + 7); // 07:00 to 22:00
-const HOUR_HEIGHT = 68;
-
 export interface CalendarScreenProps {
   navigation?: {
     navigate: (screen: string, params?: any) => void;
@@ -179,26 +170,25 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
     subjects,
     studyBlocks,
     tasks,
-    timetableEntries,
-    periodTimes,
     daysOff,
     overrides,
-    streakState,
+    timetableEntries,
+    periodTimes,
     getEffectiveScheduleForDate,
-    toggleBlockCompletion,
+    streakState,
   } = useMobileStudyStore();
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<CalendarViewMode>("agenda");
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const today = useMemo(() => new Date(), []);
+  const todayStr = useMemo(() => format(today, "yyyy-MM-dd"), [today]);
 
-  // Modals
-  const [createScheduleVisible, setCreateScheduleVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [pickerMonth, setPickerMonth] = useState<Date>(today);
+
+  // Secondary modals
   const [daysOffModalVisible, setDaysOffModalVisible] = useState(false);
   const [overrideModalVisible, setOverrideModalVisible] = useState(false);
-  const [overrideTarget, setOverrideTarget] = useState<ClassOverrideTarget | null>(null);
-
-  const selectedDateStr = useMemo(() => format(selectedDate, "yyyy-MM-dd"), [selectedDate]);
+  const [scheduleSheetVisible, setScheduleSheetVisible] = useState(false);
 
   const subjectsMap = useMemo(() => {
     const map = new Map<string, Subject>();
@@ -208,446 +198,369 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
     return map;
   }, [subjects]);
 
-  // Timetable items for selected date
-  const effectiveSchedule = useMemo(() => {
-    return getEffectiveScheduleForDate(selectedDate);
-  }, [getEffectiveScheduleForDate, selectedDate]);
+  // Exams list from subjects
+  const allExams = useMemo(() => {
+    const list: any[] = [];
+    for (const sub of subjects) {
+      if (sub.examDate) {
+        list.push({
+          id: `exam-${sub.id}`,
+          date: sub.examDate,
+          title: `Ujian ${sub.name}`,
+          subjectName: sub.name,
+          startTime: "08:00",
+          endTime: "10:00",
+        });
+      }
+    }
+    return list;
+  }, [subjects]);
 
-  // Unified day events
-  const dayEvents = useMemo(() => {
-    return collateDayEvents({
-      date: selectedDateStr,
-      timetableItems: effectiveSchedule.items,
-      studyBlocks,
-      tasks,
-      subjectsMap,
-    });
-  }, [selectedDateStr, effectiveSchedule.items, studyBlocks, tasks, subjectsMap]);
-
-  // Week days for Agenda week strip
-  const weekDays = useMemo(() => {
-    const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
-    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+  // Feed date list: selectedDate minus 1 day through selectedDate plus 13 days (15 days window)
+  const agendaDays = useMemo(() => {
+    const start = subDays(selectedDate, 1);
+    const list: Date[] = [];
+    for (let i = 0; i < 14; i++) {
+      list.push(addDays(start, i));
+    }
+    return list;
   }, [selectedDate]);
 
-  // Month days for Bulan view
-  const monthDays = useMemo(() => {
-    const start = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 });
-    const end = endOfWeek(endOfMonth(calendarMonth), { weekStartsOn: 1 });
-    return eachDayOfInterval({ start, end });
-  }, [calendarMonth]);
+  // Month days for Date Picker Modal
+  const pickerMonthDays = useMemo(() => {
+    const monthStart = startOfMonth(pickerMonth);
+    const monthEnd = endOfMonth(pickerMonth);
+    return eachDayOfInterval({ start: monthStart, end: monthEnd });
+  }, [pickerMonth]);
 
-  const handleSelectDate = (date: Date) => {
-    HapticFeedback.light();
-    setSelectedDate(date);
+  const handleStartFocus = (block?: StudyBlock) => {
+    if (navigation) {
+      if (block) {
+        navigation.navigate("Focus", { blockId: block.id, taskId: block.taskId });
+      } else {
+        navigation.navigate("Focus");
+      }
+    }
   };
 
-  const handleToggleBlock = (blockId: string) => {
-    HapticFeedback.taskToggle();
-    toggleBlockCompletion(blockId);
-  };
-
-  const handleStartFocus = (block: StudyBlock) => {
-    HapticFeedback.light();
-    navigation?.navigate("Focus", { blockId: block.id, taskId: block.taskId });
-  };
-
-  const handleViewModeChange = (mode: CalendarViewMode) => {
-    HapticFeedback.light();
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setViewMode(mode);
-  };
-
-  // Convert time "HH:mm" to pixels from 07:00
-  const timeToPixelOffset = (timeStr: string) => {
-    const [hh, mm] = timeStr.split(":").map(Number);
-    const totalMinutes = (hh - 7) * 60 + mm;
-    return (totalMinutes / 60) * HOUR_HEIGHT;
-  };
-
-  const calculateDurationPixels = (startTime: string, endTime: string) => {
-    const [sh, sm] = startTime.split(":").map(Number);
-    const [eh, em] = endTime.split(":").map(Number);
-    const diffMin = (eh * 60 + em) - (sh * 60 + sm);
-    return Math.max(36, (diffMin / 60) * HOUR_HEIGHT);
-  };
+  const isTodaySelected = isSameDay(selectedDate, today);
 
   return (
     <View style={styles.container}>
-      {/* ─── Header ─── */}
+      {/* ─── Screen Header ─── */}
       <ScreenHeader
-        title={t("studyCalendarTitle")}
+        title={t("studyCalendarTitle") || "Kalender"}
         streakText={streakState.currentStreak > 0 ? `${streakState.currentStreak} hari` : undefined}
         onBack={onBack}
         actions={[
           {
-            icon: "options-outline",
+            icon: "calendar-outline",
+            accessibilityLabel: "Pilih Tanggal",
+            onPress: () => {
+              setPickerMonth(selectedDate);
+              setDatePickerVisible(true);
+            },
+          },
+          {
+            icon: "ellipsis-horizontal",
+            accessibilityLabel: "Opsi Kalender",
             onPress: () => setDaysOffModalVisible(true),
-            accessibilityLabel: "Atur Hari Libur",
           },
         ]}
       />
 
-      {/* ─── View Mode Switcher (Agenda | Garis Waktu | Bulan) ─── */}
-      <View style={styles.modeSwitcherContainer}>
-        <View style={styles.segmentedControl}>
-          <Pressable
-            style={[styles.segmentBtn, viewMode === "agenda" && styles.segmentBtnActive]}
-            onPress={() => handleViewModeChange("agenda")}
-            hitSlop={touchTarget.min / 4}
-          >
-            <Text style={[styles.segmentText, viewMode === "agenda" && styles.segmentTextActive]}>
-              {t("view_agenda")}
-            </Text>
-          </Pressable>
+      {/* ─── Top Control Strip ─── */}
+      <View style={styles.topControlStrip}>
+        <View style={styles.topControlLeft}>
+          <Ionicons name="calendar" size={16} color={colors.primary} />
+          <Text style={styles.currentRangeLabel}>
+            {formatLocaleDate(selectedDate, "MMMM yyyy")}
+          </Text>
+        </View>
 
-          <Pressable
-            style={[styles.segmentBtn, viewMode === "timeline" && styles.segmentBtnActive]}
-            onPress={() => handleViewModeChange("timeline")}
-            hitSlop={touchTarget.min / 4}
-          >
-            <Text style={[styles.segmentText, viewMode === "timeline" && styles.segmentTextActive]}>
-              {t("view_garis_waktu")}
-            </Text>
-          </Pressable>
+        <View style={styles.topControlRight}>
+          {/* Jump to Today Button */}
+          {!isTodaySelected && (
+            <Pressable
+              style={styles.todayPillBtn}
+              onPress={() => {
+                HapticFeedback.light();
+                setSelectedDate(today);
+              }}
+            >
+              <Ionicons name="refresh" size={12} color={colors.primary} />
+              <Text style={styles.todayPillText}>{t("kembali_ke_hari_ini") || "Hari Ini"}</Text>
+            </Pressable>
+          )}
 
+          {/* Date Picker Button */}
           <Pressable
-            style={[styles.segmentBtn, viewMode === "month" && styles.segmentBtnActive]}
-            onPress={() => handleViewModeChange("month")}
-            hitSlop={touchTarget.min / 4}
+            style={styles.datePickerBtn}
+            onPress={() => {
+              HapticFeedback.light();
+              setPickerMonth(selectedDate);
+              setDatePickerVisible(true);
+            }}
           >
-            <Text style={[styles.segmentText, viewMode === "month" && styles.segmentTextActive]}>
-              {t("view_bulan")}
-            </Text>
+            <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
+            <Text style={styles.datePickerBtnText}>{t("pilih_tanggal") || "Pilih Tanggal"}</Text>
           </Pressable>
         </View>
       </View>
 
-      {/* ─── 1 & 2. Week Strip (Shared for Agenda & Timeline Views) ─── */}
-      {(viewMode === "agenda" || viewMode === "timeline") && (
-        <View style={styles.weekStripContainer}>
-          <View style={styles.weekNavRow}>
-            <Pressable
-              onPress={() => setSelectedDate(subWeeks(selectedDate, 1))}
-              hitSlop={touchTarget.min / 4}
-              style={styles.weekNavArrow}
-            >
-              <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
-            </Pressable>
+      {/* ─── Agenda-Only Minimalist Vertical Feed ─── */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {agendaDays.map((dayDate) => {
+          const dateStr = format(dayDate, "yyyy-MM-dd");
+          const isCurrentToday = dateStr === todayStr;
+          const isSelected = isSameDay(dayDate, selectedDate);
+          const daySchedule = getEffectiveScheduleForDate(dayDate);
+          const events = collateDayEvents({
+            date: dateStr,
+            timetableItems: daySchedule.items || [],
+            studyBlocks,
+            tasks,
+            exams: allExams,
+            subjectsMap,
+          });
 
-            <Text style={styles.weekNavTitle}>
-              {formatLocaleDate(weekDays[0], "d MMM")} – {formatLocaleDate(weekDays[6], "d MMM yyyy")}
-            </Text>
+          // Header text
+          const dayName = isCurrentToday
+            ? `Hari Ini • ${formatLocaleDate(dayDate, "EEEE, d MMM")}`
+            : dateStr === format(addDays(today, 1), "yyyy-MM-dd")
+            ? `Besok • ${formatLocaleDate(dayDate, "EEEE, d MMM")}`
+            : formatLocaleDate(dayDate, "EEEE, d MMMM");
 
-            <Pressable
-              onPress={() => setSelectedDate(addWeeks(selectedDate, 1))}
-              hitSlop={touchTarget.min / 4}
-              style={styles.weekNavArrow}
-            >
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-
-          <View style={styles.weekDaysRow}>
-            {weekDays.map((day, idx) => {
-              const isSelected = isSameDay(day, selectedDate);
-              const isToday = isSameDay(day, new Date());
-              const dayStr = format(day, "yyyy-MM-dd");
-              const indicators = deriveDayIndicators({
-                date: dayStr,
-                studyBlocks,
-                tasks,
-              });
-
-              return (
-                <Pressable
-                  key={idx}
-                  style={[styles.dayChip, isSelected && styles.dayChipSelected]}
-                  onPress={() => handleSelectDate(day)}
-                >
-                  <Text style={[styles.dayChipName, isSelected && styles.dayChipTextSelected]}>
-                    {WEEKDAY_NAMES_ID[idx]}
+          return (
+            <View key={dateStr} style={styles.dayGroupContainer}>
+              {/* Day Header Row */}
+              <View style={[styles.dayHeaderRow, isCurrentToday && styles.dayHeaderToday]}>
+                <View style={styles.dayHeaderTitleGroup}>
+                  <Text style={[styles.dayHeaderText, isCurrentToday && styles.dayHeaderTodayText]}>
+                    {dayName}
                   </Text>
-                  <Text style={[styles.dayChipNumber, isSelected && styles.dayChipTextSelected]}>
-                    {format(day, "d")}
-                  </Text>
-                  <View style={styles.dotRow}>
-                    {indicators.hasStudyBlock && <View style={[styles.indicatorDot, { backgroundColor: colors.primary }]} />}
-                    {indicators.hasDeadline && <View style={[styles.indicatorDot, { backgroundColor: colors.rose }]} />}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      {/* ─── 1. AGENDA VIEW ─── */}
-      {viewMode === "agenda" && (
-        <View style={styles.contentFlex}>
-          {/* Agenda Event List */}
-          <ScrollView
-            style={styles.agendaScrollView}
-            contentContainerStyle={styles.agendaScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {effectiveSchedule.isDayOff && (
-              <View style={styles.dayOffBanner}>
-                <Ionicons name="sunny-outline" size={18} color={colors.amber} />
-                <Text style={styles.dayOffBannerText}>
-                  Hari Libur: {effectiveSchedule.dayOffReason || "Libur Sekolah"}
+                  {isCurrentToday && (
+                    <View style={styles.todayActiveDot} />
+                  )}
+                </View>
+                <Text style={styles.dayEventCountText}>
+                  {events.length > 0 ? `${events.length} agenda` : ""}
                 </Text>
               </View>
-            )}
 
-            {dayEvents.length === 0 ? (
-              <View style={{ alignItems: "center", paddingVertical: spacing.lg }}>
-                <EmptyState
-                  icon="calendar-outline"
-                  message={t("tidak_ada_jadwal_hari_ini")}
-                  subMessage="Ketuk Susun Jadwal untuk menyusun blok belajar"
-                />
-                <View style={{ marginTop: spacing.md, width: "100%", maxWidth: 280 }}>
-                  <PrimaryButton
-                    label={t("susun_jadwal_hari_ini") || "Susun Jadwal Hari Ini"}
-                    onPress={() => setCreateScheduleVisible(true)}
-                  />
-                </View>
-              </View>
-            ) : (
-              dayEvents.map((event) => {
-                const isBlock = event.kind === "study_block";
-                const isDone = event.blockData?.status === "COMPLETED";
-
-                return (
-                  <Card
-                    key={event.id}
-                    variant={event.isDashed ? "dashed" : "solid"}
-                    accentColor={event.color}
-                    style={[styles.agendaCard, isDone && styles.completedBlockCard]}
-                  >
-                    <View style={styles.agendaCardRow}>
-                      <View style={styles.timeColumn}>
-                        <Text style={styles.startTimeText}>{event.startTime}</Text>
-                        <Text style={styles.endTimeText}>{event.endTime}</Text>
-                      </View>
-
-                      <View style={styles.agendaInfoColumn}>
-                        <View style={styles.agendaTagRow}>
-                          <StatusPill
-                            variant={isBlock ? "blue" : event.kind === "class" ? "green" : "red"}
-                            label={
-                              isBlock
-                                ? t("blok_belajar")
-                                : event.kind === "class"
-                                ? t("kelas_sekolah")
-                                : t("tenggat_tugas")
-                            }
-                          />
-                        </View>
-
-                        <Text style={[styles.agendaTitle, isDone && styles.completedText]} numberOfLines={2}>
-                          {event.title}
-                        </Text>
-                        <Text style={styles.agendaSubtitle} numberOfLines={1}>
-                          {event.subtitle}
-                        </Text>
-                      </View>
-
-                      {isBlock && event.blockData && (
-                        <View style={styles.blockActionColumn}>
-                          <Pressable
-                            style={[styles.blockCheckBtn, isDone && styles.blockCheckBtnActive]}
-                            onPress={() => handleToggleBlock(event.blockData!.id)}
-                            hitSlop={touchTarget.min / 4}
-                          >
-                            <Ionicons
-                              name={isDone ? "checkmark" : "checkmark-outline"}
-                              size={18}
-                              color={isDone ? colors.textInverse : colors.primary}
-                            />
-                          </Pressable>
-                        </View>
-                      )}
-                    </View>
-                  </Card>
-                );
-              })
-            )}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* ─── 2. TIMELINE VIEW (Garis Waktu) ─── */}
-      {viewMode === "timeline" && (
-        <ScrollView style={styles.timelineScrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.timelineContainer}>
-            {/* Time labels column */}
-            <View style={styles.timelineHoursColumn}>
-              {ALL_DAY_HOURS.map((hour) => (
-                <View key={hour} style={[styles.hourRow, { height: HOUR_HEIGHT }]}>
-                  <Text style={styles.hourLabel}>
-                    {hour < 10 ? `0${hour}:00` : `${hour}:00`}
-                  </Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Grid & Positioned Cards column */}
-            <View style={styles.timelineGridColumn}>
-              {ALL_DAY_HOURS.map((hour) => (
-                <View key={hour} style={[styles.gridHourRow, { height: HOUR_HEIGHT }]} />
-              ))}
-
-              {/* Render Positioned Event Cards */}
-              {dayEvents
-                .filter((e) => e.startTime >= "07:00" && e.startTime <= "22:00")
-                .map((event) => {
-                  const top = timeToPixelOffset(event.startTime);
-                  const height = calculateDurationPixels(event.startTime, event.endTime);
-
-                  return (
-                    <View
-                      key={event.id}
-                      style={[
-                        styles.positionedCard,
-                        {
-                          top,
-                          height,
-                          borderLeftColor: event.color,
-                          backgroundColor: event.isDashed ? colors.blockSurface : colors.surface,
-                          borderStyle: event.isDashed ? "dashed" : "solid",
-                          borderColor: event.isDashed ? colors.blockBorder : colors.borderLight,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.positionedTitle} numberOfLines={1}>
-                        {event.title}
-                      </Text>
-                      <Text style={styles.positionedTime} numberOfLines={1}>
-                        {event.startTime} - {event.endTime}
-                      </Text>
-                    </View>
-                  );
-                })}
-            </View>
-          </View>
-        </ScrollView>
-      )}
-
-      {/* ─── 3. MONTH VIEW (Bulan) ─── */}
-      {viewMode === "month" && (
-        <ScrollView style={styles.monthScrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.monthNavRow}>
-            <Pressable
-              onPress={() => setCalendarMonth(subMonths(calendarMonth, 1))}
-              hitSlop={touchTarget.min / 4}
-            >
-              <Ionicons name="chevron-back" size={20} color={colors.text} />
-            </Pressable>
-            <Text style={styles.monthNavTitle}>
-              {formatLocaleDate(calendarMonth, "MMMM yyyy")}
-            </Text>
-            <Pressable
-              onPress={() => setCalendarMonth(addMonths(calendarMonth, 1))}
-              hitSlop={touchTarget.min / 4}
-            >
-              <Ionicons name="chevron-forward" size={20} color={colors.text} />
-            </Pressable>
-          </View>
-
-          {/* Weekday headers */}
-          <View style={styles.monthDaysHeaderRow}>
-            {WEEKDAY_NAMES_ID.map((name, i) => (
-              <Text key={i} style={styles.monthDayHeaderLabel}>
-                {name}
-              </Text>
-            ))}
-          </View>
-
-          {/* Month grid */}
-          <View style={styles.monthGrid}>
-            {monthDays.map((day, index) => {
-              const isSelected = isSameDay(day, selectedDate);
-              const inCurrentMonth = isSameMonth(day, calendarMonth);
-              const isToday = isSameDay(day, new Date());
-              const dayStr = format(day, "yyyy-MM-dd");
-              const indicators = deriveDayIndicators({
-                date: dayStr,
-                studyBlocks,
-                tasks,
-              });
-
-              return (
-                <Pressable
-                  key={index}
-                  style={[
-                    styles.monthCell,
-                    isSelected && styles.monthCellSelected,
-                    !inCurrentMonth && styles.monthCellFaded,
-                  ]}
-                  onPress={() => handleSelectDate(day)}
-                >
-                  <Text
-                    style={[
-                      styles.monthCellText,
-                      isToday && styles.monthCellToday,
-                      isSelected && styles.monthCellTextSelected,
-                    ]}
-                  >
-                    {format(day, "d")}
-                  </Text>
-                  <View style={styles.monthDotRow}>
-                    {indicators.hasStudyBlock && (
-                      <View style={[styles.indicatorDot, { backgroundColor: colors.primary }]} />
-                    )}
-                    {indicators.hasDeadline && (
-                      <View style={[styles.indicatorDot, { backgroundColor: colors.rose }]} />
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {/* Selected Date Summary below month grid */}
-          <View style={styles.monthDetailContainer}>
-            <Text style={styles.monthDetailDateHeader}>
-              {formatLocaleDate(selectedDate, "EEEE, d MMMM yyyy")}
-            </Text>
-            {dayEvents.length === 0 ? (
-              <EmptyState
-                icon="calendar-outline"
-                message={t("tidak_ada_jadwal_hari_ini")}
-                compact
-              />
-            ) : (
-              dayEvents.map((event) => (
-                <Card
-                  key={event.id}
-                  variant={event.isDashed ? "dashed" : "solid"}
-                  accentColor={event.color}
-                  style={styles.monthDetailCard}
-                >
-                  <View style={styles.agendaCardRow}>
-                    <View style={styles.timeColumn}>
-                      <Text style={styles.startTimeText}>{event.startTime}</Text>
-                    </View>
-                    <View style={styles.agendaInfoColumn}>
-                      <Text style={styles.agendaTitle} numberOfLines={1}>
-                        {event.title}
-                      </Text>
-                      <Text style={styles.agendaSubtitle} numberOfLines={1}>
-                        {event.subtitle}
+              {/* Day Content */}
+              {daySchedule.isDayOff ? (
+                <Card style={styles.dayOffCard}>
+                  <View style={styles.dayOffInner}>
+                    <Ionicons name="sunny" size={20} color={colors.amber} style={{ marginRight: spacing.sm }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dayOffTitle}>Hari Bebas Kelas</Text>
+                      <Text style={styles.dayOffSub}>
+                        {daySchedule.dayOffReason || "Tidak ada kelas sekolah hari ini. Waktu luang atau belajar mandiri!"}
                       </Text>
                     </View>
                   </View>
                 </Card>
-              ))
-            )}
+              ) : events.length === 0 ? (
+                <View style={styles.quietDayRow}>
+                  <Ionicons name="calendar-outline" size={14} color={colors.textMuted} style={{ marginRight: 6 }} />
+                  <Text style={styles.quietDayText}>Tidak ada jadwal kelas atau tugas tersimpan.</Text>
+                </View>
+              ) : (
+                <View style={styles.dayEventsList}>
+                  {events.map((ev) => {
+                    const isStudyBlock = ev.kind === "study_block";
+                    const isExam = ev.kind === "exam";
+                    const isDeadline = ev.kind === "deadline";
+
+                    return (
+                      <Card
+                        key={ev.id}
+                        style={[
+                          styles.eventCard,
+                          isStudyBlock && styles.studyBlockCard,
+                          isExam && styles.examEventCard,
+                          isDeadline && styles.deadlineEventCard,
+                        ]}
+                        accentColor={ev.color}
+                      >
+                        <View style={styles.eventCardBody}>
+                          {/* Time & Kind badge */}
+                          <View style={styles.eventTopRow}>
+                            <View style={styles.eventTimeGroup}>
+                              <Ionicons
+                                name={
+                                  isStudyBlock
+                                    ? "time-outline"
+                                    : isExam
+                                    ? "ribbon-outline"
+                                    : isDeadline
+                                    ? "alert-circle-outline"
+                                    : "school-outline"
+                                }
+                                size={14}
+                                color={ev.color}
+                                style={{ marginRight: 4 }}
+                              />
+                              <Text style={[styles.eventTimeText, { color: ev.color }]}>
+                                {isDeadline ? "Tenggat Jam 23:59" : `${ev.startTime} - ${ev.endTime}`}
+                              </Text>
+                            </View>
+
+                            <StatusPill
+                              variant={
+                                isStudyBlock
+                                  ? "purple"
+                                  : isExam
+                                  ? "amber"
+                                  : isDeadline
+                                  ? "red"
+                                  : "blue"
+                              }
+                              label={
+                                isStudyBlock
+                                  ? "Fokus Belajar"
+                                  : isExam
+                                  ? "Ulangan"
+                                  : isDeadline
+                                  ? "Deadline"
+                                  : "Kelas"
+                              }
+                            />
+                          </View>
+
+                          {/* Event Title & Subtitle */}
+                          <Text style={styles.eventTitleText} numberOfLines={2}>
+                            {ev.title}
+                          </Text>
+                          <Text style={styles.eventSubtitleText} numberOfLines={1}>
+                            {ev.subtitle}
+                          </Text>
+
+                          {/* 1-Tap Mulai Fokus for Study Blocks */}
+                          {isStudyBlock && (
+                            <View style={styles.eventActionRow}>
+                              <Pressable
+                                style={styles.startFocusBtn}
+                                onPress={() => handleStartFocus(ev.blockData)}
+                                accessibilityLabel="Mulai fokus blok ini"
+                              >
+                                <Ionicons name="play" size={13} color="#FFFFFF" />
+                                <Text style={styles.startFocusBtnText}>Mulai Fokus</Text>
+                              </Pressable>
+                            </View>
+                          )}
+                        </View>
+                      </Card>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      {/* ─── Floating Date Picker Modal ─── */}
+      <Modal
+        visible={datePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDatePickerVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalTouchOutside} onPress={() => setDatePickerVisible(false)} />
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <Pressable
+                onPress={() => setPickerMonth(subMonths(pickerMonth, 1))}
+                hitSlop={touchTarget.min / 4}
+              >
+                <Ionicons name="chevron-back" size={22} color={colors.text} />
+              </Pressable>
+              <Text style={styles.pickerMonthTitle}>
+                {formatLocaleDate(pickerMonth, "MMMM yyyy")}
+              </Text>
+              <Pressable
+                onPress={() => setPickerMonth(addMonths(pickerMonth, 1))}
+                hitSlop={touchTarget.min / 4}
+              >
+                <Ionicons name="chevron-forward" size={22} color={colors.text} />
+              </Pressable>
+            </View>
+
+            {/* Weekday labels */}
+            <View style={styles.pickerWeekdayRow}>
+              {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((dayName, idx) => (
+                <Text key={idx} style={styles.pickerWeekdayText}>
+                  {dayName}
+                </Text>
+              ))}
+            </View>
+
+            {/* Days Grid */}
+            <View style={styles.pickerDaysGrid}>
+              {pickerMonthDays.map((day) => {
+                const isSelected = isSameDay(day, selectedDate);
+                const isDayToday = isSameDay(day, today);
+                const dateStr = format(day, "yyyy-MM-dd");
+                const daySchedule = getEffectiveScheduleForDate(day);
+                const indicators = deriveDayIndicators({
+                  date: dateStr,
+                  timetableItems: daySchedule.items || [],
+                  studyBlocks,
+                  tasks,
+                  exams: allExams,
+                });
+
+                return (
+                  <Pressable
+                    key={day.toISOString()}
+                    style={[
+                      styles.pickerDayCell,
+                      isSelected && styles.pickerDayCellSelected,
+                      isDayToday && !isSelected && styles.pickerDayCellToday,
+                    ]}
+                    onPress={() => {
+                      HapticFeedback.light();
+                      setSelectedDate(day);
+                      setDatePickerVisible(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerDayText,
+                        isSelected && styles.pickerDayTextSelected,
+                        isDayToday && !isSelected && styles.pickerDayTextToday,
+                      ]}
+                    >
+                      {format(day, "d")}
+                    </Text>
+                    {/* Event dot indicators */}
+                    <View style={styles.pickerDotRow}>
+                      {indicators.hasClass && <View style={[styles.pickerDot, { backgroundColor: colors.primary }]} />}
+                      {indicators.hasStudyBlock && <View style={[styles.pickerDot, { backgroundColor: colors.accent }]} />}
+                      {indicators.hasDeadline && <View style={[styles.pickerDot, { backgroundColor: colors.rose }]} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Close / Cancel Button */}
+            <Pressable
+              style={styles.pickerCloseBtn}
+              onPress={() => setDatePickerVisible(false)}
+            >
+              <Text style={styles.pickerCloseBtnText}>Tutup</Text>
+            </Pressable>
           </View>
-        </ScrollView>
-      )}
+        </View>
+      </Modal>
 
       {/* ─── Days Off Modal ─── */}
       <DaysOffModal
@@ -658,17 +571,14 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
       {/* ─── Class Override Modal ─── */}
       <ClassOverrideModal
         visible={overrideModalVisible}
-        target={overrideTarget}
-        onClose={() => {
-          setOverrideModalVisible(false);
-          setOverrideTarget(null);
-        }}
+        target={null}
+        onClose={() => setOverrideModalVisible(false)}
       />
 
       {/* ─── Create Schedule Sheet ─── */}
       <CreateScheduleSheet
-        visible={createScheduleVisible}
-        onClose={() => setCreateScheduleVisible(false)}
+        visible={scheduleSheetVisible}
+        onClose={() => setScheduleSheetVisible(false)}
       />
     </View>
   );
@@ -679,320 +589,308 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  contentFlex: {
-    flex: 1,
-  },
-  modeSwitcherContainer: {
-    paddingHorizontal: tidySpacing.screen,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.background,
-  },
-  segmentedControl: {
+  topControlStrip: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.sm,
-    padding: 3,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 7,
     alignItems: "center",
-    borderRadius: radius.xs,
-  },
-  segmentBtnActive: {
-    backgroundColor: colors.surface,
-  },
-  segmentText: {
-    fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.medium,
-    color: colors.textSecondary,
-  },
-  segmentTextActive: {
-    color: colors.primary,
-    fontWeight: typography.fontWeights.semibold,
-  },
-
-  // Week strip
-  weekStripContainer: {
+    justifyContent: "space-between",
     paddingHorizontal: tidySpacing.screen,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.sm,
-    backgroundColor: colors.surfaceSubtle,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
-  weekNavRow: {
+  topControlLeft: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xs,
+    gap: 6,
   },
-  weekNavArrow: {
-    padding: spacing.xs,
-  },
-  weekNavTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.text,
-  },
-  weekDaysRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  dayChip: {
-    alignItems: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: radius.sm,
-    minWidth: 42,
-  },
-  dayChipSelected: {
-    backgroundColor: colors.primary,
-  },
-  dayChipName: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: typography.fontWeights.medium,
-    marginBottom: 2,
-  },
-  dayChipNumber: {
+  currentRangeLabel: {
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
   },
-  dayChipTextSelected: {
-    color: colors.textInverse,
-  },
-  dotRow: {
+  topControlRight: {
     flexDirection: "row",
-    gap: 2,
-    marginTop: 3,
-    height: 4,
+    alignItems: "center",
+    gap: spacing.sm,
   },
-  indicatorDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+  todayPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    gap: 4,
   },
-
-  // Agenda view
-  agendaScrollView: {
+  todayPillText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+  },
+  datePickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    gap: 4,
+  },
+  datePickerBtnText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  scrollView: {
     flex: 1,
   },
-  agendaScrollContent: {
+  scrollContent: {
     paddingHorizontal: tidySpacing.screen,
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl * 2,
+    gap: spacing.lg,
   },
-  dayOffBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.amberLight,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.amber,
-    marginBottom: spacing.md,
+  dayGroupContainer: {
     gap: spacing.xs,
   },
-  dayOffBannerText: {
-    fontSize: typography.fontSizes.body,
-    color: colors.amber,
-    fontWeight: typography.fontWeights.medium,
-  },
-  agendaCard: {
-    marginBottom: spacing.sm,
-  },
-  completedBlockCard: {
-    opacity: 0.6,
-  },
-  agendaCardRow: {
+  dayHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
   },
-  timeColumn: {
-    width: 60,
-    paddingRight: spacing.xs,
-  },
-  startTimeText: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-  },
-  endTimeText: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-  },
-  agendaInfoColumn: {
-    flex: 1,
-    paddingHorizontal: spacing.xs,
-  },
-  agendaTagRow: {
-    flexDirection: "row",
-    marginBottom: 3,
-  },
-  agendaTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.text,
-    marginBottom: 2,
-  },
-  completedText: {
-    textDecorationLine: "line-through",
-    color: colors.textSecondary,
-  },
-  agendaSubtitle: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-  },
-  blockActionColumn: {
+  dayHeaderToday: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
     paddingLeft: spacing.xs,
   },
-  blockCheckBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.sm,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+  dayHeaderTitleGroup: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
   },
-  blockCheckBtnActive: {
+  dayHeaderText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
+  },
+  dayHeaderTodayText: {
+    color: colors.primary,
+  },
+  todayActiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: colors.primary,
   },
-
-  // Timeline view
-  timelineScrollView: {
-    flex: 1,
+  dayEventCountText: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textMuted,
   },
-  timelineContainer: {
-    flexDirection: "row",
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xxl,
-  },
-  timelineHoursColumn: {
-    width: 54,
-    alignItems: "center",
-  },
-  hourRow: {
-    justifyContent: "flex-start",
-  },
-  hourLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: typography.fontWeights.medium,
-  },
-  timelineGridColumn: {
-    flex: 1,
-    position: "relative",
-    borderLeftWidth: 1,
-    borderLeftColor: colors.borderLight,
-    paddingRight: tidySpacing.screen,
-  },
-  gridHourRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
-  },
-  positionedCard: {
-    position: "absolute",
-    left: 4,
-    right: tidySpacing.screen,
-    borderRadius: radius.xs,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderLeftWidth: 4,
+  dayOffCard: {
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    justifyContent: "center",
+    borderColor: colors.borderLight,
   },
-  positionedTitle: {
-    fontSize: 11,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.text,
-  },
-  positionedTime: {
-    fontSize: 10,
-    color: colors.textSecondary,
-  },
-
-  // Month view
-  monthScrollView: {
-    flex: 1,
-    paddingHorizontal: tidySpacing.screen,
-  },
-  monthNavRow: {
+  dayOffInner: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.sm,
   },
-  monthNavTitle: {
+  dayOffTitle: {
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
   },
-  monthDaysHeaderRow: {
-    flexDirection: "row",
-    paddingBottom: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  monthDayHeaderLabel: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 11,
+  dayOffSub: {
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
-    fontWeight: typography.fontWeights.medium,
+    marginTop: 2,
   },
-  monthGrid: {
+  quietDayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.sm,
+  },
+  quietDayText: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textMuted,
+  },
+  dayEventsList: {
+    gap: spacing.xs,
+  },
+  eventCard: {
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  studyBlockCard: {
+    borderStyle: "dashed",
+    borderColor: colors.accent,
+    backgroundColor: colors.surface,
+  },
+  examEventCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.accent,
+  },
+  deadlineEventCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.rose,
+  },
+  eventCardBody: {
+    width: "100%",
+  },
+  eventTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.xs,
+  },
+  eventTimeGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  eventTimeText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+  },
+  eventTitleText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: 2,
+  },
+  eventSubtitleText: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+  },
+  eventActionRow: {
+    marginTop: spacing.sm,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
+  startFocusBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.sm,
+    gap: 6,
+  },
+  startFocusBtnText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
+  },
+  // Modal Picker
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  modalTouchOutside: {
+    ...StyleSheet.absoluteFill,
+  },
+  pickerContainer: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    zIndex: 10,
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  pickerMonthTitle: {
+    fontSize: typography.fontSizes.section,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  pickerWeekdayRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  pickerWeekdayText: {
+    width: 38,
+    textAlign: "center",
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textMuted,
+  },
+  pickerDaysGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingTop: spacing.xs,
+    justifyContent: "space-between",
   },
-  monthCell: {
-    width: "14.28%",
-    height: 44,
+  pickerDayCell: {
+    width: 38,
+    height: 42,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.sm,
+    marginBottom: 4,
   },
-  monthCellSelected: {
+  pickerDayCellSelected: {
     backgroundColor: colors.primary,
   },
-  monthCellFaded: {
-    opacity: 0.35,
+  pickerDayCellToday: {
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
-  monthCellText: {
-    fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.medium,
+  pickerDayText: {
+    fontSize: typography.fontSizes.body,
     color: colors.text,
+    fontWeight: typography.fontWeights.medium,
   },
-  monthCellTextSelected: {
-    color: colors.textInverse,
+  pickerDayTextSelected: {
+    color: "#FFFFFF",
     fontWeight: typography.fontWeights.bold,
   },
-  monthCellToday: {
+  pickerDayTextToday: {
     color: colors.primary,
     fontWeight: typography.fontWeights.bold,
   },
-  monthDotRow: {
+  pickerDotRow: {
     flexDirection: "row",
     gap: 2,
     marginTop: 2,
     height: 4,
   },
-  monthDetailContainer: {
+  pickerDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  pickerCloseBtn: {
     marginTop: spacing.md,
-    paddingBottom: spacing.xxl * 2,
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
   },
-  monthDetailDateHeader: {
+  pickerCloseBtnText: {
     fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  monthDetailCard: {
-    marginBottom: spacing.xs,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
   },
 });

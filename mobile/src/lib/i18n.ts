@@ -98,6 +98,21 @@ export const translations = {
     ubah_durasi: "Change Estimate",
     tambah_pr_hari_ini: "Add Task for Today",
 
+    // Whole App Remaster
+    tab_semua: "All",
+    tab_terjadwal: "Scheduled",
+    tab_belum_dijadwalkan: "Unscheduled",
+    tab_selesai: "Done",
+    pilih_tanggal: "Pick Date",
+    kembali_ke_hari_ini: "Today",
+    zen_mode_running: "Focus Session in Progress",
+    zen_mode_paused: "Session Paused",
+    quick_action_tugas_baru_sub: "Quickly record homework or assignment",
+    quick_action_scan_ai_sub: "Extract tasks from whiteboard or notes",
+    quick_action_tempel_ai_sub: "Extract tasks from WhatsApp message",
+    susun_jadwal_sekarang: "Auto-Schedule with AI",
+    semua_tugas_terjadwal: "All tasks are scheduled!",
+
     // Quick Actions Bottom Sheet
     quickActionsTitle: "Quick Actions",
     quickAddTask: "Quick Add Task",
@@ -547,6 +562,21 @@ export const translations = {
     detail_tugas: "Rincian Tugas",
     ubah_durasi: "Ubah Estimasi",
     tambah_pr_hari_ini: "Tambah Tugas Hari Ini",
+
+    // Whole App Remaster
+    tab_semua: "Semua",
+    tab_terjadwal: "Terjadwal",
+    tab_belum_dijadwalkan: "Belum Dijadwalkan",
+    tab_selesai: "Selesai",
+    pilih_tanggal: "Pilih Tanggal",
+    kembali_ke_hari_ini: "Hari Ini",
+    zen_mode_running: "Sesi Fokus Berjalan",
+    zen_mode_paused: "Sesi Dijeda",
+    quick_action_tugas_baru_sub: "Catat tugas atau PR manual",
+    quick_action_scan_ai_sub: "Pindai dari papan tulis atau catatan",
+    quick_action_tempel_ai_sub: "Ekstrak tugas dari pesan WhatsApp",
+    susun_jadwal_sekarang: "✨ Susun Jadwal Otomatis",
+    semua_tugas_terjadwal: "Semua tugas sudah terjadwal rapi!",
 
     // Quick Actions Bottom Sheet
     quickActionsTitle: "Aksi Cepat",

@@ -458,41 +458,29 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
           </View>
         )}
 
-        {/* ─── 7. Upcoming Exam Tracker (If Soon) ─── */}
-        {nextExam && !nextExam.isPassed ? (
+        {/* ─── 7. Compact 48-Hour Exam Pill (If Imminent) ─── */}
+        {nextExam && !nextExam.isPassed && nextExam.daysLeft <= 2 ? (
           <View style={styles.sectionContainer}>
-            <Card style={styles.examCard}>
-              <View style={styles.examHeaderRow}>
-                <View style={styles.examHeaderLeft}>
-                  <Ionicons name="school-outline" size={20} color={colors.accent} style={{ marginRight: spacing.sm }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.examTitle}>
-                      {nextExam.title.toLowerCase().startsWith("ujian")
-                        ? nextExam.title
-                        : `Ujian ${nextExam.subject?.name || nextExam.title}`}
-                    </Text>
-                    <Text style={styles.examSubtitle}>
-                      {t("jadwal_ujian_tanggal", {
-                        date: formatLocaleDate(parseISO(nextExam.startDate), "d MMMM yyyy"),
-                      })}
-                    </Text>
-                  </View>
-                </View>
-                <StatusPill variant={nextExam.daysLeft <= 3 ? "red" : "purple"} label={nextExam.label} />
+            <Pressable
+              style={styles.compactExamPillRow}
+              onPress={() => navigation.navigate("Exams")}
+              accessibilityLabel="Lihat jadwal ulangan mendatang"
+            >
+              <View style={styles.compactExamIconCircle}>
+                <Ionicons name="ribbon" size={16} color={colors.accent} />
               </View>
-              <View style={styles.examActionRow}>
-                <PrimaryButton
-                  label={t("buat_rencana_ujian") || "Buat Rencana Ujian"}
-                  onPress={() => {
-                    generateExamPlan(nextExam, nextExam.subject?.id || "exam-sub");
-                    setSnackbarMessage(t("rencana_ujian_dibuat"));
-                    setSnackbarVisible(true);
-                    setScheduleSheetVisible(true);
-                  }}
-                  variant="ai"
-                />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.compactExamTitle} numberOfLines={1}>
+                  {nextExam.title.toLowerCase().startsWith("ujian") || nextExam.title.toLowerCase().startsWith("ulangan")
+                    ? nextExam.title
+                    : `Ulangan ${nextExam.subject?.name || nextExam.title}`}
+                </Text>
+                <Text style={styles.compactExamSub}>
+                  {nextExam.daysLeft === 0 ? "Hari ini!" : nextExam.daysLeft === 1 ? "Besok!" : "2 hari lagi"} • Buka tab Ulangan
+                </Text>
               </View>
-            </Card>
+              <Ionicons name="chevron-forward" size={16} color={colors.accent} />
+            </Pressable>
           </View>
         ) : null}
 
@@ -872,35 +860,34 @@ const styles = StyleSheet.create({
   aiCardActionRow: {
     marginTop: spacing.sm + 4,
   },
-  examCard: {
-    padding: spacing.md,
-    borderColor: colors.accent,
+  compactExamPillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(168, 85, 247, 0.08)",
     borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
   },
-  examHeaderRow: {
-    flexDirection: "row",
+  compactExamIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(168, 85, 247, 0.18)",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
-  examHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  examTitle: {
+  compactExamTitle: {
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
   },
-  examSubtitle: {
+  compactExamSub: {
     fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  examActionRow: {
-    marginTop: spacing.md,
-    alignItems: "flex-start",
+    color: colors.accent,
+    marginTop: 1,
   },
   besokCard: {
     padding: spacing.md,

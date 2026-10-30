@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { colors, spacing, radius, typography, touchTarget } from "../theme";
+import { colors, spacing, radius, typography, touchTarget, tidySpacing } from "../theme";
 import { useMobileStudyStore } from "../store";
 import { t } from "../lib/i18n";
 import { TaskType, Subject } from "../types";
@@ -397,61 +397,95 @@ export function QuickActionSheet({
           }}
         />
 
-        {/* ─── DECLUTTERED QUICK ACTIONS SHEET MAIN MENU ─── */}
+        {/* ─── MINIMALIST 3-CARD GRID QUICK ACTIONS ─── */}
         {activeModal === "none" && (
           <View style={styles.compactSheetContainer}>
             <View style={styles.handleBar} />
 
-            <View style={styles.compactActionsList}>
-              {/* 1. ONE primary action at the top: Tambah tugas */}
+            <View style={styles.gridHeader}>
+              <Text style={styles.gridHeaderTitle}>{t("quickActionsTitle") || "Buat Baru"}</Text>
+              <Text style={styles.gridHeaderSub}>Pilih cara tercepat mencatat tugasmu</Text>
+            </View>
+
+            <View style={styles.cardsGridList}>
+              {/* Card 1: Manual Task */}
               <Pressable
-                style={styles.primaryAddTaskBtn}
+                style={styles.gridCard}
                 onPress={handleOpenAddTask}
+                accessibilityLabel="Tambah tugas manual"
               >
-                <Ionicons name="add-circle" size={24} color="#ffffff" style={styles.btnIconLeft} />
-                <Text style={styles.primaryAddTaskBtnText}>Tambah tugas</Text>
+                <View style={[styles.gridIconCircle, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="add-circle" size={24} color={colors.primary} />
+                </View>
+                <View style={styles.gridCardContent}>
+                  <Text style={styles.gridCardTitle}>Tugas Baru</Text>
+                  <Text style={styles.gridCardSub}>
+                    {t("quick_action_tugas_baru_sub") || "Catat tugas atau PR manual (< 5 detik)"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
 
-              {/* 2. Compact row: Tambah dari foto */}
+              {/* Card 2: Camera Scan AI (Purple Accent) */}
               <Pressable
-                style={styles.compactActionRow}
+                style={[styles.gridCard, styles.aiCardBorder]}
                 onPress={() => {
                   onClose();
                   onNavigateToScan("whiteboard");
                 }}
+                accessibilityLabel="Pindai dengan kamera AI"
               >
-                <Ionicons name="camera-outline" size={20} color={colors.accent} style={styles.btnIconLeft} />
-                <Text style={styles.compactActionRowText}>Tambah dari foto</Text>
-                <View style={styles.aiBadge}>
-                  <Ionicons name="sparkles" size={10} color={colors.accent} style={{ marginRight: 2 }} />
-                  <Text style={styles.aiBadgeText}>AI</Text>
+                <View style={[styles.gridIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                  <Ionicons name="camera" size={22} color={colors.accent} />
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                <View style={styles.gridCardContent}>
+                  <View style={styles.aiTitleRow}>
+                    <Text style={styles.gridCardTitle}>Scan AI (Kamera)</Text>
+                    <View style={styles.aiBadgePill}>
+                      <Ionicons name="sparkles" size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
+                      <Text style={styles.aiBadgePillText}>AI</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.gridCardSub}>
+                    {t("quick_action_scan_ai_sub") || "Pindai dari papan tulis atau buku"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.accent} />
               </Pressable>
 
-              {/* 3. Compact row: Tambah dari teks */}
+              {/* Card 3: WhatsApp Text AI (Purple Accent) */}
               <Pressable
-                style={styles.compactActionRow}
+                style={[styles.gridCard, styles.aiCardBorder]}
                 onPress={handleOpenAddFromText}
+                accessibilityLabel="Tempel pesan WhatsApp dengan AI"
               >
-                <Ionicons name="document-text-outline" size={20} color={colors.accent} style={styles.btnIconLeft} />
-                <Text style={styles.compactActionRowText}>Tambah dari teks</Text>
-                <View style={styles.aiBadge}>
-                  <Ionicons name="sparkles" size={10} color={colors.accent} style={{ marginRight: 2 }} />
-                  <Text style={styles.aiBadgeText}>AI</Text>
+                <View style={[styles.gridIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                  <Ionicons name="document-text" size={22} color={colors.accent} />
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-
-              {/* 4. Add subject as small text button */}
-              <Pressable
-                style={styles.smallTextBtn}
-                onPress={handleOpenAddSubject}
-                hitSlop={10}
-              >
-                <Text style={styles.smallTextBtnLabel}>+ Tambah mapel</Text>
+                <View style={styles.gridCardContent}>
+                  <View style={styles.aiTitleRow}>
+                    <Text style={styles.gridCardTitle}>Tempel AI (WhatsApp)</Text>
+                    <View style={styles.aiBadgePill}>
+                      <Ionicons name="sparkles" size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
+                      <Text style={styles.aiBadgePillText}>AI</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.gridCardSub}>
+                    {t("quick_action_tempel_ai_sub") || "Ekstrak tugas dari pesan WhatsApp"}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.accent} />
               </Pressable>
             </View>
+
+            {/* Subtle Add Subject Action */}
+            <Pressable
+              style={styles.smallTextBtn}
+              onPress={handleOpenAddSubject}
+              hitSlop={10}
+            >
+              <Text style={styles.smallTextBtnLabel}>+ Tambah mata pelajaran</Text>
+            </Pressable>
           </View>
         )}
 
@@ -1186,53 +1220,87 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: typography.fontWeights.bold,
   },
-  // Decluttered Quick Action Sheet Styles
+  // Minimalist 3-Card Grid Quick Action Sheet Styles
   compactSheetContainer: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
+    borderColor: colors.borderLight,
+    paddingHorizontal: tidySpacing.screen,
     paddingTop: 12,
-    paddingBottom: 24,
-    maxHeight: "38%",
+    paddingBottom: spacing.xl,
+    maxHeight: "65%",
   },
-  compactActionsList: {
-    gap: 8,
+  gridHeader: {
+    marginBottom: spacing.md,
   },
-  primaryAddTaskBtn: {
-    height: 56,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
+  gridHeaderTitle: {
+    fontSize: typography.fontSizes.lg,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  gridHeaderSub: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  cardsGridList: {
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  gridCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  primaryAddTaskBtnText: {
-    fontSize: typography.fontSizes.md,
-    fontWeight: typography.fontWeights.bold,
-    color: "#ffffff",
-  },
-  btnIconLeft: {
-    marginRight: 10,
-  },
-  compactActionRow: {
-    height: 50,
     backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  aiCardBorder: {
+    borderColor: colors.accent,
+    backgroundColor: "rgba(168, 85, 247, 0.06)",
+  },
+  gridIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gridCardContent: {
+    flex: 1,
+  },
+  aiTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    gap: 6,
   },
-  compactActionRowText: {
-    flex: 1,
-    fontSize: typography.fontSizes.sm + 1,
-    fontWeight: typography.fontWeights.medium,
+  gridCardTitle: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
     color: colors.text,
+    marginBottom: 2,
+  },
+  gridCardSub: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+  },
+  aiBadgePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.accent,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+  },
+  aiBadgePillText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
   },
   smallTextBtn: {
     alignSelf: "center",

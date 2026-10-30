@@ -16,7 +16,6 @@ import { t } from "../lib/i18n";
 import { HapticFeedback } from "../lib/haptics";
 import { formatLocaleDate } from "../lib/dateUtils";
 import { ScreenHeader } from "../components/common/ScreenHeader";
-import { SectionHeader } from "../components/common/SectionHeader";
 import { Card } from "../components/common/Card";
 import { StatusPill } from "../components/common/StatusPill";
 import { Banner } from "../components/common/Banner";
@@ -105,6 +104,8 @@ export function formatNextBlockTime(
   }
 }
 
+export type TaskFilterTab = "all" | "scheduled" | "unscheduled" | "completed";
+
 export interface TasksScreenProps {
   onBack?: () => void;
   onOpenSettings?: () => void;
@@ -127,9 +128,9 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
     streakState,
   } = useMobileStudyStore();
 
+  const [activeFilter, setActiveFilter] = useState<TaskFilterTab>("all");
   const [createScheduleVisible, setCreateScheduleVisible] = useState(false);
   const [addTaskVisible, setAddTaskVisible] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
 
   // Undo deletion state
   const [lastDeletedTask, setLastDeletedTask] = useState<Task | null>(null);
@@ -219,10 +220,10 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         return <StatusPill variant="red" label={t("deadline_terlambat", { days: Math.abs(diff) })} />;
       }
       if (diff === 0) {
-        return <StatusPill variant="red" label={t("deadline_hari_ini")} />;
+        return <StatusPill variant="red" label={t("deadline_hari_ini") || "Hari Ini"} />;
       }
       if (diff === 1) {
-        return <StatusPill variant="amber" label={t("deadline_besok")} />;
+        return <StatusPill variant="amber" label={t("deadline_besok") || "Besok"} />;
       }
       if (diff <= 3) {
         return <StatusPill variant="blue" label={t("deadline_hari_lagi", { days: diff })} />;
@@ -233,9 +234,22 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
     }
   };
 
-  const renderTaskRow = (task: Task, extraBadge?: React.ReactNode, isCompleted = false) => {
+  // Filtered tasks based on activeFilter
+  const displayTasks = useMemo(() => {
+    if (activeFilter === "scheduled") return scheduled;
+    if (activeFilter === "unscheduled") return [...unscheduled, ...unallocated];
+    if (activeFilter === "completed") return completed;
+    // "all": pending first (scheduled + unscheduled + unallocated), then completed
+    return [...scheduled, ...unscheduled, ...unallocated, ...completed];
+  }, [activeFilter, scheduled, unscheduled, unallocated, completed]);
+
+  const renderTaskCard = (task: Task) => {
+    const isCompleted = task.status === "COMPLETED";
     const sub = subjectsMap.get(task.subjectId);
     const subColor = sub?.color || sub?.color_hex || colors.primary;
+    const nextBlock = getNextBlockForTask(task.id, studyBlocks, todayStr);
+    const blockTimeStr = formatNextBlockTime(nextBlock, todayStr);
+    const isUnallocated = unallocatedIds.includes(task.id);
 
     return (
       <Card
@@ -243,40 +257,95 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         style={[styles.taskCard, isCompleted && styles.completedCard]}
         accentColor={isCompleted ? colors.borderLight : subColor}
       >
-        <View style={styles.taskCardContent}>
-          <Pressable
-            style={styles.checkboxTouch}
-            onPress={() => handleToggle(task.id)}
-            hitSlop={touchTarget.min / 4}
-            accessibilityLabel={`Tandai selesai ${task.title}`}
-          >
-            <View style={[styles.checkbox, isCompleted && styles.checkboxActive]}>
-              {isCompleted && <Ionicons name="checkmark" size={16} color={colors.textInverse} />}
-            </View>
-          </Pressable>
+        <View style={styles.taskCardBody}>
+          <View style={styles.taskTopRow}>
+            {/* Completion Checkbox */}
+            <Pressable
+              style={styles.checkboxTouch}
+              onPress={() => handleToggle(task.id)}
+              hitSlop={touchTarget.min / 4}
+              accessibilityLabel={`Tandai selesai ${task.title}`}
+            >
+              <View style={[styles.checkbox, isCompleted && styles.checkboxActive]}>
+                {isCompleted && <Ionicons name="checkmark" size={15} color={colors.textInverse} />}
+              </View>
+            </Pressable>
 
-          <View style={styles.taskInfoColumn}>
-            <View style={styles.taskHeaderRow}>
+            {/* Subject and Deadline */}
+            <View style={styles.subjectRow}>
               <View style={[styles.subjectDot, { backgroundColor: subColor }]} />
               <Text style={styles.subjectNameText} numberOfLines={1}>
-                {sub?.name || "Umum"}
+                {sub?.name || sub?.title || "Umum"}
               </Text>
             </View>
 
-            <Text
-              style={[styles.taskTitleText, isCompleted && styles.completedTitleText]}
-              numberOfLines={2}
-            >
-              {task.title}
-            </Text>
-
-            <View style={styles.taskMetaRow}>
+            <View style={styles.topRightPills}>
               {isCompleted ? (
-                <StatusPill variant="green" label={t("selesai") || "Selesai"} />
+                <StatusPill variant="green" label={t("tab_selesai") || "Selesai"} />
               ) : (
                 renderDeadlineBadge(task.deadlineDate)
               )}
-              {extraBadge}
+            </View>
+          </View>
+
+          {/* Task Title */}
+          <Text
+            style={[styles.taskTitleText, isCompleted && styles.completedTitleText]}
+            numberOfLines={2}
+          >
+            {task.title}
+          </Text>
+
+          {/* Notes if any */}
+          {task.notes ? (
+            <Text style={styles.taskNotesText} numberOfLines={1}>
+              {task.notes}
+            </Text>
+          ) : null}
+
+          {/* Bottom Action Footer */}
+          <View style={styles.taskFooterRow}>
+            <View style={styles.taskFooterLeft}>
+              {blockTimeStr ? (
+                <View style={styles.blockBadge}>
+                  <Ionicons name="time-outline" size={13} color={colors.primary} />
+                  <Text style={styles.blockBadgeText}>{blockTimeStr}</Text>
+                </View>
+              ) : isUnallocated ? (
+                <StatusPill variant="red" label="Jadwal Penuh" />
+              ) : (
+                <View style={styles.durationBadge}>
+                  <Ionicons name="hourglass-outline" size={12} color={colors.textSecondary} />
+                  <Text style={styles.durationBadgeText}>
+                    {task.estimatedMinutes || 30} mnt
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.taskFooterRight}>
+              {/* 1-Tap Mulai Fokus Launcher */}
+              {!isCompleted && onStartFocusForTask && (
+                <Pressable
+                  style={styles.focusActionBtn}
+                  onPress={() => onStartFocusForTask(task)}
+                  hitSlop={touchTarget.min / 4}
+                  accessibilityLabel="Mulai fokus tugas ini"
+                >
+                  <Ionicons name="play" size={13} color={colors.primary} />
+                  <Text style={styles.focusActionText}>Mulai Fokus</Text>
+                </Pressable>
+              )}
+
+              {/* Delete button */}
+              <Pressable
+                style={styles.deleteBtn}
+                onPress={() => handleDeleteWithUndo(task)}
+                hitSlop={touchTarget.min / 4}
+                accessibilityLabel="Hapus tugas"
+              >
+                <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+              </Pressable>
             </View>
           </View>
         </View>
@@ -288,7 +357,7 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
     <View style={styles.container}>
       {/* ─── Screen Header ─── */}
       <ScreenHeader
-        title={t("tugas_title")}
+        title={t("tabTasks") || "Tugas"}
         streakText={streakState.currentStreak > 0 ? `${streakState.currentStreak} hari` : undefined}
         onBack={onBack}
         actions={[
@@ -300,135 +369,143 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         ]}
       />
 
+      {/* ─── O3 Space Segmented Filter Pills ─── */}
+      <View style={styles.filterPillsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterPillsScroll}
+        >
+          {/* Semua */}
+          <Pressable
+            style={[styles.filterPill, activeFilter === "all" && styles.filterPillActive]}
+            onPress={() => {
+              HapticFeedback.light();
+              setActiveFilter("all");
+            }}
+          >
+            <Text style={[styles.filterPillText, activeFilter === "all" && styles.filterPillTextActive]}>
+              {t("tab_semua") || "Semua"}
+            </Text>
+            <View style={[styles.filterPillBadge, activeFilter === "all" && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeFilter === "all" && styles.filterPillBadgeTextActive]}>
+                {tasks.length}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Terjadwal */}
+          <Pressable
+            style={[styles.filterPill, activeFilter === "scheduled" && styles.filterPillActive]}
+            onPress={() => {
+              HapticFeedback.light();
+              setActiveFilter("scheduled");
+            }}
+          >
+            <Text style={[styles.filterPillText, activeFilter === "scheduled" && styles.filterPillTextActive]}>
+              {t("tab_terjadwal") || "Terjadwal"}
+            </Text>
+            <View style={[styles.filterPillBadge, activeFilter === "scheduled" && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeFilter === "scheduled" && styles.filterPillBadgeTextActive]}>
+                {scheduled.length}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Belum Dijadwalkan */}
+          <Pressable
+            style={[styles.filterPill, activeFilter === "unscheduled" && styles.filterPillActive]}
+            onPress={() => {
+              HapticFeedback.light();
+              setActiveFilter("unscheduled");
+            }}
+          >
+            <Text style={[styles.filterPillText, activeFilter === "unscheduled" && styles.filterPillTextActive]}>
+              {t("tab_belum_dijadwalkan") || "Belum Dijadwalkan"}
+            </Text>
+            <View style={[styles.filterPillBadge, activeFilter === "unscheduled" && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeFilter === "unscheduled" && styles.filterPillBadgeTextActive]}>
+                {unscheduled.length + unallocated.length}
+              </Text>
+            </View>
+          </Pressable>
+
+          {/* Selesai */}
+          <Pressable
+            style={[styles.filterPill, activeFilter === "completed" && styles.filterPillActive]}
+            onPress={() => {
+              HapticFeedback.light();
+              setActiveFilter("completed");
+            }}
+          >
+            <Text style={[styles.filterPillText, activeFilter === "completed" && styles.filterPillTextActive]}>
+              {t("tab_selesai") || "Selesai"}
+            </Text>
+            <View style={[styles.filterPillBadge, activeFilter === "completed" && styles.filterPillBadgeActive]}>
+              <Text style={[styles.filterPillBadgeText, activeFilter === "completed" && styles.filterPillBadgeTextActive]}>
+                {completed.length}
+              </Text>
+            </View>
+          </Pressable>
+        </ScrollView>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Unscheduled or Unallocated Banner ─── */}
-        {needsSchedule && (
-          <Banner
-            icon="calendar-outline"
-            text={
-              unallocated.length > 0
-                ? t("peringatan_tidak_muat")
-                : t("banner_tugas_belum_dijadwalkan", { count: unscheduled.length })
-            }
-            buttonText={t("buat_jadwal_sekarang")}
-            variant={unallocated.length > 0 ? "warning" : "action"}
-            onPress={() => setCreateScheduleVisible(true)}
-            style={styles.banner}
-          />
+        {/* ─── Smart AI Scheduler Action Banner ─── */}
+        {needsSchedule && activeFilter !== "completed" && (
+          <View style={styles.bannerContainer}>
+            <Banner
+              icon="sparkles"
+              text={
+                unallocated.length > 0
+                  ? "Beberapa tugas tidak muat dalam waktu luang belajarmu."
+                  : `Ada ${unscheduled.length} tugas yang belum dialokasikan ke jadwal.`
+              }
+              buttonText={t("susun_jadwal_sekarang") || "✨ Susun Jadwal"}
+              variant="action"
+              onPress={() => setCreateScheduleVisible(true)}
+              style={styles.banner}
+            />
+          </View>
         )}
 
         {/* ─── Zero Tasks Empty State ─── */}
-        {tasks.length === 0 && (
+        {tasks.length === 0 ? (
           <View style={styles.emptyContainer}>
             <EmptyState
               icon="checkbox-outline"
-              message={t("tidak_ada_tugas_kosong")}
-              subMessage={t("tidak_ada_tugas_desc")}
+              message={t("tidak_ada_tugas_kosong") || "Belum ada tugas"}
+              subMessage={t("tidak_ada_tugas_desc") || "Catat PR atau tugas sekolahmu agar belajarmu lebih terencana."}
             />
             <View style={styles.emptyButtonWrapper}>
               <PrimaryButton
-                label={t("tambah_tugas_sekarang")}
+                label={t("tambah_tugas_sekarang") || "Tambah Tugas Baru"}
+                icon="add"
                 onPress={() => setAddTaskVisible(true)}
               />
             </View>
           </View>
-        )}
-
-        {/* ─── All Pending Tasks Finished Banner Card ─── */}
-        {tasks.length > 0 && scheduled.length === 0 && unscheduled.length === 0 && unallocated.length === 0 && (
-          <View style={styles.section}>
-            <Card style={styles.allDoneCard}>
-              <Ionicons name="checkmark-done-circle" size={36} color={colors.emerald} style={{ alignSelf: "center", marginBottom: spacing.xs }} />
-              <Text style={styles.allDoneTitle}>{t("semua_tugas_selesai") || "Semua tugas selesai!"}</Text>
-              <Text style={styles.allDoneSub}>
-                {t("tidak_ada_tugas_tertunda") || "Tidak ada tugas tertunda. Ketuk '+' di bawah untuk menambah tugas baru."}
-              </Text>
-            </Card>
-          </View>
-        )}
-
-        {/* ─── 1. Group: Terjadwal ─── */}
-        {scheduled.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title={t("group_terjadwal")}
-              badge={scheduled.length}
-            />
-            {scheduled.map((task) => {
-              const nextBlock = getNextBlockForTask(task.id, studyBlocks, todayStr);
-              const blockTimeStr = formatNextBlockTime(nextBlock, todayStr);
-
-              return renderTaskRow(
-                task,
-                blockTimeStr ? (
-                  <View style={styles.blockBadge}>
-                    <Ionicons name="time-outline" size={12} color={colors.primary} />
-                    <Text style={styles.blockBadgeText}>{blockTimeStr}</Text>
-                  </View>
-                ) : null
-              );
-            })}
-          </View>
-        )}
-
-        {/* ─── 2. Group: Belum Dijadwalkan ─── */}
-        {unscheduled.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title={t("group_belum_dijadwalkan")}
-              badge={unscheduled.length}
-            />
-            {unscheduled.map((task) =>
-              renderTaskRow(
-                task,
-                <View style={styles.durationBadge}>
-                  <Text style={styles.durationBadgeText}>
-                    {task.estimatedMinutes || 45} {t("menit_singkat")}
-                  </Text>
-                </View>
-              )
-            )}
-          </View>
-        )}
-
-        {/* ─── 3. Group: Tidak Muat ─── */}
-        {unallocated.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title={t("group_tidak_muat")}
-              badge={unallocated.length}
-            />
-            {unallocated.map((task) =>
-              renderTaskRow(
-                task,
-                <StatusPill variant="red" label="Waktu kurang" />
-              )
-            )}
-          </View>
-        )}
-
-        {/* ─── 4. Group: Selesai ─── */}
-        {completed.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader
-              title={t("group_selesai")}
-              badge={completed.length}
-              actionText={
-                completed.length > 2
-                  ? showCompleted
-                    ? "Sembunyikan"
-                    : "Lihat Semua"
-                  : undefined
+        ) : displayTasks.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <EmptyState
+              icon="checkmark-done-circle-outline"
+              message={
+                activeFilter === "unscheduled"
+                  ? (t("semua_tugas_terjadwal") || "Semua tugas sudah terjadwal rapi!")
+                  : activeFilter === "completed"
+                  ? "Belum ada tugas yang diselesaikan"
+                  : "Tidak ada tugas dalam kategori ini"
               }
-              onActionPress={() => setShowCompleted(!showCompleted)}
+              subMessage="Pilih kategori filter lain atau tambah tugas baru."
             />
-            {(showCompleted || completed.length <= 2 ? completed : completed.slice(0, 2)).map(
-              (task) => renderTaskRow(task, null, true)
-            )}
+          </View>
+        ) : (
+          <View style={styles.taskListContainer}>
+            {displayTasks.map((task) => renderTaskCard(task))}
           </View>
         )}
       </ScrollView>
@@ -447,8 +524,8 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
       {/* ─── Undo Deletion Snackbar ─── */}
       <Snackbar
         visible={undoVisible}
-        message={t("tugas_dihapus")}
-        actionLabel={t("urungkan")}
+        message={t("tugas_dihapus") || "Tugas dihapus"}
+        actionLabel={t("urungkan") || "Urungkan"}
         onActionPress={handleUndoDelete}
         onDismiss={() => setUndoVisible(false)}
       />
@@ -461,47 +538,102 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // Filter pills
+  filterPillsContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+  },
+  filterPillsScroll: {
+    paddingHorizontal: tidySpacing.screen,
+    gap: spacing.sm,
+  },
+  filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    gap: 6,
+  },
+  filterPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterPillText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  filterPillTextActive: {
+    color: colors.textInverse,
+    fontWeight: typography.fontWeights.bold,
+  },
+  filterPillBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+  },
+  filterPillBadgeActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+  },
+  filterPillBadgeText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
+  },
+  filterPillBadgeTextActive: {
+    color: colors.textInverse,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: tidySpacing.screen,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxl * 2,
   },
-  banner: {
+  bannerContainer: {
     marginBottom: spacing.md,
   },
-  section: {
-    marginBottom: spacing.lg,
+  banner: {
+    marginBottom: 0,
   },
-  emptyContainer: {
-    paddingTop: spacing.lg,
-    alignItems: "center",
-  },
-  emptyButtonWrapper: {
-    marginTop: spacing.md,
-    width: "100%",
-    maxWidth: 280,
+  taskListContainer: {
+    gap: spacing.sm,
   },
   taskCard: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   completedCard: {
     opacity: 0.65,
+    backgroundColor: colors.surfaceSubtle,
   },
-  taskCardContent: {
+  taskCardBody: {
+    width: "100%",
+  },
+  taskTopRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
+    marginBottom: spacing.xs,
   },
   checkboxTouch: {
     paddingRight: spacing.sm,
-    paddingTop: 2,
   },
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: radius.sm,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: colors.borderLight,
     alignItems: "center",
@@ -509,16 +641,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   checkboxActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.emerald,
+    borderColor: colors.emerald,
   },
-  taskInfoColumn: {
-    flex: 1,
-  },
-  taskHeaderRow: {
+  subjectRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    flex: 1,
   },
   subjectDot: {
     width: 8,
@@ -531,66 +660,97 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: typography.fontWeights.medium,
   },
+  topRightPills: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   taskTitleText: {
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.semibold,
     color: colors.text,
-    marginBottom: 6,
+    lineHeight: 20,
+    marginBottom: 4,
+    marginLeft: 30, // align with subject row
   },
   completedTitleText: {
     textDecorationLine: "line-through",
     color: colors.textSecondary,
   },
-  taskMetaRow: {
+  taskNotesText: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textMuted,
+    marginLeft: 30,
+    marginBottom: 6,
+  },
+  taskFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.xs,
+    marginLeft: 30,
+  },
+  taskFooterLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    flexWrap: "wrap",
+  },
+  taskFooterRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   blockBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.primaryLight,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: radius.sm,
     gap: 4,
   },
   blockBadgeText: {
     fontSize: typography.fontSizes.caption,
     color: colors.primary,
-    fontWeight: typography.fontWeights.medium,
+    fontWeight: typography.fontWeights.semibold,
   },
   durationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: radius.sm,
+    gap: 4,
   },
   durationBadgeText: {
     fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
     fontWeight: typography.fontWeights.medium,
   },
-  allDoneCard: {
+  focusActionBtn: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.sm,
+    gap: 4,
   },
-  allDoneTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-    textAlign: "center",
-    marginTop: spacing.xs,
-  },
-  allDoneSub: {
+  focusActionText: {
     fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginTop: 4,
-    lineHeight: 18,
+    color: colors.primary,
+    fontWeight: typography.fontWeights.bold,
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+  emptyContainer: {
+    paddingTop: spacing.xxl,
+    alignItems: "center",
+  },
+  emptyButtonWrapper: {
+    marginTop: spacing.md,
+    width: "100%",
+    maxWidth: 240,
   },
 });
