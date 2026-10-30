@@ -76,6 +76,15 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
     return tasks.filter((t) => t.status === "PENDING" && !scheduledTaskIds.has(t.id)).length;
   }, [tasks, studyBlocks]);
 
+  // 1b. Missed Blocks Calculation
+  const missedBlocksCount = useMemo(() => {
+    const currentTime = format(new Date(), "HH:mm");
+    return studyBlocks.filter((b) => {
+      if (b.status !== "SCHEDULED") return false;
+      return b.date < todayStr || (b.date === todayStr && b.endTime < currentTime);
+    }).length;
+  }, [studyBlocks, todayStr]);
+
   // 2. Today's Study Blocks (sorted chronologically)
   const todayBlocks = useMemo(() => {
     return studyBlocks
@@ -148,8 +157,18 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2. Unscheduled Banner (Prompts "Buat jadwal") ─── */}
-        {unscheduledTasksCount > 0 && (
+        {/* ─── 2. Unscheduled or Missed Blocks Banner ─── */}
+        {missedBlocksCount > 0 ? (
+          <View style={styles.bannerContainer}>
+            <Banner
+              text={t("banner_blok_terlewat", { count: missedBlocksCount })}
+              buttonText={t("jadwalkan_ulang")}
+              onPress={() => setScheduleSheetVisible(true)}
+              variant="warning"
+              icon="alert-circle-outline"
+            />
+          </View>
+        ) : unscheduledTasksCount > 0 ? (
           <View style={styles.bannerContainer}>
             <Banner
               text={t("banner_tugas_belum_dijadwalkan", { count: unscheduledTasksCount })}
@@ -159,7 +178,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
               icon="calendar-outline"
             />
           </View>
-        )}
+        ) : null}
 
         {/* ─── 3. NEXT Block Hero Card (The 3-Second Rule) ─── */}
         <View style={styles.heroSection}>

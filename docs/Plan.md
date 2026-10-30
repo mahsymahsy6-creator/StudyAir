@@ -113,7 +113,7 @@ Packets are ordered by dependency. Each packet is in `docs/tasks/P##-name.md`.
 | **P6** | Rencana screen: NEXT block card + today's blocks + Besok + unscheduled banner | P5 | `done` |
 | **P7** | Tugas screen: 4 groups (Terjadwal / Belum dijadwalkan / Tidak muat / Selesai) | P5 | `done` |
 | **P8** | Kalender with blocks: Agenda (dashed outlines for blocks, solid for classes), Garis waktu, Bulan | P5 | `done` |
-| **P9** | Execution loop: focus timer tied to blocks, missed-block rescheduling, notifications | P6 | `todo` |
+| **P9** | Execution loop: focus timer tied to blocks, missed-block rescheduling, notifications | P6 | `done` |
 | **P10** | Navigation restructure: 3 tabs (Rencana, Tugas, Kalender) + center "+", Pengaturan regrouping, hide/move list | P6, P7, P8 | `todo` |
 | **P11** | Streak (counts finished blocks) and "Buat rencana belajar" from exams | P9 | `todo` |
 | **P12** | AI helpers: duration estimate, text/photo capture, review screen | P4 | `todo` |

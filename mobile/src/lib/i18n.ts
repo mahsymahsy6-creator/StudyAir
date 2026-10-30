@@ -416,6 +416,12 @@ export const translations = {
     ujian_akademik: "Exam",
     blok_belajar: "Study Block",
     kelas_sekolah: "Class",
+    // P9 Execution Loop keys
+    banner_blok_terlewat: "You have {count} missed study blocks",
+    jadwalkan_ulang: "Reschedule",
+    apakah_tugas_selesai: "Is task '{task}' fully completed?",
+    tandai_tugas_selesai: "Mark as Completed",
+    masih_ada_sisa: "Not Yet",
   },
   id: {
     appTitle: "StudyAir",
@@ -817,6 +823,12 @@ export const translations = {
     ujian_akademik: "Ujian",
     blok_belajar: "Blok Belajar",
     kelas_sekolah: "Kelas",
+    // P9 Execution Loop keys
+    banner_blok_terlewat: "Ada {count} blok belajar terlewat",
+    jadwalkan_ulang: "Jadwalkan Ulang",
+    apakah_tugas_selesai: "Apakah tugas '{task}' sudah selesai sepenuhnya?",
+    tandai_tugas_selesai: "Tandai Selesai",
+    masih_ada_sisa: "Belum Selesai",
   },
 };
 
