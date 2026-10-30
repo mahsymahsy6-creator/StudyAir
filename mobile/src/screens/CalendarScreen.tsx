@@ -34,6 +34,7 @@ import { ScreenHeader } from "../components/common/ScreenHeader";
 import { Card } from "../components/common/Card";
 import { StatusPill } from "../components/common/StatusPill";
 import { EmptyState } from "../components/common/EmptyState";
+import { PrimaryButton } from "../components/common/PrimaryButton";
 import { DaysOffModal } from "../components/calendar/DaysOffModal";
 import { ClassOverrideModal, ClassOverrideTarget } from "../components/calendar/ClassOverrideModal";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
@@ -322,66 +323,68 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
         </View>
       </View>
 
-      {/* ─── 1. AGENDA VIEW (Default) ─── */}
-      {viewMode === "agenda" && (
-        <View style={styles.contentFlex}>
-          {/* Week Strip */}
-          <View style={styles.weekStripContainer}>
-            <View style={styles.weekNavRow}>
-              <Pressable
-                onPress={() => setSelectedDate(subWeeks(selectedDate, 1))}
-                hitSlop={touchTarget.min / 4}
-                style={styles.weekNavArrow}
-              >
-                <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
-              </Pressable>
+      {/* ─── 1 & 2. Week Strip (Shared for Agenda & Timeline Views) ─── */}
+      {(viewMode === "agenda" || viewMode === "timeline") && (
+        <View style={styles.weekStripContainer}>
+          <View style={styles.weekNavRow}>
+            <Pressable
+              onPress={() => setSelectedDate(subWeeks(selectedDate, 1))}
+              hitSlop={touchTarget.min / 4}
+              style={styles.weekNavArrow}
+            >
+              <Ionicons name="chevron-back" size={18} color={colors.textSecondary} />
+            </Pressable>
 
-              <Text style={styles.weekNavTitle}>
-                {formatLocaleDate(weekDays[0], "d MMM")} – {formatLocaleDate(weekDays[6], "d MMM yyyy")}
-              </Text>
+            <Text style={styles.weekNavTitle}>
+              {formatLocaleDate(weekDays[0], "d MMM")} – {formatLocaleDate(weekDays[6], "d MMM yyyy")}
+            </Text>
 
-              <Pressable
-                onPress={() => setSelectedDate(addWeeks(selectedDate, 1))}
-                hitSlop={touchTarget.min / 4}
-                style={styles.weekNavArrow}
-              >
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-              </Pressable>
-            </View>
-
-            <View style={styles.weekDaysRow}>
-              {weekDays.map((day, idx) => {
-                const isSelected = isSameDay(day, selectedDate);
-                const isToday = isSameDay(day, new Date());
-                const dayStr = format(day, "yyyy-MM-dd");
-                const indicators = deriveDayIndicators({
-                  date: dayStr,
-                  studyBlocks,
-                  tasks,
-                });
-
-                return (
-                  <Pressable
-                    key={idx}
-                    style={[styles.dayChip, isSelected && styles.dayChipSelected]}
-                    onPress={() => handleSelectDate(day)}
-                  >
-                    <Text style={[styles.dayChipName, isSelected && styles.dayChipTextSelected]}>
-                      {WEEKDAY_NAMES_ID[idx]}
-                    </Text>
-                    <Text style={[styles.dayChipNumber, isSelected && styles.dayChipTextSelected]}>
-                      {format(day, "d")}
-                    </Text>
-                    <View style={styles.dotRow}>
-                      {indicators.hasStudyBlock && <View style={[styles.indicatorDot, { backgroundColor: colors.primary }]} />}
-                      {indicators.hasDeadline && <View style={[styles.indicatorDot, { backgroundColor: colors.rose }]} />}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Pressable
+              onPress={() => setSelectedDate(addWeeks(selectedDate, 1))}
+              hitSlop={touchTarget.min / 4}
+              style={styles.weekNavArrow}
+            >
+              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            </Pressable>
           </View>
 
+          <View style={styles.weekDaysRow}>
+            {weekDays.map((day, idx) => {
+              const isSelected = isSameDay(day, selectedDate);
+              const isToday = isSameDay(day, new Date());
+              const dayStr = format(day, "yyyy-MM-dd");
+              const indicators = deriveDayIndicators({
+                date: dayStr,
+                studyBlocks,
+                tasks,
+              });
+
+              return (
+                <Pressable
+                  key={idx}
+                  style={[styles.dayChip, isSelected && styles.dayChipSelected]}
+                  onPress={() => handleSelectDate(day)}
+                >
+                  <Text style={[styles.dayChipName, isSelected && styles.dayChipTextSelected]}>
+                    {WEEKDAY_NAMES_ID[idx]}
+                  </Text>
+                  <Text style={[styles.dayChipNumber, isSelected && styles.dayChipTextSelected]}>
+                    {format(day, "d")}
+                  </Text>
+                  <View style={styles.dotRow}>
+                    {indicators.hasStudyBlock && <View style={[styles.indicatorDot, { backgroundColor: colors.primary }]} />}
+                    {indicators.hasDeadline && <View style={[styles.indicatorDot, { backgroundColor: colors.rose }]} />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {/* ─── 1. AGENDA VIEW ─── */}
+      {viewMode === "agenda" && (
+        <View style={styles.contentFlex}>
           {/* Agenda Event List */}
           <ScrollView
             style={styles.agendaScrollView}
@@ -398,11 +401,19 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
             )}
 
             {dayEvents.length === 0 ? (
-              <EmptyState
-                icon="calendar-outline"
-                message={t("tidak_ada_jadwal_hari_ini")}
-                subMessage="Ketuk Buat Jadwal untuk menyusun blok belajar"
-              />
+              <View style={{ alignItems: "center", paddingVertical: spacing.lg }}>
+                <EmptyState
+                  icon="calendar-outline"
+                  message={t("tidak_ada_jadwal_hari_ini")}
+                  subMessage="Ketuk Susun Jadwal untuk menyusun blok belajar"
+                />
+                <View style={{ marginTop: spacing.md, width: "100%", maxWidth: 280 }}>
+                  <PrimaryButton
+                    label={t("susun_jadwal_hari_ini") || "Susun Jadwal Hari Ini"}
+                    onPress={() => setCreateScheduleVisible(true)}
+                  />
+                </View>
+              </View>
             ) : (
               dayEvents.map((event) => {
                 const isBlock = event.kind === "study_block";
@@ -580,8 +591,8 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
                   <Text
                     style={[
                       styles.monthCellText,
-                      isSelected && styles.monthCellTextSelected,
                       isToday && styles.monthCellToday,
+                      isSelected && styles.monthCellTextSelected,
                     ]}
                   >
                     {format(day, "d")}

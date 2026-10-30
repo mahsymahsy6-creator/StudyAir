@@ -271,7 +271,11 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
             </Text>
 
             <View style={styles.taskMetaRow}>
-              {renderDeadlineBadge(task.deadlineDate)}
+              {isCompleted ? (
+                <StatusPill variant="green" label={t("selesai") || "Selesai"} />
+              ) : (
+                renderDeadlineBadge(task.deadlineDate)
+              )}
               {extraBadge}
             </View>
           </View>
@@ -331,6 +335,19 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
                 onPress={() => setAddTaskVisible(true)}
               />
             </View>
+          </View>
+        )}
+
+        {/* ─── All Pending Tasks Finished Banner Card ─── */}
+        {tasks.length > 0 && scheduled.length === 0 && unscheduled.length === 0 && unallocated.length === 0 && (
+          <View style={styles.section}>
+            <Card style={styles.allDoneCard}>
+              <Ionicons name="checkmark-done-circle" size={36} color={colors.emerald} style={{ alignSelf: "center", marginBottom: spacing.xs }} />
+              <Text style={styles.allDoneTitle}>{t("semua_tugas_selesai") || "Semua tugas selesai!"}</Text>
+              <Text style={styles.allDoneSub}>
+                {t("tidak_ada_tugas_tertunda") || "Tidak ada tugas tertunda. Ketuk '+' di bawah untuk menambah tugas baru."}
+              </Text>
+            </Card>
           </View>
         )}
 
@@ -554,5 +571,26 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
     fontWeight: typography.fontWeights.medium,
+  },
+  allDoneCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  allDoneTitle: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+    textAlign: "center",
+    marginTop: spacing.xs,
+  },
+  allDoneSub: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 4,
+    lineHeight: 18,
   },
 });

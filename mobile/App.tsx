@@ -186,7 +186,6 @@ function MainApp() {
         {/* Tab 2: Tasks / Tugas */}
         <View style={[styles.screenWrapper, activeTab !== "Tasks" && styles.screenHidden]}>
           <TasksScreen
-            onBack={() => handleNavigate("Today")}
             onOpenSettings={() => handleNavigate("Settings")}
             onStartFocusForTask={(task) => handleNavigate("Focus", { taskId: task.id })}
           />

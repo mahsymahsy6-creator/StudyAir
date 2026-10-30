@@ -22,6 +22,7 @@ import { StatusPill } from "../components/common/StatusPill";
 import { Banner } from "../components/common/Banner";
 import { Snackbar } from "../components/common/Snackbar";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
+import { formatLocaleDate } from "../lib/dateUtils";
 import { getExamState } from "../lib/examEngine";
 
 interface HomeScreenProps {
@@ -261,7 +262,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
               </Text>
               <View style={{ marginTop: spacing.md, width: "100%" }}>
                 <PrimaryButton
-                  label={t("buat_rencana_belajar")}
+                  label={t("susun_jadwal_hari_ini") || "Susun Jadwal Hari Ini"}
                   onPress={() => setScheduleSheetVisible(true)}
                 />
               </View>
@@ -314,9 +315,15 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
                 <View style={styles.examHeaderLeft}>
                   <Ionicons name="school-outline" size={20} color={colors.primary} style={{ marginRight: spacing.sm }} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.examTitle}>{nextExam.title}</Text>
+                    <Text style={styles.examTitle}>
+                      {nextExam.title.toLowerCase().startsWith("ujian")
+                        ? nextExam.title
+                        : `Ujian ${nextExam.subject?.name || nextExam.title}`}
+                    </Text>
                     <Text style={styles.examSubtitle}>
-                      {nextExam.subject?.name || "Ujian"} • {nextExam.label} ({nextExam.startDate})
+                      {t("jadwal_ujian_tanggal", {
+                        date: formatLocaleDate(parseISO(nextExam.startDate), "d MMMM yyyy"),
+                      })}
                     </Text>
                   </View>
                 </View>
@@ -324,7 +331,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
               </View>
               <View style={styles.examActionRow}>
                 <PrimaryButton
-                  label={t("buat_rencana_belajar")}
+                  label={t("buat_rencana_ujian") || "Buat Rencana Ujian"}
                   onPress={() => {
                     generateExamPlan(nextExam, nextExam.subject?.id || "exam-sub");
                     setSnackbarMessage(t("rencana_ujian_dibuat"));
