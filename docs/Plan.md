@@ -111,7 +111,7 @@ Packets are ordered by dependency. Each packet is in `docs/tasks/P##-name.md`.
 | **P4** | Add-task flow with time estimates, subject, and deadline — under 10 seconds | P1, P2 | `done` |
 | **P5** | "Buat jadwal" flow: options sheet, preview, diff, edit, apply, undo | P3, P4 | `done` |
 | **P6** | Rencana screen: NEXT block card + today's blocks + Besok + unscheduled banner | P5 | `done` |
-| **P7** | Tugas screen: 4 groups (Terjadwal / Belum dijadwalkan / Tidak muat / Selesai) | P5 | `todo` |
+| **P7** | Tugas screen: 4 groups (Terjadwal / Belum dijadwalkan / Tidak muat / Selesai) | P5 | `done` |
 | **P8** | Kalender with blocks: Agenda (dashed outlines for blocks, solid for classes), Garis waktu, Bulan | P5 | `todo` |
 | **P9** | Execution loop: focus timer tied to blocks, missed-block rescheduling, notifications | P6 | `todo` |
 | **P10** | Navigation restructure: 3 tabs (Rencana, Tugas, Kalender) + center "+", Pengaturan regrouping, hide/move list | P6, P7, P8 | `todo` |
