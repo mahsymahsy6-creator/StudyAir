@@ -33,6 +33,7 @@ import { recalculateDynamicTaskDeadlines } from "./engine/deadlineEngine";
 import { setLanguage } from "./lib/i18n";
 import { getSecureGeminiKey, setSecureGeminiKey } from "./services/secureStoreService";
 import { calculateStreak, StreakState, StreakMilestone } from "./lib/studyStreakEngine";
+import { createExamStudyPlan } from "./lib/examEngine";
 import {
   scheduleEveningPreviewNotification,
   scheduleMorningAlertNotification,
@@ -150,6 +151,7 @@ interface MobileStudyContextType {
   deleteStudyBlock: (id: string) => void;
   toggleBlockCompletion: (id: string) => void;
   updateSchedulePrefs: (patch: Partial<SchedulePrefs>) => void;
+  generateExamPlan: (exam: any, subjectId: string) => Task[];
 
   // Actions - Study Units & Focus
   addStudyUnit: (data: {
@@ -365,6 +367,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   const rawStreakState: StreakState = useMemo(() => {
     return calculateStreak({
       tasks,
+      studyBlocks,
       focusLogs,
       studyUnits,
       timetableEntries,
@@ -375,6 +378,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     });
   }, [
     tasks,
+    studyBlocks,
     focusLogs,
     studyUnits,
     timetableEntries,
@@ -921,6 +925,16 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         ...(patch.priorityWeights || {}),
       },
     }));
+  };
+
+  const generateExamPlan = (exam: any, subjectId: string): Task[] => {
+    const generated = createExamStudyPlan({ exam, subjectId });
+    const createdTasks: Task[] = [];
+    for (const t of generated) {
+      const newTask = addTask(t);
+      createdTasks.push(newTask);
+    }
+    return createdTasks;
   };
 
   const addStudyUnit = (data: {
@@ -1498,6 +1512,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         deleteStudyBlock,
         toggleBlockCompletion,
         updateSchedulePrefs,
+        generateExamPlan,
         addStudyUnit,
         deleteStudyUnit,
         toggleStudyUnitCompletion,

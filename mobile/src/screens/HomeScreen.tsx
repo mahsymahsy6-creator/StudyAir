@@ -22,6 +22,7 @@ import { StatusPill } from "../components/common/StatusPill";
 import { Banner } from "../components/common/Banner";
 import { Snackbar } from "../components/common/Snackbar";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
+import { getExamState } from "../lib/examEngine";
 
 interface HomeScreenProps {
   navigation: {
@@ -40,6 +41,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
     streakState,
     getEffectiveScheduleForDate,
     undoLastSchedule,
+    generateExamPlan,
   } = useMobileStudyStore();
 
   const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
@@ -111,6 +113,12 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
   const tomorrowBlocks = useMemo(() => {
     return studyBlocks.filter((b) => b.date === tomorrowStr);
   }, [studyBlocks, tomorrowStr]);
+
+  // 6. Upcoming Exam Calculation
+  const nextExam = useMemo(() => {
+    const examState = getExamState({ subjects, today: todayStr });
+    return examState.nextExam;
+  }, [subjects, todayStr]);
 
   // Handle schedule applied
   const handleScheduleApplied = ({ newBlocksCount }: { newBlocksCount: number }) => {
@@ -297,6 +305,38 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
             })}
           </View>
         )}
+
+        {/* ─── 4b. Upcoming Exam Card ─── */}
+        {nextExam && !nextExam.isPassed ? (
+          <View style={styles.sectionContainer}>
+            <Card style={styles.examCard}>
+              <View style={styles.examHeaderRow}>
+                <View style={styles.examHeaderLeft}>
+                  <Ionicons name="school-outline" size={20} color={colors.primary} style={{ marginRight: spacing.sm }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.examTitle}>{nextExam.title}</Text>
+                    <Text style={styles.examSubtitle}>
+                      {nextExam.subject?.name || "Ujian"} • {nextExam.label} ({nextExam.startDate})
+                    </Text>
+                  </View>
+                </View>
+                <StatusPill variant={nextExam.daysLeft <= 3 ? "red" : "blue"} label={nextExam.label} />
+              </View>
+              <View style={styles.examActionRow}>
+                <PrimaryButton
+                  label={t("buat_rencana_belajar")}
+                  onPress={() => {
+                    generateExamPlan(nextExam, nextExam.subject?.id || "exam-sub");
+                    setSnackbarMessage(t("rencana_ujian_dibuat"));
+                    setSnackbarVisible(true);
+                    setScheduleSheetVisible(true);
+                  }}
+                  variant="primary"
+                />
+              </View>
+            </Card>
+          </View>
+        ) : null}
 
         {/* ─── 5. Collapsed "Besok" Section ─── */}
         <View style={styles.sectionContainer}>
@@ -575,5 +615,33 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontStyle: "italic",
     paddingVertical: 2,
+  },
+  examCard: {
+    padding: spacing.md,
+  },
+  examHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  examHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  examTitle: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  examSubtitle: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  examActionRow: {
+    marginTop: spacing.md,
+    alignItems: "flex-start",
   },
 });
