@@ -24,6 +24,7 @@ import {
   extractTasksFromAI,
   createFallbackTaskFromText,
   RawExtractedTask,
+  suggestTaskDuration,
 } from "../services/aiService";
 import { AddTaskSheet } from "./tasks/AddTaskSheet";
 
@@ -43,6 +44,7 @@ interface ParsedBatchTask {
   deadlineLabel: string;
   datePhrase?: string;
   notes?: string;
+  estimatedMinutes?: number;
 }
 
 export function QuickActionSheet({
@@ -246,6 +248,7 @@ export function QuickActionSheet({
         const dateNote = item.datePhrase ? `Date note: ${item.datePhrase}` : "";
         const combinedNotes = [item.notes, dateNote].filter(Boolean).join("\n");
 
+        const duration = suggestTaskDuration(item.title, item.type || "homework");
         return {
           id: `ai-task-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
           title: item.title,
@@ -255,6 +258,7 @@ export function QuickActionSheet({
           deadlineLabel,
           datePhrase: item.datePhrase,
           notes: combinedNotes,
+          estimatedMinutes: duration,
         };
       });
 
@@ -300,6 +304,7 @@ export function QuickActionSheet({
           givenDate: todayStr,
           deadlineDate: item.deadlineDate,
           deadlineMode: "custom",
+          estimatedMinutes: item.estimatedMinutes || 30,
           notes: item.notes?.trim() || undefined,
         });
         count++;
@@ -316,6 +321,12 @@ export function QuickActionSheet({
     Alert.alert(
       t("taskAddedSuccess"),
       `${count} task${count > 1 ? "s" : ""} added to your schedule.`
+    );
+  };
+
+  const handleUpdateBatchItemDuration = (id: string, mins: number) => {
+    setParsedBatchTasks((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, estimatedMinutes: mins } : item))
     );
   };
 
@@ -729,6 +740,35 @@ export function QuickActionSheet({
                         })}
                       </ScrollView>
 
+                      {/* Duration selector */}
+                      <View style={styles.batchDurationRow}>
+                        <Text style={styles.batchDurationLabel}>Estimasi waktu:</Text>
+                        <View style={styles.batchDurationChips}>
+                          {[15, 30, 45, 60, 90].map((mins) => {
+                            const isCur = (item.estimatedMinutes || 30) === mins;
+                            return (
+                              <Pressable
+                                key={mins}
+                                style={[
+                                  styles.batchDurationChip,
+                                  isCur && styles.batchDurationChipActive,
+                                ]}
+                                onPress={() => handleUpdateBatchItemDuration(item.id, mins)}
+                              >
+                                <Text
+                                  style={[
+                                    styles.batchDurationChipText,
+                                    isCur && styles.batchDurationChipTextActive,
+                                  ]}
+                                >
+                                  {mins}m
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+
                       {/* Notes / Pasted text display if present */}
                       {item.notes ? (
                         <View style={styles.notesBox}>
@@ -1098,6 +1138,43 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   batchChipTextActive: {
+    color: "#ffffff",
+    fontWeight: typography.fontWeights.bold,
+  },
+  batchDurationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  batchDurationLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
+    fontWeight: typography.fontWeights.medium,
+  },
+  batchDurationChips: {
+    flexDirection: "row",
+    gap: spacing.xs,
+    flexWrap: "wrap",
+  },
+  batchDurationChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  batchDurationChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  batchDurationChipText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  batchDurationChipTextActive: {
     color: "#ffffff",
     fontWeight: typography.fontWeights.bold,
   },

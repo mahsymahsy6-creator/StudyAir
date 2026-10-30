@@ -16,6 +16,7 @@ import { Task, TaskType, DeadlineMode } from "../../types";
 import { t } from "../../lib/i18n";
 import { calculateNextClassDeadline } from "../../engine/deadlineEngine";
 import { parseIndonesianDateHint } from "../../engine/dateHintParser";
+import { suggestTaskDuration } from "../../services/aiService";
 
 export interface AddTaskSheetProps {
   visible: boolean;
@@ -93,6 +94,11 @@ export function AddTaskSheet({
   const detectedDateHint = useMemo(() => {
     return parseIndonesianDateHint(taskTitle, todayStr);
   }, [taskTitle, todayStr]);
+
+  // Suggested duration from title & task type
+  const suggestedDuration = useMemo(() => {
+    return suggestTaskDuration(taskTitle, taskType);
+  }, [taskTitle, taskType]);
 
   // Effective deadline string
   const effectiveDeadline = useMemo(() => {
@@ -266,6 +272,18 @@ export function AddTaskSheet({
             </Text>
           </View>
           <Text style={styles.inputHelperText}>{t("estimasi_durasi_hint")}</Text>
+
+          {taskTitle.trim().length > 3 && estimatedMinutes !== suggestedDuration && (
+            <Pressable
+              style={styles.aiDurationChip}
+              onPress={() => handleSelectPreset(suggestedDuration)}
+            >
+              <Ionicons name="sparkles" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={styles.aiDurationChipText}>
+                Saran AI: {suggestedDuration} menit (Terapkan)
+              </Text>
+            </Pressable>
+          )}
 
           <View style={styles.presetRow}>
             {DURATION_PRESETS.map((preset) => {
@@ -597,6 +615,23 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.caption,
     color: colors.text,
     flex: 1,
+  },
+  aiDurationChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceHover,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignSelf: "flex-start",
+  },
+  aiDurationChipText: {
+    fontWeight: typography.fontWeights.medium,
+    fontSize: typography.fontSizes.caption,
+    color: colors.primary,
   },
   chipsScroll: {
     flexDirection: "row",

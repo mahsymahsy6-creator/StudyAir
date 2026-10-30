@@ -79,6 +79,52 @@ export interface AIInputPayload {
 
 export const PROMPT_VERSION = "v2.0";
 
+/**
+ * Suggests an estimated task duration in minutes based on title content and task type.
+ */
+export function suggestTaskDuration(title: string, type: TaskType = "homework"): number {
+  const lower = (title || "").toLowerCase();
+
+  // Long-form project / paper / presentation
+  if (
+    lower.includes("makalah") ||
+    lower.includes("proyek") ||
+    lower.includes("project") ||
+    lower.includes("presentasi") ||
+    lower.includes("laporan") ||
+    type === "project"
+  ) {
+    return 60;
+  }
+
+  // Multi-question exercises, test prep, chapters
+  if (
+    lower.includes("bab") ||
+    lower.includes("soal") ||
+    lower.includes("latihan") ||
+    lower.includes("kuis") ||
+    lower.includes("ulangan") ||
+    lower.includes("quiz") ||
+    type === "quiz"
+  ) {
+    return 45;
+  }
+
+  // Quick read, flashcard, notes, memorization
+  if (
+    lower.includes("baca") ||
+    lower.includes("catat") ||
+    lower.includes("hafalkan") ||
+    lower.includes("review") ||
+    lower.includes("rangkum")
+  ) {
+    return 25;
+  }
+
+  // Default standard homework duration
+  return 30;
+}
+
 // In-memory cache: (imageHash + promptVersion) -> cached result
 const scanCache = new Map<string, { result: any; timestamp: number }>();
 
@@ -587,6 +633,7 @@ export function createFallbackTaskFromText(
   deadlineDate: string;
   deadlineLabel: string;
   notes: string;
+  estimatedMinutes: number;
 } {
   const clean = (text || "").trim();
   const lower = clean.toLowerCase();
@@ -664,6 +711,7 @@ export function createFallbackTaskFromText(
     type,
     deadlineDate,
     deadlineLabel,
+    estimatedMinutes: suggestTaskDuration(title, type),
     notes: clean, // Pasted text as notes
   };
 }
