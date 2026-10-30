@@ -300,7 +300,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  // Persist immediately to SQLite database & mirror whenever state changes
+  // Persist to SQLite database & mirror whenever state changes (debounced by 150ms)
   useEffect(() => {
     if (!isLoaded) return;
     const stateToSave: DatabaseState = {
@@ -321,7 +321,11 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       studyBlocks,
       schedulePrefs,
     };
-    saveStateImmediately(stateToSave);
+    const timer = setTimeout(() => {
+      saveStateImmediately(stateToSave);
+    }, 150);
+
+    return () => clearTimeout(timer);
   }, [
     isLoaded,
     subjects,

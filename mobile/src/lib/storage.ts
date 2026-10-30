@@ -578,14 +578,13 @@ export async function loadAllData(): Promise<DatabaseState> {
   return initialState;
 }
 
-/**
- * Persists complete state into SQLite inside an atomic transaction.
- */
-export async function persistFullStateToSQLite(state: DatabaseState): Promise<void> {
+let isPersistingToSQLite = false;
+let pendingStateToPersist: DatabaseState | null = null;
+
+async function _executePersistFullState(state: DatabaseState): Promise<void> {
   if (!dbInstance || !isSQLiteReady) return;
 
-  try {
-    await dbInstance.withTransactionAsync(async () => {
+  await dbInstance.withTransactionAsync(async () => {
       // Clear existing records
       await dbInstance!.execAsync(`
         DELETE FROM subjects;
@@ -814,8 +813,34 @@ export async function persistFullStateToSQLite(state: DatabaseState): Promise<vo
         );
       }
     });
-  } catch (err) {
-    console.error("[Storage] Failed to persist state into SQLite:", err);
+}
+
+/**
+ * Persists full state into SQLite sequentially using a coalescing queue
+ * to prevent concurrent transaction conflicts ("cannot commit - no transaction is active").
+ */
+export async function persistFullStateToSQLite(state: DatabaseState): Promise<void> {
+  if (!dbInstance || !isSQLiteReady) return;
+
+  pendingStateToPersist = state;
+  if (isPersistingToSQLite) {
+    // Another transaction is already in progress; it will pick up the latest pendingStateToPersist upon completion.
+    return;
+  }
+
+  isPersistingToSQLite = true;
+  try {
+    while (pendingStateToPersist) {
+      const currentState = pendingStateToPersist;
+      pendingStateToPersist = null;
+      try {
+        await _executePersistFullState(currentState);
+      } catch (err: any) {
+        console.warn("[Storage] SQLite persist warning (will retry on next state update):", err?.message || err);
+      }
+    }
+  } finally {
+    isPersistingToSQLite = false;
   }
 }
 
