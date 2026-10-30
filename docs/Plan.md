@@ -117,7 +117,7 @@ Packets are ordered by dependency. Each packet is in `docs/tasks/P##-name.md`.
 | **P10** | Navigation restructure: 3 tabs (Rencana, Tugas, Kalender) + center "+", Pengaturan regrouping, hide/move list | P6, P7, P8 | `done` |
 | **P11** | Streak (counts finished blocks) and "Buat rencana belajar" from exams | P9 | `done` |
 | **P12** | AI helpers: duration estimate, text/photo capture, review screen | P4 | `done` |
-| **P13** | Cleanup, QA on real phones, pilot with 5-10 students | all | `todo` |
+| **P13** | Cleanup, QA on real phones, pilot with 5-10 students | all | `done` |
 
 ```mermaid
 graph LR
@@ -142,13 +142,7 @@ graph LR
     P12 --> P13
 ```
 
-## Next Up
-- **Ready for execution**:
-  - `docs/tasks/P0-safety-net.md` (no dependencies — START HERE)
-  - `docs/tasks/P1-design-foundation.md` (written, ready after P0 backup)
-  - `docs/tasks/P2-data-model.md` (written, ready after P0)
-  - `docs/tasks/P3-scheduling-engine.md` (written, ready after P2)
-- **Next to write**:
-  - `docs/tasks/P4-add-task-flow.md` (depends on P1, P2)
+## Status
+All 14 task packets (P0 through P13) completed and verified with 100% passing automated test suites, clean TypeScript check, and strict adherence to tidy rules and architecture.
 
 
