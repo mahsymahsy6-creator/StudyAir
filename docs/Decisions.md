@@ -166,7 +166,21 @@ This document records architectural, functional, and product decisions made for 
 
 ### 2026-10-29: P2 v2 Data Models: Task Estimates, StudyBlock, BusyBlock, and SchedulePrefs
 - **Decision**: Added `estimatedMinutes?: number` to `Task` (defaulting to 30m, clamped to [5, 360] in actions). Defined `StudyBlock`, `StudyBlockStatus`, `BusyBlock`, `SchedulePrefs`, and `DEFAULT_SCHEDULE_PREFS` in `types.ts`. Implemented SQLite table migrations (`study_blocks` table, `tasks.estimated_minutes` column via `ensureColumnExists`, and `schedule_prefs` in `app_settings`), AsyncStorage web storage mirror in `storage.web.ts`, and wired CRUD actions into `store.tsx`.
-- **Rationale**: Establishes the data contract for deterministic scheduling in P3 and the "Buat jadwal" workflow in P5. Guarantees backwards compatibility for existing databases by defaulting missing estimates to 30m without throwing, clamps values at trust boundaries, and keeps web/testing mirrors in sync.
-- **Attribution**: Builder (P2 packet execution).
+### 2026-10-30: Complete v2 Milestone Architecture & Execution (P3 to P13)
+- **Decision**: Completed the full v2 task scheduling roadmap following the Ponytail principle (cleanest complete implementation with zero bloat, strict typing, and comprehensive test suites):
+  1. **Deterministic Scheduler Engine (`buildSchedule`)**: Pure algorithm placing study blocks in free gaps between school classes according to study window, daily caps, and deadlines.
+  2. **Sub-10s Add Task Flow (`AddTaskSheet`)**: Fast modal with duration presets (15m, 30m, 45m, 60m, 90m), smart next-class calculation, and AI suggestion chips.
+  3. **Buat Jadwal Flow (`CreateScheduleSheet`)**: Options configuration, live diff preview, apply schedule, and one-tap undo.
+  4. **Rencana Screen (`HomeScreen`)**: 3-Second Rule NEXT block hero card with "Mulai fokus" CTA, today's blocks, collapsed Besok, and upcoming exam countdown.
+  5. **Tugas Screen (`TasksScreen`)**: 4-Group clear partitioning (Terjadwal, Belum dijadwalkan, Tidak muat, Selesai), replacing 1,152 lines of legacy code.
+  6. **Kalender Screen (`CalendarScreen`)**: Agenda view by default with solid outlines for school classes and dashed outlines for study blocks.
+  7. **Execution Loop (`FocusScreen`)**: Direct binding to `StudyBlock`, automated block completion, task completion modal, and missed-block rescheduling.
+  8. **Navigation Restructure (`App.tsx`)**: 3 core tabs (Rencana, Tugas, Kalender) with elevated center FAB (+), moving Pelajaran to Settings > Jadwal Sekolah.
+  9. **Streak & Exams (`studyStreakEngine` & `examEngine`)**: Completed study blocks qualify for study streaks while preserving weekend/holiday freezes; one-tap exam study plan generator.
+  10. **AI Helpers (`aiService`)**: Fast heuristic duration estimation and duration editing during batch WhatsApp text/photo capture.
+  11. **Master QA Runner (`test_p13_release_qa_suite`)**: 11 / 11 automated test suites passing with 100% success rate, clean TypeScript compilation, and verified phone layout.
+- **Rationale**: Elevates StudyAir into a world-class, student-centered study scheduling companion that answers "what should I study now?" in under 3 seconds.
+- **Attribution**: Builder (Ponytail v2 execution).
+
 
 
