@@ -716,10 +716,10 @@ export const radius = {
   xs: 6,
   sm: 10,
   md: 14,
-  card: 18, // Duolingo chunky card corners
-  cardLarge: 22, // Hero card corners
-  lg: 18,
-  xl: 22,
+  card: 20, // Modern o3 Space smooth card corners
+  cardLarge: 24, // Hero card corners
+  lg: 20,
+  xl: 24,
   full: 9999,
 } as const;
 

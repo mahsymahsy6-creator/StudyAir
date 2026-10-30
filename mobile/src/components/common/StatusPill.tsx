@@ -81,17 +81,16 @@ export function StatusPill({ label, variant = "gray", style }: StatusPillProps) 
 
 const styles = StyleSheet.create({
   pill: {
-    paddingHorizontal: tidySpacing.small,
-    paddingVertical: 4,
+    paddingHorizontal: tidySpacing.small + 2,
+    paddingVertical: 3,
     borderRadius: 9999,
-    borderWidth: 1.5,
-    borderBottomWidth: 2.5,
+    borderWidth: 1,
     alignSelf: "flex-start",
   },
   label: {
     fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.heavy,
-    letterSpacing: 0.3,
+    fontWeight: typography.fontWeights.bold,
+    letterSpacing: 0.2,
   },
 });
 

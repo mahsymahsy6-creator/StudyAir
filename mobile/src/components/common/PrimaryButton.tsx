@@ -76,25 +76,23 @@ const styles = StyleSheet.create({
   button: {
     height: touchTarget.min,
     borderRadius: 16,
-    borderBottomWidth: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: tidySpacing.medium,
   },
   pressed: {
-    transform: [{ translateY: 2 }],
-    borderBottomWidth: 2,
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
   },
   disabled: {
-    opacity: 0.6,
-    borderBottomWidth: 2,
+    opacity: 0.5,
   },
   label: {
     color: colors.textInverse,
     fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.heavy,
-    letterSpacing: 0.4,
+    fontWeight: typography.fontWeights.bold,
+    letterSpacing: 0.3,
   },
 });
 

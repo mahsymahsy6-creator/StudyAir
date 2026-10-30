@@ -180,13 +180,20 @@ This document records architectural, functional, and product decisions made for 
   10. **AI Helpers (`aiService`)**: Fast heuristic duration estimation and duration editing during batch WhatsApp text/photo capture.
   11. **Master QA Runner (`test_p13_release_qa_suite`)**: 11 / 11 automated test suites passing with 100% success rate, clean TypeScript compilation, and verified phone layout.
 - **Rationale**: Elevates StudyAir into a world-class, student-centered study scheduling companion that answers "what should I study now?" in under 3 seconds.
-### 2026-10-30: Symmetrical 4-Tab Navigation, Purple AI Feature Standard & Dynamic Theme Reactivity
-- **Decision**: 
-  1. **Symmetrical 4-Tab Bottom Navigation**: Flanked the elevated center `+` FAB with 2 tabs on the left (`Today` / Rencana, `Tasks` / Tugas) and 2 tabs on the right (`Subjects` / Pelajaran, `Calendar` / Kalender) with equal `flex: 1` distribution, placing the center action button at exactly 50% screen width. Kept the bottom bar persistently visible on all 4 tabs.
-  2. **Purple AI Standard Across All Features**: Standardized all AI features to theme purple tokens (`colors.accent`, `colors.accentBottom`, `colors.accentLight`, and `StatusPill variant="purple"|"ai"`). Replaced hardcoded values with dynamic design tokens so all AI indicators (Duration chips, NLP date hints, QuickActionSheet scan actions, Background scanner banner, Copilot modals, and AI badges) are consistently styled in purple.
-  3. **Zero-Hardcoded Theme Engine Reactivity**: Fixed theme switching reactivity by invoking `applyTheme` directly in `store.tsx` both on initial storage load and upon every `updateAppSettings({ theme })` change. Corrected `amethyst` accent tokens to purple, removed hardcoded hex values in `StreakScreen` and other components, and verified seamless real-time theme swapping across all themes (Midnight Navy, Emerald Forest, Amethyst Night, Sunset Flame, Sakura Coral, AMOLED Pitch Black, and Paper Daylight).
-- **Rationale**: Delivers a balanced, user-friendly bottom navigation bar, establishes a cohesive visual language for all Gemini AI capabilities, and ensures theme customizability is completely dynamic and non-destructive.
+### 2026-10-30: O3 Space UI Redesign & Clean Ergonomic Navigation (Ready-to-Deploy)
+- **Decision**: Redesigned the mobile application composition and aesthetics to match the calm, friendly, modern style of the study companion app "O3 Space" (O3: Study With Friends):
+  1. **Modern Visual Aesthetics**: Replaced chunky 3D borders (`borderWidth: 2`, `borderBottomWidth: 4`) across `Card.tsx`, `PrimaryButton.tsx`, `SecondaryButton.tsx`, `ListRow.tsx`, and `StatusPill.tsx` with smooth, sleek 1px hairline borders (`borderColor: colors.borderLight`), modern corner radii (20-24dp), and subtle scale/opacity touch feedback.
+  2. **HomeScreen Composition (O3 Space Core)**:
+     - **Hero Focus Presence Card**: Welcoming greeting with current streak flame and formatted date. Central hero card with instant 1-tap "Mulai Fokus" CTA (launches 25m Pomodoro or current study block), eliminating confusing empty-state blocks.
+     - **Jadwal Kelas Hari Ini Strip**: Horizontal chip scroll showing today's school schedule (`07:30 - 09:00 Matematika`, etc.), so students immediately see their day at a glance without having to drill into sub-tabs.
+     - **Tugas & PR Hari Ini Checklist**: Directly displays priority tasks due today with 1-tap checkable circular checkboxes.
+     - **AI Smart Assistant Card**: Prominently presents the automatic schedule generator in a clean purple card with "✨ Susun Jadwal Otomatis", rather than an intrusive error card.
+     - **Upcoming Exam Tracker**: Clean card with days-left countdown and purple "Buat Rencana Ujian" action.
+  3. **Bottom Navigation Polish**: Symmetrical bottom navigation with clear naming: `Hari Ini` (today icon), `Tugas` (checkbox icon), elevated purple center `+` FAB (Quick Action Sheet with purple AI badges), `Pelajaran` (book icon), and `Kalender` (calendar icon).
+  4. **Verification**: 100% test pass rate across all 11 test suites (`npm test`) and clean TypeScript checks (`npx tsc --noEmit`). Verified visually across all screens via browser testing.
+- **Rationale**: Eliminates cognitive overload and UI clutter, providing an intuitive, delightful, and calming study companion that is ready to deploy.
 - **Attribution**: Builder (per user request).
+
 
 
 

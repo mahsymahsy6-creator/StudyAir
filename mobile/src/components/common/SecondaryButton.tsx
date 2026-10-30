@@ -48,10 +48,8 @@ const styles = StyleSheet.create({
   button: {
     height: touchTarget.min,
     borderRadius: 16,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderBottomWidth: 4,
-    borderBottomColor: colors.borderBottom,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     backgroundColor: colors.surfaceSubtle,
     flexDirection: "row",
     alignItems: "center",
@@ -59,13 +57,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: tidySpacing.medium,
   },
   pressed: {
-    transform: [{ translateY: 2 }],
-    borderBottomWidth: 2,
+    transform: [{ scale: 0.98 }],
     backgroundColor: colors.surfaceHover,
   },
   disabled: {
     opacity: 0.5,
-    borderBottomWidth: 2,
   },
   label: {
     color: colors.textSecondary,

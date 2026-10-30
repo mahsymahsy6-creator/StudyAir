@@ -246,18 +246,18 @@ function MainApp() {
       {/* ─── v2 4-Tab Navigation Bar with Symmetrical Center '+' Action Button ─── */}
       {activeTab !== "TimetableWizard" && activeTab !== "Settings" && activeTab !== "Streak" && activeTab !== "Focus" && (
         <View style={styles.tabBar}>
-          {/* Tab 1: Rencana */}
+          {/* Tab 1: Hari Ini */}
           <Pressable
             style={[styles.tabItem, activeTab === "Today" && styles.tabItemActive]}
             onPress={() => handleNavigate("Today")}
           >
             <Ionicons
-              name={activeTab === "Today" ? "checkbox" : "checkbox-outline"}
+              name={activeTab === "Today" ? "today" : "today-outline"}
               size={22}
               color={activeTab === "Today" ? colors.primary : colors.textSecondary}
             />
             <Text style={[styles.tabLabel, activeTab === "Today" && styles.tabLabelActive]}>
-              {t("rencana_title") || "Rencana"}
+              {t("tabToday") || "Hari Ini"}
             </Text>
           </Pressable>
 
@@ -267,7 +267,7 @@ function MainApp() {
             onPress={() => handleNavigate("Tasks")}
           >
             <Ionicons
-              name={activeTab === "Tasks" ? "list" : "list-outline"}
+              name={activeTab === "Tasks" ? "checkbox" : "checkbox-outline"}
               size={22}
               color={activeTab === "Tasks" ? colors.primary : colors.textSecondary}
             />
@@ -445,10 +445,10 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: "row",
-    height: 70,
+    height: 68,
     backgroundColor: colors.surface,
-    borderTopWidth: 2,
-    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
     justifyContent: "space-around",
     alignItems: "center",
     paddingHorizontal: spacing.xs,
@@ -463,13 +463,13 @@ const styles = StyleSheet.create({
   tabItemActive: {},
   tabLabel: {
     fontSize: 11,
-    fontWeight: typography.fontWeights.bold,
+    fontWeight: typography.fontWeights.medium,
     color: colors.textSecondary,
     marginTop: 2,
   },
   tabLabelActive: {
     color: colors.primary,
-    fontWeight: typography.fontWeights.heavy,
+    fontWeight: typography.fontWeights.bold,
   },
   centerTabContainer: {
     width: 60,
@@ -477,21 +477,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   centerFab: {
-    marginTop: -24,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: colors.primary,
+    marginTop: -22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: colors.surface,
-    borderBottomWidth: 4.5,
-    borderBottomColor: colors.primaryBottom,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
     elevation: 6,
   },
   centerFabInner: {
