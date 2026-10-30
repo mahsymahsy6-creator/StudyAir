@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, Share } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, typography, touchTarget, spacing } from "../../theme";
@@ -6,11 +6,13 @@ import { StreakMilestone } from "../../lib/studyStreakEngine";
 import { AnimatedFlame } from "./AnimatedFlame";
 import { ConfettiCannon } from "./ConfettiCannon";
 import { HapticFeedback } from "../../lib/haptics";
+import { soundFX } from "../../lib/sound";
 
 interface StreakCelebrationModalProps {
   visible: boolean;
   milestone: StreakMilestone | null;
   currentStreak: number;
+  isSecretRevealed?: boolean;
   onClose: () => void;
 }
 
@@ -18,8 +20,16 @@ export function StreakCelebrationModal({
   visible,
   milestone,
   currentStreak,
+  isSecretRevealed = true,
   onClose,
 }: StreakCelebrationModalProps) {
+  useEffect(() => {
+    if (visible && milestone) {
+      HapticFeedback.celebration();
+      soundFX.playStreakMilestone(milestone.tier);
+    }
+  }, [visible, milestone]);
+
   if (!milestone) return null;
 
   const isRainbow = milestone.tier === "rainbow";
@@ -52,6 +62,7 @@ export function StreakCelebrationModal({
 
   const handleShare = async () => {
     HapticFeedback.light();
+    soundFX.playClick();
     try {
       await Share.share({
         message: `🔥 Saya baru saja mencapai streak belajar ${currentStreak} hari di StudyAir! Konsistensi belajar harian semakin membara. #StudyAir #StudyStreak`,
@@ -70,21 +81,29 @@ export function StreakCelebrationModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        {/* Full-Screen Confetti Cannon Burst */}
-        <ConfettiCannon active={visible} count={48} />
+        {/* Full-Screen Confetti Cannon Burst with Tier Palette */}
+        <ConfettiCannon active={visible} count={48} tier={milestone.tier} />
 
         <View style={[styles.card, { borderColor: `${tierColor}60` }]}>
           {/* Confetti / Aura decorative circles */}
           <View style={[styles.auraCircle, { backgroundColor: `${tierColor}15` }]} />
+
+          {/* Secret Revealed Banner */}
+          {isSecretRevealed && (
+            <View style={[styles.revealedBanner, { backgroundColor: tierColor }]}>
+              <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
+              <Text style={styles.revealedBannerText}>RAHASIA TERUNGKAP!</Text>
+            </View>
+          )}
 
           {/* Tier Pill */}
           <View style={[styles.tierPill, { backgroundColor: `${tierColor}20` }]}>
             <Text style={[styles.tierPillText, { color: tierColor }]}>{tierLabel}</Text>
           </View>
 
-          {/* Animated Glowing Flame Centerpiece */}
+          {/* Animated Glowing Flame Centerpiece with Tier Aura */}
           <View style={styles.flameCenterWrapper}>
-            <AnimatedFlame size={72} isLit={true} />
+            <AnimatedFlame size={72} isLit={true} tier={milestone.tier} />
           </View>
 
           {/* Milestone Number & Title */}
@@ -110,6 +129,7 @@ export function StreakCelebrationModal({
               ]}
               onPress={() => {
                 HapticFeedback.success();
+                soundFX.playClick();
                 onClose();
               }}
               hitSlop={touchTarget.min / 4}
@@ -162,6 +182,20 @@ const styles = StyleSheet.create({
     height: 260,
     borderRadius: 130,
     top: -60,
+  },
+  revealedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    marginBottom: spacing.xs,
+  },
+  revealedBannerText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 1,
   },
   tierPill: {
     paddingHorizontal: 12,

@@ -91,6 +91,7 @@ Cloud sync, social features, new analytics, Copilot chat, share-timetable (revis
 | - | Transformed "Subjects" into "Next Exams/Ulangan Selanjutnya" | `done` |
 | - | Whole-App Remaster (O3 Space Ergonomics & Zen Focus Loop) | `done` |
 | - | Duolingo Streak Remaster (Animated Flame, 7-Day Chain, Freeze Slots & Confetti) | `done` |
+| - | Streak Update: Sound FX, Tier Variations & Secret Milestones | `done` |
 
 ### Superseded Packets (v1)
 

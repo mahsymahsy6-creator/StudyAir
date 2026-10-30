@@ -2,10 +2,13 @@ import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Easing, ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { MilestoneTier } from "../../lib/studyStreakEngine";
+
 interface AnimatedFlameProps {
   size?: number;
   isLit?: boolean;
   isAtRisk?: boolean;
+  tier?: MilestoneTier;
   style?: ViewStyle;
 }
 
@@ -13,11 +16,13 @@ export function AnimatedFlame({
   size = 72,
   isLit = true,
   isAtRisk = false,
+  tier = "bronze",
   style,
 }: AnimatedFlameProps) {
   // Animation values
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const haloScaleAnim = useRef(new Animated.Value(1)).current;
+  const haloScaleAnim2 = useRef(new Animated.Value(1.1)).current;
   const haloOpacityAnim = useRef(new Animated.Value(0.35)).current;
   const sparkAnim1 = useRef(new Animated.Value(0)).current;
   const sparkAnim2 = useRef(new Animated.Value(0)).current;
@@ -117,17 +122,39 @@ export function AnimatedFlame({
       sparkLoop2.stop();
       sparkLoop3.stop();
     };
-  }, [isLit, isAtRisk]);
+  }, [isLit, isAtRisk, tier]);
 
-  const flameColor = isLit
-    ? isAtRisk
-      ? "#FF7A00" // Urgency fiery orange
-      : "#FF9600" // Duolingo iconic orange
-    : "#64748B";
+  // Tier color mapping
+  let flameColor = isLit ? "#FF9600" : "#64748B";
+  let haloColor = "rgba(255, 150, 0, 0.35)";
+  let sparkColor1 = "#FFC800";
+  let sparkColor2 = "#FF9600";
+  let sparkColor3 = "#FF4B4B";
 
-  const haloColor = isAtRisk
-    ? "rgba(255, 122, 0, 0.4)"
-    : "rgba(255, 150, 0, 0.35)";
+  if (isLit) {
+    if (isAtRisk) {
+      flameColor = "#FF7A00";
+      haloColor = "rgba(255, 122, 0, 0.45)";
+    } else if (tier === "rainbow") {
+      flameColor = "#8B5CF6";
+      haloColor = "rgba(139, 92, 246, 0.45)";
+      sparkColor1 = "#EC4899";
+      sparkColor2 = "#06B6D4";
+      sparkColor3 = "#F59E0B";
+    } else if (tier === "gold") {
+      flameColor = "#F59E0B";
+      haloColor = "rgba(245, 158, 11, 0.42)";
+      sparkColor1 = "#FEF08A";
+      sparkColor2 = "#F59E0B";
+      sparkColor3 = "#D97706";
+    } else if (tier === "silver") {
+      flameColor = "#06B6D4";
+      haloColor = "rgba(6, 182, 212, 0.4)";
+      sparkColor1 = "#38BDF8";
+      sparkColor2 = "#06B6D4";
+      sparkColor3 = "#E2E8F0";
+    }
+  }
 
   return (
     <View style={[styles.container, { width: size * 1.8, height: size * 1.8 }, style]}>
@@ -148,11 +175,28 @@ export function AnimatedFlame({
         />
       )}
 
+      {/* Secondary Cosmic Halo Ring for Gold & Rainbow */}
+      {isLit && (tier === "gold" || tier === "rainbow") && (
+        <Animated.View
+          style={[
+            styles.haloRing,
+            {
+              width: size * 1.9,
+              height: size * 1.9,
+              borderRadius: (size * 1.9) / 2,
+              backgroundColor: tier === "rainbow" ? "rgba(236, 72, 153, 0.25)" : "rgba(254, 240, 138, 0.25)",
+              transform: [{ scale: haloScaleAnim }],
+              opacity: haloOpacityAnim,
+            },
+          ]}
+        />
+      )}
       {/* Floating Spark Ember 1 */}
       {isLit && (
         <Animated.View
           style={[
             styles.spark,
+            { backgroundColor: sparkColor1 },
             {
               left: size * 0.45,
               transform: [
@@ -189,6 +233,7 @@ export function AnimatedFlame({
         <Animated.View
           style={[
             styles.spark,
+            { backgroundColor: sparkColor2 },
             {
               right: size * 0.45,
               transform: [
@@ -225,6 +270,7 @@ export function AnimatedFlame({
         <Animated.View
           style={[
             styles.spark,
+            { backgroundColor: sparkColor3 },
             {
               left: size * 0.7,
               transform: [

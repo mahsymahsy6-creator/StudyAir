@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Share,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,7 @@ import { StreakCelebrationModal } from "../components/streak/StreakCelebrationMo
 import { StreakDebugModal } from "../components/streak/StreakDebugModal";
 import { AnimatedFlame } from "../components/streak/AnimatedFlame";
 import { HapticFeedback } from "../lib/haptics";
+import { soundFX } from "../lib/sound";
 import { formatLocaleDate } from "../lib/dateUtils";
 
 interface StreakScreenProps {
@@ -31,6 +33,7 @@ const WEEKDAY_NAMES_SEN_MIN = ["SEN", "SEL", "RAB", "KAM", "JUM", "SAB", "MIN"];
 export function StreakScreen({ navigation }: StreakScreenProps) {
   const { streakState, triggerCelebration } = useMobileStudyStore();
   const [previewMilestone, setPreviewMilestone] = useState<StreakMilestone | null>(null);
+  const [secretClueMilestone, setSecretClueMilestone] = useState<StreakMilestone | null>(null);
   const [debugModalVisible, setDebugModalVisible] = useState(false);
   const [inspectedDay, setInspectedDay] = useState<StudyDay | null>(null);
 
@@ -47,16 +50,26 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
   } = streakState;
 
   const handleBadgePress = (milestone: StreakMilestone) => {
-    HapticFeedback.light();
-    setPreviewMilestone(milestone);
+    const isUnlocked = currentStreak >= milestone.days;
+    if (isUnlocked) {
+      soundFX.playClick();
+      HapticFeedback.light();
+      setPreviewMilestone(milestone);
+    } else {
+      soundFX.playMysteryClue();
+      HapticFeedback.mysteryClue();
+      setSecretClueMilestone(milestone);
+    }
   };
 
   const handleContinueStudy = () => {
+    soundFX.playClick();
     HapticFeedback.success();
     navigation.navigate("Today");
   };
 
   const handleShareStreak = async () => {
+    soundFX.playClick();
     HapticFeedback.light();
     try {
       await Share.share({
@@ -69,6 +82,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
   };
 
   const handleSelectDay = (day: StudyDay) => {
+    soundFX.playClick();
     HapticFeedback.light();
     if (inspectedDay?.date === day.date) {
       setInspectedDay(null);
@@ -272,17 +286,24 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <View style={[styles.sectionIconBadge, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="trophy" size={16} color={colors.primary} />
+                <Ionicons name="sparkles" size={16} color={colors.primary} />
               </View>
-              <Text style={styles.sectionTitle}>Target Pencapaian Berikutnya</Text>
+              <Text style={styles.sectionTitle}>Target Gelar Berikutnya</Text>
               <View style={styles.milestonePill}>
                 <Text style={styles.milestonePillText}>{nextMilestone.days} Hari</Text>
               </View>
             </View>
 
             <View style={styles.milestoneBody}>
-              <Text style={styles.milestoneTitle}>{nextMilestone.title}</Text>
-              <Text style={styles.milestoneDesc}>{nextMilestone.description}</Text>
+              <View style={styles.mysteryTeaserRow}>
+                <Ionicons name="lock-closed" size={18} color={getTierColor(nextMilestone.tier)} style={{ marginRight: 6 }} />
+                <Text style={styles.milestoneTitle}>
+                  {nextMilestone.days} Hari • Gelar Rahasia
+                </Text>
+              </View>
+              <Text style={styles.milestoneDesc}>
+                Gelar misterius tingkat {getTierName(nextMilestone.tier)} menantimu! Pertahankan streak selama {daysToNextMilestone} hari lagi untuk memecahkan segelnya.
+              </Text>
 
               {/* Duolingo Chunky Progress Bar with Gloss Highlight */}
               <View style={styles.progressBarWrapper}>
@@ -319,7 +340,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
             <Text style={styles.sectionTitle}>Masyarakat Streak (Streak Society)</Text>
           </View>
           <Text style={styles.sectionSubtitle}>
-            Ketuk lencana untuk melihat pratinjau animasi perayaan dan status piala.
+            Gelar yang belum diraih dirahasiakan! Ketuk lencana untuk melihat petunjuk atau pratinjau perayaan.
           </Text>
 
           <View style={styles.badgeGrid}>
@@ -333,6 +354,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
                   style={[
                     styles.badgeCard,
                     isUnlocked && styles.badgeCardUnlocked,
+                    !isUnlocked && styles.badgeCardLockedSecret,
                   ]}
                   onPress={() => handleBadgePress(m)}
                   hitSlop={touchTarget.min / 4}
@@ -360,7 +382,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
                     ]}
                     numberOfLines={1}
                   >
-                    {m.title}
+                    {isUnlocked ? m.title : "??? Rahasia"}
                   </Text>
 
                   <View
@@ -377,7 +399,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
                         isUnlocked ? { color: tierColor } : { color: colors.textMuted },
                       ]}
                     >
-                      {isUnlocked ? "TERBUKA" : "TERKUNCI"}
+                      {isUnlocked ? "TERBUKA" : "RAHASIA 🔒"}
                     </Text>
                   </View>
                 </Pressable>
@@ -425,8 +447,104 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
         visible={previewMilestone !== null}
         milestone={previewMilestone}
         currentStreak={previewMilestone ? previewMilestone.days : currentStreak}
+        isSecretRevealed={true}
         onClose={() => setPreviewMilestone(null)}
       />
+
+      {/* ─── Mystery Milestone Clue Modal ─── */}
+      <Modal
+        visible={secretClueMilestone !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSecretClueMilestone(null)}
+      >
+        <View style={styles.mysteryOverlay}>
+          <View
+            style={[
+              styles.mysteryCard,
+              { borderColor: `${getTierColor(secretClueMilestone?.tier || "bronze")}60` },
+            ]}
+          >
+            <View
+              style={[
+                styles.mysteryGlowCircle,
+                { backgroundColor: `${getTierColor(secretClueMilestone?.tier || "bronze")}20` },
+              ]}
+            >
+              <Ionicons
+                name="lock-closed"
+                size={36}
+                color={getTierColor(secretClueMilestone?.tier || "bronze")}
+              />
+            </View>
+
+            <View
+              style={[
+                styles.mysteryTagBadge,
+                { backgroundColor: `${getTierColor(secretClueMilestone?.tier || "bronze")}25` },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.mysteryTagText,
+                  { color: getTierColor(secretClueMilestone?.tier || "bronze") },
+                ]}
+              >
+                MILESTONE {secretClueMilestone?.days} HARI
+              </Text>
+            </View>
+
+            <Text style={styles.mysteryCardTitle}>Gelar Rahasia Terkunci</Text>
+            <Text style={styles.mysteryCardDesc}>
+              Nama, lambang ikon, dan kisah gelar ini masih dirahasiakan!
+            </Text>
+
+            <View style={styles.mysteryClueBox}>
+              <Ionicons
+                name="key"
+                size={16}
+                color={getTierColor(secretClueMilestone?.tier || "bronze")}
+                style={{ marginRight: 8, marginTop: 2 }}
+              />
+              <Text style={styles.mysteryClueText}>
+                Tingkat:{" "}
+                <Text
+                  style={{
+                    fontWeight: "bold",
+                    color: getTierColor(secretClueMilestone?.tier || "bronze"),
+                  }}
+                >
+                  {getTierName(secretClueMilestone?.tier || "bronze")}
+                </Text>
+                {"\n"}
+                Pertahankan apimu{" "}
+                <Text style={{ fontWeight: "bold", color: colors.text }}>
+                  {Math.max(0, (secretClueMilestone?.days || 0) - currentStreak)} hari
+                </Text>{" "}
+                lagi untuk membuka dan merayakan gelar ini!
+              </Text>
+            </View>
+
+            <Pressable
+              style={[
+                styles.mysteryBtn,
+                {
+                  backgroundColor: getTierColor(secretClueMilestone?.tier || "bronze"),
+                  borderBottomColor: getTierShadowColor(secretClueMilestone?.tier || "bronze"),
+                },
+              ]}
+              onPress={() => {
+                soundFX.playClick();
+                HapticFeedback.light();
+                setSecretClueMilestone(null);
+              }}
+              hitSlop={touchTarget.min / 4}
+            >
+              <Text style={styles.mysteryBtnText}>Siap Berjuang! 🔥</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       {/* ─── Streak Debug Menu & Simulator ─── */}
       <StreakDebugModal
@@ -448,6 +566,34 @@ function getTierColor(tier: MilestoneTier): string {
     case "bronze":
     default:
       return "#FF9600";
+  }
+}
+
+function getTierName(tier: MilestoneTier): string {
+  switch (tier) {
+    case "rainbow":
+      return "Legendaris Pelangi";
+    case "gold":
+      return "Emas Murni";
+    case "silver":
+      return "Perak Berkilau";
+    case "bronze":
+    default:
+      return "Perunggu Api";
+  }
+}
+
+function getTierShadowColor(tier: MilestoneTier): string {
+  switch (tier) {
+    case "rainbow":
+      return "#7C3AED";
+    case "gold":
+      return "#B45309";
+    case "silver":
+      return "#0284C7";
+    case "bronze":
+    default:
+      return "#D97706";
   }
 }
 
@@ -918,5 +1064,95 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.caption,
     color: colors.amber,
     fontWeight: typography.fontWeights.semibold,
+  },
+  // Mystery Secret Styles
+  badgeCardLockedSecret: {
+    borderStyle: "dashed",
+    borderColor: colors.borderLight,
+    opacity: 0.9,
+  },
+  mysteryTeaserRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  mysteryOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(11, 19, 43, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: spacing.lg,
+  },
+  mysteryCard: {
+    width: "100%",
+    maxWidth: 320,
+    backgroundColor: colors.surface,
+    borderRadius: radius.cardLarge,
+    borderWidth: 2,
+    padding: spacing.xl,
+    alignItems: "center",
+    position: "relative",
+  },
+  mysteryGlowCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm,
+  },
+  mysteryTagBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    marginBottom: spacing.xs,
+  },
+  mysteryTagText: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  mysteryCardTitle: {
+    fontSize: typography.fontSizes.section,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  mysteryCardDesc: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+  mysteryClueBox: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  mysteryClueText: {
+    flex: 1,
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    lineHeight: 19,
+  },
+  mysteryBtn: {
+    width: "100%",
+    height: 50,
+    borderRadius: radius.md,
+    borderBottomWidth: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mysteryBtnText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
   },
 });

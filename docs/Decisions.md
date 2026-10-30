@@ -242,3 +242,16 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Replaces static numeric cards with a playful, habit-forming, and visually rewarding daily streak loop inspired by Duolingo, increasing student retention and consistency.
 - **Attribution**: Builder (per user request).
 
+### 2026-10-30: Streak Update — Sound FX Synthesizer, Tier Variations & Secret Milestones
+- **Decision**: Enhanced the remastered Duolingo streak system with zero-asset audio synthesis, tier-calibrated animations, and secret mystery milestone mechanics:
+  1. **Web Audio API Synthesizer (`mobile/src/lib/sound.ts`)**: Built a zero-dependency, zero-latency synthesizer providing 4 distinctive milestone fanfare chord progressions (Bronze arpeggio, Silver electric fanfare, Gold triumphant brass chord, Rainbow cosmic harp glissando), mystery clue tones, and warm ignition crackles.
+  2. **Celebratory Rhythmic Haptics (`mobile/src/lib/haptics.ts`)**: Added `celebration` fanfare vibration rhythms, `mysteryClue` double micro-taps, and `mysteryReveal` pulse-to-burst patterns.
+  3. **Tier-Specific Animation Palettes**:
+     - `AnimatedFlame.tsx`: Dynamically adjusts flame color (Duolingo orange `#FF9600`, cyan plasma `#06B6D4`, radiant gold `#F59E0B`, prismatic violet `#8B5CF6`), halo expansions (dual planetary rings for Gold/Rainbow), and colorful spark embers.
+     - `ConfettiCannon.tsx`: Tailors particle color palettes to milestone tiers (`BRONZE_CONFETTI`, `SILVER_CONFETTI`, `GOLD_CONFETTI`, `RAINBOW_CONFETTI` with up to 60 particles).
+     - `StreakCelebrationModal.tsx`: Displays a celebratory **"🎉 RAHASIA TERUNGKAP! 🎉"** banner when discovering mystery milestones.
+  4. **Secret Milestones in "Masyarakat Streak" (`StreakScreen.tsx`)**: Locked milestones are concealed (`??? Rahasia`, mystery lock badge) rather than spoiled in advance. Tapping a locked milestone opens an interactive **Mystery Clue Modal** revealing tier hints and remaining days countdown with suspenseful audio and haptic feedback.
+  5. **Automated Verification**: Updated `test_p17_duolingo_streak_suite.mjs` verifying sound synthesizer methods, haptics, tier palettes, secret milestones, and clue interactions. All 15 master QA suites passing (100%), and 0 TypeScript errors.
+- **Rationale**: Turns milestone progression into an exciting, multi-sensory treasure hunt where students look forward to unlocking and hearing their next secret title.
+- **Attribution**: Builder (per user request).
+
