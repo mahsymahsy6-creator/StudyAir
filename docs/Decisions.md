@@ -204,3 +204,16 @@ This document records architectural, functional, and product decisions made for 
   6. **Automated Verification**: Created dedicated test suite `test_p14_today_tasks_remaster_suite.mjs` (8 tests) integrated into master QA runner (`test_p13_release_qa_suite.mjs`). All 12 test suites passing (100%), clean TypeScript build, and full browser E2E verification.
 - **Rationale**: Transforms the static task checklist into a vibrant, motivating daily execution center where students immediately know what is due, track progress toward 100%, and can jump straight into a focused study session in 1 tap.
 - **Attribution**: Builder (per user request).
+
+### 2026-10-30: Transformed "Subjects" Page into "Next Exams / Ulangan Selanjutnya"
+- **Decision**: Replaced the passive "Pelajaran" (Subjects) bottom navigation tab with a proactive, student-centric **"Ulangan" (Next Exams / Ulangan Selanjutnya)** companion (`ExamsScreen.tsx`):
+  1. **Bottom Navigation**: Tab 3 is renamed from "Pelajaran" (`book` icon) to "Ulangan" (`ribbon` icon), while preserving `SyllabusScreen` as an auxiliary screen so deep-links from **Pengaturan > Jadwal Sekolah & Mapel** remain fully functional without disrupting existing timetable management.
+  2. **Next Exam Hero Card**: Dynamically highlights the nearest upcoming exam (subject exam or multi-day exam event) with a days-left countdown badge (`Besok`, `N hari lagi`, `Sedang ujian`), topic mastery progress bar (`X / Y Topik Dikuasai • Z%`), and two direct actions:
+     - **`✨ Buat Rencana Ujian`**: Instant AI study plan generator that creates focused review (45m) and practice (60m) tasks in the Tugas tab.
+     - **`▶ Mulai Belajar`**: Instant focus timer launcher pre-selected for the subject.
+  3. **Filter Segment Tabs**: Clear separation between `Mendatang (N)` (sorted by nearest date) and `Riwayat (N)` (past exams marked "Selesai").
+  4. **Exam Creation & Editing (`AddExamSheet`)**: Fast modal supporting both Subject Exams (Ulangan Harian/Bab) with 1-tap date presets (`Besok`, `3 Hari`, `1 Minggu`, `2 Minggu`, `1 Bulan`) and Multi-Day Exam Events (PTS, PAS, UAS, Try Out).
+  5. **Exam Detail Sheet (`ExamDetailSheet`)**: Interactive bottom sheet displaying exam details, a checkable syllabus topic checklist (syncing with `studyUnits` in real time), "+ Tambah Materi", study plan generation, and focus session launching.
+  6. **Automated Verification**: Created dedicated test suite `test_p15_next_exams_screen_suite.mjs` (8 tests) integrated into master QA runner `test_p13_release_qa_suite.mjs` (all 13 suites passing cleanly with 100%), 0 TypeScript errors, and complete Playwright E2E browser verification.
+- **Rationale**: Transforms the app from a passive school schedule viewer into an actionable, empowering exam preparation partner that keeps students ahead of their exams and reduces test anxiety.
+- **Attribution**: Builder (per user request).

@@ -24,7 +24,9 @@ import {
   StudyBlock,
   SchedulePrefs,
   DEFAULT_SCHEDULE_PREFS,
+  ExamEvent,
 } from "./types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { INITIAL_SUBJECTS, INITIAL_STUDY_UNITS, INITIAL_BLOCKS } from "./mockData";
 import { getNextReviewDate } from "./engine/sm2";
 import { analyzeCognitiveLoad } from "./engine/cognitive-load";
@@ -153,6 +155,9 @@ interface MobileStudyContextType {
   toggleBlockCompletion: (id: string) => void;
   updateSchedulePrefs: (patch: Partial<SchedulePrefs>) => void;
   generateExamPlan: (exam: any, subjectId: string) => Task[];
+  examEvents: ExamEvent[];
+  addExamEvent: (data: Omit<ExamEvent, "id"> | ExamEvent) => ExamEvent;
+  deleteExamEvent: (id: string) => void;
 
   // Actions - Study Units & Focus
   addStudyUnit: (data: {
@@ -248,6 +253,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   const [dismissedWarningIds, setDismissedWarningIds] = useState<string[]>([]);
   const [activeFocusBlock, setActiveFocusBlock] =
     useState<ScheduledBlockWithDetails | null>(null);
+  const [examEvents, setExamEvents] = useState<ExamEvent[]>([]);
   const [isAIScanning, setIsAIScanning] = useState<boolean>(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isDatabaseReady, setIsDatabaseReady] = useState(false);
@@ -292,8 +298,15 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
           setGeminiApiKey(secureKey);
         }
 
-        // Setup notification channels on Android
-        await setupNotificationChannels();
+        // Load persistent exam events
+        try {
+          const savedExamEvents = await AsyncStorage.getItem("@studyair_exam_events_v2");
+          if (savedExamEvents) {
+            setExamEvents(JSON.parse(savedExamEvents));
+          }
+        } catch (err) {
+          console.warn("[Store] Error loading exam events from AsyncStorage:", err);
+        }
 
         setIsDatabaseReady(true);
       } catch (err) {
@@ -945,6 +958,31 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     return createdTasks;
   };
 
+  const addExamEvent = (data: Omit<ExamEvent, "id"> | ExamEvent): ExamEvent => {
+    const eventId = "id" in data && data.id ? data.id : `exam-event-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const newEvent: ExamEvent = {
+      id: eventId,
+      name: data.name,
+      startDate: data.startDate,
+      endDate: data.endDate || data.startDate,
+      description: data.description,
+    };
+    setExamEvents((prev) => {
+      const updated = [...prev.filter((e) => e.id !== newEvent.id), newEvent];
+      AsyncStorage.setItem("@studyair_exam_events_v2", JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+    return newEvent;
+  };
+
+  const deleteExamEvent = (id: string) => {
+    setExamEvents((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      AsyncStorage.setItem("@studyair_exam_events_v2", JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  };
+
   const addStudyUnit = (data: {
     subject_id: string;
     title: string;
@@ -1524,6 +1562,9 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         toggleBlockCompletion,
         updateSchedulePrefs,
         generateExamPlan,
+        examEvents,
+        addExamEvent,
+        deleteExamEvent,
         addStudyUnit,
         deleteStudyUnit,
         toggleStudyUnitCompletion,

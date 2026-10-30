@@ -15,6 +15,7 @@ import { HomeScreen } from "./src/screens/HomeScreen";
 import { TasksScreen } from "./src/screens/TasksScreen";
 import { CalendarScreen } from "./src/screens/CalendarScreen";
 import { SyllabusScreen } from "./src/screens/SyllabusScreen";
+import { ExamsScreen } from "./src/screens/ExamsScreen";
 import { AIScannerScreen } from "./src/screens/AIScannerScreen";
 import { TimetableWizardScreen } from "./src/screens/TimetableWizardScreen";
 import { FocusScreen } from "./src/screens/FocusScreen";
@@ -31,6 +32,7 @@ export type TabScreen =
   | "Today"
   | "Tasks"
   | "Calendar"
+  | "Exams"
   | "Subjects"
   | "Progress"
   | "AIScanner"
@@ -82,6 +84,7 @@ function MainApp() {
     if (norm === "home" || norm === "today" || norm === "rencana") target = "Today";
     else if (norm === "tasks" || norm === "tugas") target = "Tasks";
     else if (norm === "calendar" || norm === "kalender" || norm === "jadwal") target = "Calendar";
+    else if (norm === "exams" || norm === "ulangan" || norm === "ujian") target = "Exams";
     else if (norm === "syllabus" || norm === "subjects" || norm === "pelajaran" || norm === "mapel") {
       target = "Subjects";
       if (params?.initialDay !== undefined || params?.day !== undefined) {
@@ -109,6 +112,7 @@ function MainApp() {
     if (
       activeTab === "Today" ||
       activeTab === "Tasks" ||
+      activeTab === "Exams" ||
       activeTab === "Subjects" ||
       activeTab === "Calendar" ||
       activeTab === "Focus"
@@ -202,6 +206,11 @@ function MainApp() {
           <CalendarScreen navigation={navigation} />
         </View>
 
+        {/* Tab 3 / Screen: Exams / Ulangan */}
+        <View style={[styles.screenWrapper, activeTab !== "Exams" && styles.screenHidden]}>
+          <ExamsScreen navigation={navigation} />
+        </View>
+
         {/* Auxiliary Screen: Subjects */}
         <View style={[styles.screenWrapper, activeTab !== "Subjects" && styles.screenHidden]}>
           <SyllabusScreen
@@ -290,18 +299,18 @@ function MainApp() {
             </Pressable>
           </View>
 
-          {/* Tab 3: Pelajaran */}
+          {/* Tab 3: Ulangan (Next Exams) */}
           <Pressable
-            style={[styles.tabItem, activeTab === "Subjects" && styles.tabItemActive]}
-            onPress={() => handleNavigate("Subjects")}
+            style={[styles.tabItem, activeTab === "Exams" && styles.tabItemActive]}
+            onPress={() => handleNavigate("Exams")}
           >
             <Ionicons
-              name={activeTab === "Subjects" ? "book" : "book-outline"}
+              name={activeTab === "Exams" ? "ribbon" : "ribbon-outline"}
               size={22}
-              color={activeTab === "Subjects" ? colors.primary : colors.textSecondary}
+              color={activeTab === "Exams" ? colors.primary : colors.textSecondary}
             />
-            <Text style={[styles.tabLabel, activeTab === "Subjects" && styles.tabLabelActive]}>
-              {t("tabSubjects") || "Pelajaran"}
+            <Text style={[styles.tabLabel, activeTab === "Exams" && styles.tabLabelActive]}>
+              {t("tabExams") || "Ulangan"}
             </Text>
           </Pressable>
 

@@ -22,6 +22,7 @@ const suites = [
   { name: "P11 Streak Calibration & Exam Plans", file: join(__dirname, "test_p11_streak_exams_suite.mjs") },
   { name: "P12 AI Helpers (Duration & Batch Review)", file: join(__dirname, "test_p12_ai_helpers_suite.mjs") },
   { name: "P14 Today Tasks Remaster", file: join(__dirname, "test_p14_today_tasks_remaster_suite.mjs") },
+  { name: "P15 Next Exams (Ulangan Selanjutnya)", file: join(__dirname, "test_p15_next_exams_screen_suite.mjs") },
 ];
 
 console.log("==================================================");
