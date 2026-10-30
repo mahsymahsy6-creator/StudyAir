@@ -180,7 +180,13 @@ This document records architectural, functional, and product decisions made for 
   10. **AI Helpers (`aiService`)**: Fast heuristic duration estimation and duration editing during batch WhatsApp text/photo capture.
   11. **Master QA Runner (`test_p13_release_qa_suite`)**: 11 / 11 automated test suites passing with 100% success rate, clean TypeScript compilation, and verified phone layout.
 - **Rationale**: Elevates StudyAir into a world-class, student-centered study scheduling companion that answers "what should I study now?" in under 3 seconds.
-- **Attribution**: Builder (Ponytail v2 execution).
+### 2026-10-30: Symmetrical 4-Tab Navigation, Purple AI Feature Standard & Dynamic Theme Reactivity
+- **Decision**: 
+  1. **Symmetrical 4-Tab Bottom Navigation**: Flanked the elevated center `+` FAB with 2 tabs on the left (`Today` / Rencana, `Tasks` / Tugas) and 2 tabs on the right (`Subjects` / Pelajaran, `Calendar` / Kalender) with equal `flex: 1` distribution, placing the center action button at exactly 50% screen width. Kept the bottom bar persistently visible on all 4 tabs.
+  2. **Purple AI Standard Across All Features**: Standardized all AI features to theme purple tokens (`colors.accent`, `colors.accentBottom`, `colors.accentLight`, and `StatusPill variant="purple"|"ai"`). Replaced hardcoded values with dynamic design tokens so all AI indicators (Duration chips, NLP date hints, QuickActionSheet scan actions, Background scanner banner, Copilot modals, and AI badges) are consistently styled in purple.
+  3. **Zero-Hardcoded Theme Engine Reactivity**: Fixed theme switching reactivity by invoking `applyTheme` directly in `store.tsx` both on initial storage load and upon every `updateAppSettings({ theme })` change. Corrected `amethyst` accent tokens to purple, removed hardcoded hex values in `StreakScreen` and other components, and verified seamless real-time theme swapping across all themes (Midnight Navy, Emerald Forest, Amethyst Night, Sunset Flame, Sakura Coral, AMOLED Pitch Black, and Paper Daylight).
+- **Rationale**: Delivers a balanced, user-friendly bottom navigation bar, establishes a cohesive visual language for all Gemini AI capabilities, and ensures theme customizability is completely dynamic and non-destructive.
+- **Attribution**: Builder (per user request).
 
 
 
