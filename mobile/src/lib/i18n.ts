@@ -383,6 +383,14 @@ export const translations = {
     jadwal_diurungkan: "Schedule application reverted",
     diff_ganti_blok: "Will replace {old} existing blocks with {new} new blocks",
     tidak_ada_tugas_pending: "No active tasks to schedule",
+    // P6 Rencana keys
+    rencana_title: "Plan",
+    blok_selanjutnya: "Next Block",
+    tidak_ada_blok_hari_ini: "No study blocks scheduled for today",
+    semua_blok_selesai: "All study blocks for today completed!",
+    sisa_blok_hari_ini: "Remaining Blocks Today",
+    banner_tugas_belum_dijadwalkan: "You have {count} unscheduled tasks",
+    besok_summary: "Tomorrow: {classes} classes • {blocks} study blocks",
   },
   id: {
     appTitle: "StudyAir",
@@ -751,6 +759,14 @@ export const translations = {
     jadwal_diurungkan: "Penerapan jadwal dibatalkan",
     diff_ganti_blok: "Akan mengganti {old} blok sebelumnya dengan {new} blok baru",
     tidak_ada_tugas_pending: "Belum ada tugas aktif untuk dijadwalkan",
+    // P6 Rencana keys
+    rencana_title: "Rencana",
+    blok_selanjutnya: "Blok Berikutnya",
+    tidak_ada_blok_hari_ini: "Tidak ada blok belajar hari ini",
+    semua_blok_selesai: "Semua blok belajar hari ini selesai!",
+    sisa_blok_hari_ini: "Sisa Blok Hari Ini",
+    banner_tugas_belum_dijadwalkan: "Ada {count} tugas belum dijadwalkan",
+    besok_summary: "Besok: {classes} kelas • {blocks} blok belajar",
   },
 };
 
