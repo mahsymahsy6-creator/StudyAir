@@ -407,6 +407,15 @@ export const translations = {
     deadline_hari_ini: "Today!",
     deadline_besok: "Tomorrow",
     deadline_hari_lagi: "{days} days left",
+    // P8 Kalender keys
+    view_agenda: "Agenda",
+    view_garis_waktu: "Timeline",
+    view_bulan: "Month",
+    tidak_ada_jadwal_hari_ini: "No schedule for this date",
+    tenggat_tugas: "Task Deadline",
+    ujian_akademik: "Exam",
+    blok_belajar: "Study Block",
+    kelas_sekolah: "Class",
   },
   id: {
     appTitle: "StudyAir",
@@ -799,6 +808,15 @@ export const translations = {
     deadline_hari_ini: "Hari ini!",
     deadline_besok: "Besok",
     deadline_hari_lagi: "{days} hari lagi",
+    // P8 Kalender keys
+    view_agenda: "Agenda",
+    view_garis_waktu: "Garis Waktu",
+    view_bulan: "Bulan",
+    tidak_ada_jadwal_hari_ini: "Tidak ada jadwal untuk tanggal ini",
+    tenggat_tugas: "Tenggat Tugas",
+    ujian_akademik: "Ujian",
+    blok_belajar: "Blok Belajar",
+    kelas_sekolah: "Kelas",
   },
 };
 
