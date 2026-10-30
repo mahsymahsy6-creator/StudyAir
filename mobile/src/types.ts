@@ -149,6 +149,29 @@ export const DEFAULT_SCHEDULE_PREFS: SchedulePrefs = {
   },
 };
 
+export interface UnallocatedTask {
+  taskId: string;
+  taskTitle: string;
+  subjectId: string;
+  deadlineDate: string;
+  neededMinutes: number;
+  allocatedMinutes: number;
+  reason: "DEADLINE_TOO_SOON" | "SCHEDULE_FULL" | "ALREADY_PAST_DEADLINE";
+}
+
+export interface ScheduleResult {
+  blocks: StudyBlock[];
+  unallocated: UnallocatedTask[];
+  stats: {
+    totalTasks: number;
+    fullyScheduledCount: number;
+    partiallyScheduledCount: number;
+    unallocatedCount: number;
+    totalStudyMinutes: number;
+    totalFreeMinutes: number;
+  };
+}
+
 // ─── 5. Study Units & Focus Blocks (Internal Focus Engine) ───
 export interface StudyUnit {
   id: string;
