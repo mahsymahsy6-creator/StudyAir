@@ -229,3 +229,16 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Elevates StudyAir into a completely cohesive, calm, and distraction-free mobile study companion where every interaction feels deliberate, tactile, and effortless.
 - **Attribution**: Builder (per user request).
 
+### 2026-10-30: Duolingo-Style Streak Remaster (Animated Flame, 7-Day Flame Chain, Streak Freeze & Confetti)
+- **Decision**: Fully remastered the Study Streak experience across `StreakScreen.tsx`, `StreakCelebrationModal.tsx`, `ScreenHeader.tsx`, and dedicated animation components:
+  1. **Dual-Layer Animation Strategy**: Integrated `lottie-react-native` alongside pure React Native `Animated` physics (`AnimatedFlame.tsx` and `ConfettiCannon.tsx`) providing 60fps breathing scale springs, fiery expanding halos, floating embers, and 40+ multi-colored fluttering confetti particles that function natively and offline without asset-loading latency.
+  2. **Duolingo Flame Hero Stage**: Centered interactive flame with breathing spring, 64pt high-contrast streak number with 3D bottom bevel shadow, and encouraging dynamic subtitles ("Api belajarmu menyala!", "Streak kamu dalam bahaya!").
+  3. **Interactive 7-Day Flame Chain**: Tactile week strip (`SEN` to `MIN`) showing flame badges for studied days, dotted rings for pending days, and freeze icons for protected days. Tapping any day opens a tactile inspection popover displaying total study minutes and tasks completed.
+  4. **Equipped Streak Freeze (Perlindungan Streak)**: Added 2 equipped freeze slots ("Akhir Pekan" & "Hari Libur") styled with frosty blue ice crystals (`#38BDF8`) communicating automatic rest day protection.
+  5. **Tactile Duolingo 3D Button Aesthetic**: Buttons feature 2px solid borders with 4dp bottom extrusions (`borderBottomWidth: 4`, `#D97706` shadow) that compress down 2dp upon tap for an ultra-satisfying physical click feel.
+  6. **Full Celebration Modal with Confetti & Social Share**: Milestones (3d, 7d, 14d, 21d, 30d, 60d, 120d+) trigger a full-screen celebration modal with confetti explosion, pulsing flame, tiered badge, Duolingo 3D continue button, and native social sharing via `Share.share`.
+  7. **Header Streak Flame Pulse**: Added subtle, periodic breathing flame animation to the header streak badge in `ScreenHeader.tsx`.
+  8. **Automated Verification**: Created dedicated test suite `test_p17_duolingo_streak_suite.mjs` (6 tests) integrated into master QA runner `test_p13_release_qa_suite.mjs`. All 15 test suites passing cleanly with 100%, and 0 TypeScript errors (`npx tsc --noEmit`).
+- **Rationale**: Replaces static numeric cards with a playful, habit-forming, and visually rewarding daily streak loop inspired by Duolingo, increasing student retention and consistency.
+- **Attribution**: Builder (per user request).
+

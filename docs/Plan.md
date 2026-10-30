@@ -90,6 +90,7 @@ Cloud sync, social features, new analytics, Copilot chat, share-timetable (revis
 | - | Remastered Tugas & PR Hari Ini (Gamified Progress & 1-Tap Focus) | `done` |
 | - | Transformed "Subjects" into "Next Exams/Ulangan Selanjutnya" | `done` |
 | - | Whole-App Remaster (O3 Space Ergonomics & Zen Focus Loop) | `done` |
+| - | Duolingo Streak Remaster (Animated Flame, 7-Day Chain, Freeze Slots & Confetti) | `done` |
 
 ### Superseded Packets (v1)
 

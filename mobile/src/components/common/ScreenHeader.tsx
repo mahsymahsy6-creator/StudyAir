@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useRef, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, touchTarget, tidySpacing } from "../../theme";
 
@@ -33,6 +33,28 @@ export function ScreenHeader({
   onBack,
 }: ScreenHeaderProps) {
   const visibleActions = actions.slice(0, 2);
+
+  const flamePulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!streakText || isStreakAtRisk) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(flamePulse, {
+          toValue: 1.25,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flamePulse, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [streakText, isStreakAtRisk]);
 
   return (
     <View style={styles.container}>
@@ -81,24 +103,28 @@ export function ScreenHeader({
               accessibilityRole="button"
               accessibilityLabel={`Streak ${streakText}, ${isStreakAtRisk ? "terancam" : "aktif"}, ketuk untuk rincian`}
             >
-              <Ionicons
-                name={isStreakAtRisk ? "flame-outline" : "flame"}
-                size={14}
-                color={colors.amber}
-                style={{ marginRight: 3 }}
-              />
+              <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
+                <Ionicons
+                  name={isStreakAtRisk ? "flame-outline" : "flame"}
+                  size={14}
+                  color={colors.amber}
+                  style={{ marginRight: 3 }}
+                />
+              </Animated.View>
               <Text style={[styles.streakText, isStreakAtRisk && styles.streakTextAtRisk]}>
                 {streakText}
               </Text>
             </Pressable>
           ) : (
             <View style={[styles.streakBadge, isStreakAtRisk && styles.streakBadgeAtRisk]}>
-              <Ionicons
-                name={isStreakAtRisk ? "flame-outline" : "flame"}
-                size={14}
-                color={colors.amber}
-                style={{ marginRight: 3 }}
-              />
+              <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
+                <Ionicons
+                  name={isStreakAtRisk ? "flame-outline" : "flame"}
+                  size={14}
+                  color={colors.amber}
+                  style={{ marginRight: 3 }}
+                />
+              </Animated.View>
               <Text style={[styles.streakText, isStreakAtRisk && styles.streakTextAtRisk]}>
                 {streakText}
               </Text>

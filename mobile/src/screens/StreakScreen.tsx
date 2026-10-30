@@ -5,16 +5,19 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Share,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing, typography, touchTarget } from "../theme";
+import { colors, radius, spacing, typography, touchTarget, tidySpacing } from "../theme";
 import { useMobileStudyStore } from "../store";
 import { ScreenHeader } from "../components/common/ScreenHeader";
-import { PrimaryButton } from "../components/common/PrimaryButton";
-import { StreakMilestone, STREAK_MILESTONES, MilestoneTier } from "../lib/studyStreakEngine";
+import { StreakMilestone, STREAK_MILESTONES, MilestoneTier, StudyDay } from "../lib/studyStreakEngine";
 import { StreakCelebrationModal } from "../components/streak/StreakCelebrationModal";
 import { StreakDebugModal } from "../components/streak/StreakDebugModal";
+import { AnimatedFlame } from "../components/streak/AnimatedFlame";
+import { HapticFeedback } from "../lib/haptics";
+import { formatLocaleDate } from "../lib/dateUtils";
 
 interface StreakScreenProps {
   navigation: {
@@ -29,6 +32,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
   const { streakState, triggerCelebration } = useMobileStudyStore();
   const [previewMilestone, setPreviewMilestone] = useState<StreakMilestone | null>(null);
   const [debugModalVisible, setDebugModalVisible] = useState(false);
+  const [inspectedDay, setInspectedDay] = useState<StudyDay | null>(null);
 
   const {
     currentStreak,
@@ -43,11 +47,34 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
   } = streakState;
 
   const handleBadgePress = (milestone: StreakMilestone) => {
+    HapticFeedback.light();
     setPreviewMilestone(milestone);
   };
 
   const handleContinueStudy = () => {
+    HapticFeedback.success();
     navigation.navigate("Today");
+  };
+
+  const handleShareStreak = async () => {
+    HapticFeedback.light();
+    try {
+      await Share.share({
+        message: `🔥 Streak belajarku sudah mencapai ${currentStreak} hari di StudyAir! Konsistensi harian semakin membara. #StudyAir #StudyStreak`,
+        title: `Streak Belajar ${currentStreak} Hari`,
+      });
+    } catch {
+      // Ignore dismiss
+    }
+  };
+
+  const handleSelectDay = (day: StudyDay) => {
+    HapticFeedback.light();
+    if (inspectedDay?.date === day.date) {
+      setInspectedDay(null);
+    } else {
+      setInspectedDay(day);
+    }
   };
 
   return (
@@ -58,66 +85,51 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
         onBack={() => navigation.goBack()}
         actions={[
           {
+            icon: "share-social-outline",
+            accessibilityLabel: "Bagikan Streak",
+            onPress: handleShareStreak,
+          },
+          {
             icon: "construct-outline",
-            onPress: () => setDebugModalVisible(true),
             accessibilityLabel: "Menu Debug Streak",
+            onPress: () => setDebugModalVisible(true),
           },
         ]}
       />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ─── 1. Duolingo Flame Hero Stage ─── */}
         <View style={styles.heroStageCard}>
-          {/* Flame Halo Rings */}
-          <View
-            style={[
-              styles.flameHaloOuter,
-              todayStudied
-                ? styles.flameHaloOuterActive
-                : isAtRisk
-                ? styles.flameHaloOuterAtRisk
-                : styles.flameHaloOuterIdle,
-            ]}
-          >
-            <View
-              style={[
-                styles.flameCircleInner,
-                todayStudied
-                  ? styles.flameCircleInnerActive
-                  : isAtRisk
-                  ? styles.flameCircleInnerAtRisk
-                  : styles.flameCircleInnerIdle,
-              ]}
-            >
-              <Ionicons
-                name="flame"
-                size={58}
-                color={todayStudied ? "#FF9600" : isAtRisk ? "#FF9600" : "#64748B"}
-              />
-            </View>
+          {/* Animated Glowing Flame with Breathing Spring & Floating Embers */}
+          <View style={styles.flameHeroWrapper}>
+            <AnimatedFlame
+              size={84}
+              isLit={todayStudied || currentStreak > 0}
+              isAtRisk={isAtRisk}
+            />
           </View>
 
-          {/* Huge Duolingo Streak Number */}
+          {/* Huge Duolingo Streak Number with 3D Drop-Shadow */}
           <Text style={styles.heroStreakNumber}>{currentStreak}</Text>
           <Text style={styles.heroStreakCaps}>HARI STREAK</Text>
 
           {/* Dynamic Motivational Tagline */}
           <Text style={styles.heroStreakSub}>
             {todayStudied
-              ? "Kamu sedang membara! Streak belajarmu terus berkobar hari ini."
+              ? "🔥 Kamu sedang membara! Streak belajarmu terus berkobar hari ini."
               : isAtRisk
-              ? "Jangan biarkan apimu padam! Selesaikan 1 tugas atau fokus belajar hari ini."
+              ? "⚠️ Jangan biarkan apimu padam! Selesaikan 1 tugas atau sesi fokus sebelum 23:59."
               : todayStudyDay?.isFreeDay
-              ? "Hari ini hari libur. Streakmu otomatis terlindungi!"
-              : "Selesaikan tugas hari ini untuk mulai menyalakan apimu!"}
+              ? "❄️ Hari ini hari libur. Streakmu otomatis terlindungi!"
+              : "Ayo selesaikan sesi belajar hari ini untuk menyalakan apimu!"}
           </Text>
 
           {/* At-Risk Emergency Banner */}
           {isAtRisk && (
             <View style={styles.atRiskBanner}>
-              <Ionicons name="alert-circle" size={18} color="#FF9600" style={{ marginRight: 8 }} />
+              <Ionicons name="alert-circle" size={18} color="#FF7A00" style={{ marginRight: 8 }} />
               <Text style={styles.atRiskBannerText}>
-                Streak terancam! Belajar minimal 15 menit atau selesaikan 1 tugas sebelum 23:59.
+                Streak terancam padam! Belajar minimal 15 menit atau tuntaskan 1 tugas sebelum tengah malam.
               </Text>
             </View>
           )}
@@ -131,13 +143,49 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
           </View>
         </View>
 
-        {/* ─── 2. Duolingo Weekly Calendar Streak Ring ─── */}
+        {/* ─── 2. Duolingo Streak Freeze Equipped Slots (Perlindungan Streak) ─── */}
+        <View style={styles.freezeSectionCard}>
+          <View style={styles.freezeHeaderRow}>
+            <View style={styles.freezeIconBadge}>
+              <Ionicons name="shield-checkmark" size={16} color="#38BDF8" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.freezeSectionTitle}>Perlindungan Streak (Streak Freeze)</Text>
+              <Text style={styles.freezeSectionSub}>Otomatis aktif melindungi streakmu di akhir pekan & libur</Text>
+            </View>
+          </View>
+
+          {/* Two Equipped Frost Slots */}
+          <View style={styles.freezeSlotsRow}>
+            <View style={styles.freezeSlotCard}>
+              <View style={styles.freezeCrystalCircle}>
+                <Ionicons name="snow" size={22} color="#38BDF8" />
+              </View>
+              <Text style={styles.freezeSlotTitle}>Akhir Pekan</Text>
+              <View style={styles.freezeStatusPill}>
+                <Text style={styles.freezeStatusPillText}>DILINDUNGI</Text>
+              </View>
+            </View>
+
+            <View style={styles.freezeSlotCard}>
+              <View style={styles.freezeCrystalCircle}>
+                <Ionicons name="snow" size={22} color="#38BDF8" />
+              </View>
+              <Text style={styles.freezeSlotTitle}>Hari Libur</Text>
+              <View style={styles.freezeStatusPill}>
+                <Text style={styles.freezeStatusPillText}>DILINDUNGI</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── 3. Interactive Duolingo Weekly Calendar Streak Chain ─── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={[styles.sectionIconBadge, { backgroundColor: colors.amberLight }]}>
               <Ionicons name="calendar" size={16} color={colors.amber} />
             </View>
-            <Text style={styles.sectionTitle}>Kalender Minggu Ini</Text>
+            <Text style={styles.sectionTitle}>Rantai Streak Minggu Ini</Text>
             <Text style={styles.sectionMetaTag}>7 HARI</Text>
           </View>
 
@@ -145,9 +193,15 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
             {recentWeekDays.map((day, idx) => {
               const dayIndex = idx; // 0=Sen ... 6=Min
               const isToday = idx === (new Date().getDay() + 6) % 7;
+              const isSelected = inspectedDay?.date === day.date;
 
               return (
-                <View key={day.date} style={styles.weekDayCol}>
+                <Pressable
+                  key={day.date}
+                  style={[styles.weekDayCol, isSelected && styles.weekDayColSelected]}
+                  onPress={() => handleSelectDay(day)}
+                  hitSlop={touchTarget.min / 4}
+                >
                   <Text style={[styles.weekDayName, isToday && styles.weekDayNameToday]}>
                     {WEEKDAY_NAMES_SEN_MIN[dayIndex]}
                   </Text>
@@ -171,10 +225,30 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
                       <View style={styles.weekMedallionEmptyDot} />
                     )}
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
+
+          {/* Inspected Day Popover Card */}
+          {inspectedDay && (
+            <View style={styles.dayDetailCard}>
+              <View style={styles.dayDetailHeader}>
+                <Ionicons
+                  name={inspectedDay.hasStudied ? "flame" : inspectedDay.isFreeDay ? "snow" : "time-outline"}
+                  size={16}
+                  color={inspectedDay.hasStudied ? "#FF9600" : inspectedDay.isFreeDay ? "#38BDF8" : colors.textMuted}
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={styles.dayDetailTitle}>
+                  {inspectedDay.date} • {inspectedDay.hasStudied ? "Belajar Aktif" : inspectedDay.isFreeDay ? "Hari Libur" : "Belum Selesai"}
+                </Text>
+              </View>
+              <Text style={styles.dayDetailStats}>
+                ⏱️ {inspectedDay.minutes} menit fokus • 📝 {inspectedDay.tasksCompleted} tugas diselesaikan
+              </Text>
+            </View>
+          )}
 
           {/* Clean Legend Chips */}
           <View style={styles.weekLegendRow}>
@@ -183,31 +257,13 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
               <Text style={styles.legendLabel}>Belajar</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-              <Text style={styles.legendLabel}>Bebas / Libur</Text>
+              <View style={[styles.legendDot, { backgroundColor: "#38BDF8" }]} />
+              <Text style={styles.legendLabel}>Libur Dilindungi</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: colors.borderLight }]} />
               <Text style={styles.legendLabel}>Belum</Text>
             </View>
-          </View>
-        </View>
-
-        {/* ─── 3. Duolingo Streak Freeze (Perlindungan Streak) ─── */}
-        <View style={styles.freezeCard}>
-          <View style={styles.freezeIconBox}>
-            <Ionicons name="shield-checkmark" size={24} color="#38BDF8" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={styles.freezeTitle}>Perlindungan Streak Otomatis</Text>
-              <View style={styles.freezePill}>
-                <Text style={styles.freezePillText}>AKTIF</Text>
-              </View>
-            </View>
-            <Text style={styles.freezeDesc}>
-              StudyAir otomatis melindungi streakmu di akhir pekan dan tanggal merah agar kamu bisa beristirahat tanpa rasa cemas.
-            </Text>
           </View>
         </View>
 
@@ -228,7 +284,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
               <Text style={styles.milestoneTitle}>{nextMilestone.title}</Text>
               <Text style={styles.milestoneDesc}>{nextMilestone.description}</Text>
 
-              {/* Duolingo Chunky Progress Bar */}
+              {/* Duolingo Chunky Progress Bar with Gloss Highlight */}
               <View style={styles.progressBarWrapper}>
                 <View
                   style={[
@@ -237,7 +293,9 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
                       width: `${Math.max(milestoneProgressPercent, 5)}%`,
                     },
                   ]}
-                />
+                >
+                  <View style={styles.progressGlossHighlight} />
+                </View>
               </View>
 
               <View style={styles.progressLabelRow}>
@@ -252,7 +310,7 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
           </View>
         )}
 
-        {/* ─── 5. Duolingo Milestone Society Badges ─── */}
+        {/* ─── 5. Duolingo Milestone Society Badges (Masyarakat Streak) ─── */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeaderRow}>
             <View style={[styles.sectionIconBadge, { backgroundColor: colors.accentLight }]}>
@@ -328,19 +386,35 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
           </View>
         </View>
 
-        {/* ─── 6. Action Button & Debug Trigger ─── */}
+        {/* ─── 6. Duolingo 3D Action Buttons ─── */}
         <View style={styles.ctaContainer}>
-          <PrimaryButton
-            label={todayStudied ? "Lihat Jadwal & Tugas Hari Ini" : "🔥 Mulai Belajar & Amankan Streak"}
+          {/* Chunky 3D Continue Button */}
+          <Pressable
+            style={styles.duoPrimaryBtn}
             onPress={handleContinueStudy}
-          />
+          >
+            <Ionicons name="flame" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.duoPrimaryBtnText}>
+              {todayStudied ? "Lanjutkan Belajar Hari Ini" : "Mulai Belajar & Nyalakan Api 🔥"}
+            </Text>
+          </Pressable>
 
+          {/* Social Share Button */}
+          <Pressable
+            style={styles.duoShareBtn}
+            onPress={handleShareStreak}
+          >
+            <Ionicons name="share-social-outline" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
+            <Text style={styles.duoShareBtnText}>Bagikan Pencapaian Streak</Text>
+          </Pressable>
+
+          {/* Debug Menu */}
           <Pressable
             style={styles.debugTriggerBtn}
             onPress={() => setDebugModalVisible(true)}
             hitSlop={touchTarget.min / 4}
           >
-            <Ionicons name="construct" size={15} color="#FF9600" style={{ marginRight: 6 }} />
+            <Ionicons name="construct" size={14} color="#FF9600" style={{ marginRight: 6 }} />
             <Text style={styles.debugTriggerText}>Buka Menu Debug & Simulator Streak</Text>
           </Pressable>
         </View>
@@ -394,92 +468,52 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.card,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     borderBottomWidth: 4,
     borderBottomColor: colors.borderBottom,
     padding: spacing.lg,
     alignItems: "center",
   },
-  flameHaloOuter: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+  flameHeroWrapper: {
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2.5,
-    borderBottomWidth: 4.5,
-    marginBottom: spacing.md,
-  },
-  flameHaloOuterActive: {
-    backgroundColor: "rgba(255, 150, 0, 0.12)",
-    borderColor: colors.amber,
-    borderBottomColor: colors.amberBottom,
-  },
-  flameHaloOuterAtRisk: {
-    backgroundColor: "rgba(255, 150, 0, 0.18)",
-    borderColor: colors.amber,
-    borderBottomColor: colors.amberBottom,
-  },
-  flameHaloOuterIdle: {
-    backgroundColor: colors.surfaceSubtle,
-    borderColor: colors.border,
-    borderBottomColor: colors.borderBottom,
-  },
-  flameCircleInner: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  flameCircleInnerActive: {
-    backgroundColor: "rgba(255, 150, 0, 0.22)",
-  },
-  flameCircleInnerAtRisk: {
-    backgroundColor: "rgba(255, 150, 0, 0.25)",
-  },
-  flameCircleInnerIdle: {
-    backgroundColor: colors.surfaceHover,
+    marginBottom: spacing.xs,
   },
   heroStreakNumber: {
-    fontSize: 54,
+    fontSize: 64,
     fontWeight: "900",
     color: colors.text,
-    lineHeight: 58,
     letterSpacing: -1,
+    lineHeight: 68,
   },
   heroStreakCaps: {
-    fontSize: 13,
-    fontWeight: "900",
+    fontSize: typography.fontSizes.body,
+    fontWeight: "800",
     color: colors.amber,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     marginBottom: spacing.xs,
   },
   heroStreakSub: {
-    fontSize: typography.fontSizes.sm,
+    fontSize: typography.fontSizes.body,
     color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
-    paddingHorizontal: spacing.md,
-    marginTop: 4,
+    marginTop: 2,
+    maxWidth: 290,
   },
   atRiskBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 150, 0, 0.14)",
-    borderWidth: 1.5,
-    borderColor: colors.amber,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.amberBottom,
+    backgroundColor: "rgba(255, 122, 0, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 122, 0, 0.35)",
     borderRadius: radius.md,
-    padding: spacing.md,
+    padding: spacing.sm,
     marginTop: spacing.md,
-    marginHorizontal: spacing.xs,
   },
   atRiskBannerText: {
     flex: 1,
-    fontSize: typography.fontSizes.xs,
-    fontWeight: "700",
+    fontSize: typography.fontSizes.caption,
     color: colors.text,
     lineHeight: 18,
   },
@@ -487,188 +521,232 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     paddingHorizontal: 14,
     paddingVertical: 6,
+    borderRadius: radius.full,
     marginTop: spacing.md,
   },
   bestStreakText: {
-    fontSize: typography.fontSizes.xs,
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
-    fontWeight: "600",
+    fontWeight: typography.fontWeights.medium,
   },
   bestStreakNumber: {
-    color: colors.yellow,
-    fontWeight: "800",
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
   },
+  // Freeze Section
+  freezeSectionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    padding: spacing.md,
+  },
+  freezeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  freezeIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(56, 189, 248, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  freezeSectionTitle: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  freezeSectionSub: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  freezeSlotsRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  freezeSlotCard: {
+    flex: 1,
+    backgroundColor: "rgba(56, 189, 248, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.3)",
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: "center",
+  },
+  freezeCrystalCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(56, 189, 248, 0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.xs,
+  },
+  freezeSlotTitle: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  freezeStatusPill: {
+    backgroundColor: "rgba(56, 189, 248, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+  },
+  freezeStatusPillText: {
+    fontSize: 9,
+    fontWeight: typography.fontWeights.bold,
+    color: "#0284C7",
+    letterSpacing: 0.5,
+  },
+  // Week Card
   sectionCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.card,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderBottomWidth: 4,
-    borderBottomColor: colors.borderBottom,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     padding: spacing.md,
   },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: spacing.xs,
-    gap: 8,
+    marginBottom: spacing.sm,
   },
   sectionIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: spacing.sm,
   },
   sectionTitle: {
     flex: 1,
-    fontSize: typography.fontSizes.sm,
-    fontWeight: "800",
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
     color: colors.text,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: spacing.md,
-    marginTop: 2,
   },
   sectionMetaTag: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: typography.fontWeights.bold,
     color: colors.textMuted,
     backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 4,
+  },
+  sectionSubtitle: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    lineHeight: 18,
   },
   weekGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: spacing.sm,
-    paddingHorizontal: 2,
+    marginVertical: spacing.sm,
   },
   weekDayCol: {
     alignItems: "center",
-    gap: 6,
+    padding: 2,
+    borderRadius: radius.sm,
+  },
+  weekDayColSelected: {
+    backgroundColor: colors.surfaceSubtle,
   },
   weekDayName: {
-    fontSize: 11,
-    fontWeight: "800",
+    fontSize: 10,
+    fontWeight: typography.fontWeights.bold,
     color: colors.textMuted,
-    letterSpacing: 0.5,
+    marginBottom: 6,
   },
   weekDayNameToday: {
-    color: colors.amber,
+    color: colors.primary,
   },
   weekMedallion: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 2,
-    borderBottomWidth: 3.5,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surfaceSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   weekMedallionStudied: {
     backgroundColor: colors.amber,
-    borderColor: colors.amber,
-    borderBottomColor: colors.amberBottom,
+    borderColor: colors.amberBottom,
   },
   weekMedallionFree: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
-    borderBottomColor: colors.primaryBottom,
+    backgroundColor: "rgba(56, 189, 248, 0.15)",
+    borderColor: "#38BDF8",
   },
   weekMedallionTodayPending: {
-    backgroundColor: colors.surfaceSubtle,
     borderColor: colors.amber,
-    borderBottomColor: colors.amberBottom,
+    borderStyle: "dashed",
   },
   weekMedallionMissed: {
     backgroundColor: colors.surfaceSubtle,
-    borderColor: colors.border,
-    borderBottomColor: colors.borderBottom,
+    borderColor: colors.borderLight,
   },
   weekMedallionEmptyDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.textMuted,
+    backgroundColor: colors.borderLight,
+  },
+  dayDetailCard: {
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  dayDetailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  dayDetailTitle: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  dayDetailStats: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
   },
   weekLegendRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: spacing.lg,
-    marginTop: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
+    marginTop: spacing.sm,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
   },
   legendDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginRight: 6,
   },
   legendLabel: {
     fontSize: 11,
     color: colors.textSecondary,
-    fontWeight: "600",
   },
-  freezeCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.card,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderBottomWidth: 4,
-    borderBottomColor: colors.primaryBottom,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  freezeIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  freezeTitle: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: "800",
-    color: colors.text,
-  },
-  freezePill: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  freezePillText: {
-    fontSize: 9,
-    fontWeight: "900",
-    color: colors.textInverse,
-    letterSpacing: 0.5,
-  },
-  freezeDesc: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    lineHeight: 16,
-    marginTop: 2,
-  },
+  // Milestones
   milestonePill: {
     backgroundColor: colors.primaryLight,
     paddingHorizontal: 8,
@@ -676,36 +754,46 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
   },
   milestonePillText: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
     color: colors.primary,
   },
   milestoneBody: {
     marginTop: spacing.xs,
   },
   milestoneTitle: {
-    fontSize: typography.fontSizes.section,
-    fontWeight: "800",
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
     color: colors.text,
+    marginBottom: 2,
   },
   milestoneDesc: {
-    fontSize: 12,
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginBottom: spacing.md,
   },
   progressBarWrapper: {
-    height: 10,
+    height: 14,
     backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.full,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    marginTop: spacing.md,
+    borderRadius: 7,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   progressFill: {
     height: "100%",
-    backgroundColor: colors.amber,
-    borderRadius: radius.full,
+    backgroundColor: colors.primary,
+    borderRadius: 7,
+    position: "relative",
+  },
+  progressGlossHighlight: {
+    position: "absolute",
+    top: 1,
+    left: 4,
+    right: 4,
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.35)",
+    borderRadius: 2,
   },
   progressLabelRow: {
     flexDirection: "row",
@@ -714,99 +802,121 @@ const styles = StyleSheet.create({
   },
   progressLabelLeft: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: typography.fontWeights.semibold,
     color: colors.textSecondary,
   },
   progressLabelRight: {
     fontSize: 11,
-    fontWeight: "800",
-    color: colors.amber,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
   },
+  // Badges Grid
   badgeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "space-between",
     gap: spacing.sm,
-    marginTop: spacing.xs,
   },
   badgeCard: {
     width: "48%",
     backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderBottomWidth: 3.5,
-    borderBottomColor: colors.borderBottom,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     padding: spacing.md,
     alignItems: "center",
   },
   badgeCardUnlocked: {
     backgroundColor: colors.surface,
-    borderColor: colors.amber,
-    borderBottomColor: colors.amberBottom,
+    borderColor: colors.borderLight,
   },
   badgeIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: spacing.xs,
   },
   badgeIconBoxLocked: {
-    backgroundColor: colors.surfaceHover,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceSubtle,
+    borderColor: colors.borderLight,
   },
   badgeDaysNumber: {
-    fontSize: typography.fontSizes.sm,
-    fontWeight: "900",
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
     color: colors.text,
     marginTop: 2,
   },
   badgeTitleText: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.semibold,
     color: colors.textSecondary,
-    textAlign: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
   badgeTitleTextLocked: {
     color: colors.textMuted,
   },
   badgeStatusPill: {
-    marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.full,
+    marginTop: 6,
   },
   badgeStatusPillLocked: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surfaceSubtle,
   },
   badgeStatusText: {
     fontSize: 9,
-    fontWeight: "800",
+    fontWeight: typography.fontWeights.bold,
     letterSpacing: 0.5,
   },
+  // CTA
   ctaContainer: {
+    gap: spacing.sm,
     marginTop: spacing.xs,
-    marginBottom: spacing.xl,
-    gap: 10,
+  },
+  duoPrimaryBtn: {
+    height: 54,
+    backgroundColor: colors.amber,
+    borderRadius: radius.md,
+    borderBottomWidth: 4,
+    borderBottomColor: colors.amberBottom,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+  },
+  duoPrimaryBtnText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
+  },
+  duoShareBtn: {
+    height: 48,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  duoShareBtnText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
   },
   debugTriggerBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.amber,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.amberBottom,
+    paddingVertical: spacing.sm,
   },
   debugTriggerText: {
-    fontSize: 12.5,
-    fontWeight: "700",
-    color: colors.text,
+    fontSize: typography.fontSizes.caption,
+    color: colors.amber,
+    fontWeight: typography.fontWeights.semibold,
   },
 });

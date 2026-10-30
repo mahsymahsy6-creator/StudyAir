@@ -24,6 +24,7 @@ const suites = [
   { name: "P14 Today Tasks Remaster", file: join(__dirname, "test_p14_today_tasks_remaster_suite.mjs") },
   { name: "P15 Next Exams (Ulangan Selanjutnya)", file: join(__dirname, "test_p15_next_exams_screen_suite.mjs") },
   { name: "P16 Whole App Remaster", file: join(__dirname, "test_p16_whole_app_remaster_suite.mjs") },
+  { name: "P17 Duolingo Streak Remaster", file: join(__dirname, "test_p17_duolingo_streak_suite.mjs") },
 ];
 
 console.log("==================================================");
