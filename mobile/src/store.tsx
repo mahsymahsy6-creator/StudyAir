@@ -141,7 +141,10 @@ interface MobileStudyContextType {
   // Actions - v2 Study Blocks & Schedule Prefs
   studyBlocks: StudyBlock[];
   schedulePrefs: SchedulePrefs;
+  lastScheduleBackup: StudyBlock[] | null;
   setStudyBlocks: (blocks: StudyBlock[]) => void;
+  applySchedule: (newBlocks: StudyBlock[]) => void;
+  undoLastSchedule: () => boolean;
   addStudyBlock: (block: Omit<StudyBlock, "id" | "status" | "createdAt">) => StudyBlock;
   updateStudyBlock: (id: string, patch: Partial<StudyBlock>) => void;
   deleteStudyBlock: (id: string) => void;
@@ -232,6 +235,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [studyBlocks, setStudyBlocks] = useState<StudyBlock[]>([]);
+  const [lastScheduleBackup, setLastScheduleBackup] = useState<StudyBlock[] | null>(null);
   const [schedulePrefs, setSchedulePrefs] = useState<SchedulePrefs>(DEFAULT_SCHEDULE_PREFS);
   const [studyUnits, setStudyUnits] = useState<StudyUnit[]>(INITIAL_STUDY_UNITS);
   const [blocks, setBlocks] = useState<ScheduledBlock[]>(INITIAL_BLOCKS);
@@ -863,6 +867,18 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     setStudyBlocks(blocks);
   };
 
+  const applySchedule = (newBlocks: StudyBlock[]) => {
+    setLastScheduleBackup([...studyBlocks]);
+    setStudyBlocks(newBlocks);
+  };
+
+  const undoLastSchedule = (): boolean => {
+    if (!lastScheduleBackup) return false;
+    setStudyBlocks([...lastScheduleBackup]);
+    setLastScheduleBackup(null);
+    return true;
+  };
+
   const addStudyBlock = (block: Omit<StudyBlock, "id" | "status" | "createdAt">): StudyBlock => {
     const newBlock: StudyBlock = {
       ...block,
@@ -1473,7 +1489,10 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         toggleTaskCompletion,
         studyBlocks,
         schedulePrefs,
+        lastScheduleBackup,
         setStudyBlocks: handleSetStudyBlocks,
+        applySchedule,
+        undoLastSchedule,
         addStudyBlock,
         updateStudyBlock,
         deleteStudyBlock,
