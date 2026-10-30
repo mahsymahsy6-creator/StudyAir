@@ -114,4 +114,17 @@ export const HapticFeedback = {
       }
     }
   },
+
+  /**
+   * Playful spark micro-vibration for tapping streak companion mascot
+   */
+  streakSparkle: () => {
+    if (Platform.OS === "android" || Platform.OS === "ios") {
+      try {
+        Vibration.vibrate([0, 18, 30, 22]);
+      } catch {
+        // Safe fallback
+      }
+    }
+  },
 };

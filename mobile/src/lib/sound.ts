@@ -8,7 +8,7 @@
  * - UI tap sounds
  */
 
-import { MilestoneTier } from "./studyStreakEngine";
+import { MilestoneTier, MascotStageId } from "./studyStreakEngine";
 
 class SoundFX {
   private ctx: any | null = null;
@@ -215,6 +215,98 @@ class SoundFX {
 
       osc.start(now);
       osc.stop(now + 0.22);
+    } catch {
+      // Fallback
+    }
+  }
+
+  /**
+   * Interactive sounds when tapping on the evolving dragon mascot
+   */
+  playMascotInteraction(stageId: MascotStageId = "egg"): void {
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+
+      if (stageId === "deity") {
+        // Celestial cosmic sweep
+        const freqs = [523.25, 783.99, 1046.5, 1318.51, 1567.98];
+        freqs.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+          gain.gain.setValueAtTime(0, now + idx * 0.08);
+          gain.gain.linearRampToValueAtTime(0.15, now + idx * 0.08 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.08 + 0.7);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.75);
+        });
+      } else if (stageId === "winged") {
+        // Resonant dragon roar / flame breath whoosh
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.linearRampToValueAtTime(440, now + 0.15);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.45);
+
+        gain.gain.setValueAtTime(0.02, now);
+        gain.gain.linearRampToValueAtTime(0.16, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.52);
+      } else if (stageId === "baby") {
+        // Cheerful baby dragon chirp / double ascending tweet
+        [600, 920].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.09);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.3, now + idx * 0.09 + 0.07);
+
+          gain.gain.setValueAtTime(0.02, now + idx * 0.09);
+          gain.gain.linearRampToValueAtTime(0.14, now + idx * 0.09 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.12);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + idx * 0.09);
+          osc.stop(now + idx * 0.09 + 0.14);
+        });
+      } else {
+        // Egg: cute rhythmic shell tap
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.06);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.065);
+      }
     } catch {
       // Fallback
     }

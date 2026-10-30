@@ -15,6 +15,86 @@ import { parseLocalMidnight } from "./dateUtils";
 
 export type MilestoneTier = "bronze" | "silver" | "gold" | "rainbow";
 
+export type MascotStageId = "egg" | "baby" | "winged" | "deity";
+
+export interface MascotStage {
+  id: MascotStageId;
+  stageNumber: number;
+  name: string;
+  minDays: number;
+  maxDays: number;
+  iconName: string;
+  emoji: string;
+  tagline: string;
+  lore: string;
+  themeColor: string;
+}
+
+export const MASCOT_STAGES: MascotStage[] = [
+  {
+    id: "egg",
+    stageNumber: 1,
+    name: "Telur Naga Api",
+    minDays: 0,
+    maxDays: 6,
+    iconName: "egg",
+    emoji: "🥚",
+    tagline: "Telur naga apimu mulai hangat!",
+    lore: "Belajar konsisten hingga 7 hari untuk memecahkan cangkang dan menetaskannya.",
+    themeColor: "#FF9600",
+  },
+  {
+    id: "baby",
+    stageNumber: 2,
+    name: "Anak Naga Api",
+    minDays: 7,
+    maxDays: 29,
+    iconName: "sparkles",
+    emoji: "🐲",
+    tagline: "Anak naga telah menetas dan lincah!",
+    lore: "Terus beri makan dengan sesi belajar harian hingga hari ke-30 untuk menumbuhkan sayap megahnya.",
+    themeColor: "#06B6D4",
+  },
+  {
+    id: "winged",
+    stageNumber: 3,
+    name: "Naga Bersayap",
+    minDays: 30,
+    maxDays: 99,
+    iconName: "shield-checkmark",
+    emoji: "🐉",
+    tagline: "Naga apimu terbang tinggi perkasa!",
+    lore: "Kepakan sayap apimu semakin dahsyat. Menuju hari ke-100 untuk mencapai wujud dewa abadi.",
+    themeColor: "#F59E0B",
+  },
+  {
+    id: "deity",
+    stageNumber: 4,
+    name: "Dewa Phoenix Kosmik",
+    minDays: 100,
+    maxDays: Infinity,
+    iconName: "infinite",
+    emoji: "✨",
+    tagline: "Wujud ilahi naga phoenix kosmik!",
+    lore: "Konsistensi legendaris tanpa tanding. Apimu telah menjadi bagian dari rasi bintang abadi.",
+    themeColor: "#CE82FF",
+  },
+];
+
+export function getMascotStage(days: number): MascotStage {
+  if (days >= 100) return MASCOT_STAGES[3];
+  if (days >= 30) return MASCOT_STAGES[2];
+  if (days >= 7) return MASCOT_STAGES[1];
+  return MASCOT_STAGES[0];
+}
+
+export function getNextMascotStage(days: number): MascotStage | null {
+  if (days < 7) return MASCOT_STAGES[1];
+  if (days < 30) return MASCOT_STAGES[2];
+  if (days < 100) return MASCOT_STAGES[3];
+  return null;
+}
+
 export interface StreakMilestone {
   days: number;
   id: string;

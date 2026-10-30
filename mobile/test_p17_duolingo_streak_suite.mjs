@@ -46,18 +46,18 @@ const modalPath = path.join(__dirname, "src/components/streak/StreakCelebrationM
 assert(fs.existsSync(modalPath), "StreakCelebrationModal.tsx must exist");
 const modalContent = fs.readFileSync(modalPath, "utf-8");
 assert(modalContent.includes("ConfettiCannon"), "StreakCelebrationModal must include ConfettiCannon");
-assert(modalContent.includes("AnimatedFlame"), "StreakCelebrationModal must include AnimatedFlame");
+assert(modalContent.includes("StreakEvolutionMascot"), "StreakCelebrationModal must include StreakEvolutionMascot");
 assert(modalContent.includes("Share.share"), "StreakCelebrationModal must support social sharing");
 assert(modalContent.includes("borderBottomWidth: 4") || modalContent.includes("btn3D"), "StreakCelebrationModal must have Duolingo 3D button styling");
 assert(modalContent.includes("soundFX"), "StreakCelebrationModal must trigger celebratory soundFX");
-assert(modalContent.includes("RAHASIA TERUNGKAP"), "StreakCelebrationModal must include secret revealed badge");
+assert(modalContent.includes("RAHASIA TERUNGKAP") || modalContent.includes("EVOLUSI MASKOT"), "StreakCelebrationModal must include secret/evolution badge");
 console.log("✓ StreakCelebrationModal verified with Confetti, Sound & Revealed styling");
 
 // 4. Verify StreakScreen Duolingo Remaster & Secret Milestones
 const screenPath = path.join(__dirname, "src/screens/StreakScreen.tsx");
 assert(fs.existsSync(screenPath), "StreakScreen.tsx must exist");
 const screenContent = fs.readFileSync(screenPath, "utf-8");
-assert(screenContent.includes("AnimatedFlame"), "StreakScreen must include AnimatedFlame");
+assert(screenContent.includes("StreakEvolutionMascot"), "StreakScreen must include StreakEvolutionMascot");
 assert(screenContent.includes("Perlindungan Streak") || screenContent.includes("Streak Freeze"), "StreakScreen must show Streak Freeze slots");
 assert(screenContent.includes("SEN") && screenContent.includes("MIN"), "StreakScreen must show 7-day flame chain");
 assert(screenContent.includes("Share.share"), "StreakScreen must support sharing achievement");
@@ -65,15 +65,17 @@ assert(screenContent.includes("inspectedDay"), "StreakScreen must have tactile d
 assert(screenContent.includes("??? Rahasia"), "StreakScreen must conceal locked milestone titles");
 assert(screenContent.includes("RAHASIA 🔒") || screenContent.includes("secretClueMilestone"), "StreakScreen must flag secret locked milestones");
 assert(screenContent.includes("mysteryOverlay") || screenContent.includes("mysteryCard"), "StreakScreen must render mystery clue modal");
-console.log("✓ StreakScreen remastered with 7-day chain, freeze slots & secret milestones verified");
+assert(screenContent.includes("Evolusi Maskot") || screenContent.includes("evolutionCard"), "StreakScreen must show mascot evolution tracker");
+console.log("✓ StreakScreen remastered with mascot hero, 7-day chain, freeze slots & secret milestones verified");
 
-// 5. Verify ScreenHeader streak flame animation
+// 5. Verify ScreenHeader streak flame and dynamic mascot animation
 const headerPath = path.join(__dirname, "src/components/common/ScreenHeader.tsx");
 assert(fs.existsSync(headerPath), "ScreenHeader.tsx must exist");
 const headerContent = fs.readFileSync(headerPath, "utf-8");
 assert(headerContent.includes("flamePulse"), "ScreenHeader must have flamePulse animated value");
 assert(headerContent.includes("streakBadge"), "ScreenHeader must apply flame animation to streak badge");
-console.log("✓ ScreenHeader breathing streak flame verified");
+assert(headerContent.includes("getMascotStage"), "ScreenHeader must dynamically resolve mascot emoji for streak count");
+console.log("✓ ScreenHeader breathing streak flame and mascot badge verified");
 
 // 6. Test Study Streak Engine invariants
 const enginePath = path.join(__dirname, "src/lib/studyStreakEngine.ts");
@@ -83,7 +85,10 @@ assert(engineContent.includes("calculateStreak"), "studyStreakEngine must export
 assert(engineContent.includes("deriveStudyDay"), "studyStreakEngine must export deriveStudyDay");
 assert(engineContent.includes("isFreeDay") || engineContent.includes("isRequiredDay"), "studyStreakEngine must support free day / weekend freeze");
 assert(engineContent.includes("isAtRisk"), "studyStreakEngine must track streak at-risk status");
-console.log("✓ Study streak engine calculation invariants verified");
+assert(engineContent.includes("MASCOT_STAGES"), "studyStreakEngine must export MASCOT_STAGES");
+assert(engineContent.includes("getMascotStage"), "studyStreakEngine must export getMascotStage");
+assert(engineContent.includes("getNextMascotStage"), "studyStreakEngine must export getNextMascotStage");
+console.log("✓ Study streak engine calculation invariants and mascot evolution stages verified");
 
 // 7. Test Sound FX Synthesizer
 const soundPath = path.join(__dirname, "src/lib/sound.ts");
@@ -93,7 +98,8 @@ assert(soundContent.includes("playStreakMilestone"), "sound.ts must export playS
 assert(soundContent.includes("playMysteryClue"), "sound.ts must export playMysteryClue");
 assert(soundContent.includes("playMysteryUnlockReveal"), "sound.ts must export playMysteryUnlockReveal");
 assert(soundContent.includes("playFlameIgnite"), "sound.ts must export playFlameIgnite");
-console.log("✓ Sound FX synthesizer verified");
+assert(soundContent.includes("playMascotInteraction"), "sound.ts must export playMascotInteraction for interactive mascot audio");
+console.log("✓ Sound FX synthesizer with mascot interaction sounds verified");
 
 // 8. Test Celebratory Haptics
 const hapticsPath = path.join(__dirname, "src/lib/haptics.ts");
@@ -104,4 +110,17 @@ assert(hapticsContent.includes("mysteryClue"), "haptics.ts must export mysteryCl
 assert(hapticsContent.includes("mysteryReveal"), "haptics.ts must export mysteryReveal");
 console.log("✓ Celebratory haptics patterns verified");
 
-console.log("🎉 P17 Duolingo Streak Remaster test suite passed 100%!");
+// 9. Verify StreakEvolutionMascot component file & 4 evolution stages
+const mascotPath = path.join(__dirname, "src/components/streak/StreakEvolutionMascot.tsx");
+assert(fs.existsSync(mascotPath), "StreakEvolutionMascot.tsx must exist");
+const mascotContent = fs.readFileSync(mascotPath, "utf-8");
+assert(mascotContent.includes("export function StreakEvolutionMascot"), "StreakEvolutionMascot must be exported");
+assert(mascotContent.includes('currentStage.id === "egg"') || mascotContent.includes("eggContainer"), "StreakEvolutionMascot must render Egg stage (1-6 days)");
+assert(mascotContent.includes('currentStage.id === "baby"') || mascotContent.includes("babyBody"), "StreakEvolutionMascot must render Baby Dragon stage (7-29 days)");
+assert(mascotContent.includes('currentStage.id === "winged"') || mascotContent.includes("wingedBody"), "StreakEvolutionMascot must render Winged Dragon stage (30-99 days)");
+assert(mascotContent.includes('currentStage.id === "deity"') || mascotContent.includes("deityBody"), "StreakEvolutionMascot must render Cosmic Deity Dragon stage (100+ days)");
+assert(mascotContent.includes("playMascotInteraction"), "StreakEvolutionMascot must trigger stage-specific sound on tap");
+assert(mascotContent.includes("HapticFeedback.streakSparkle"), "StreakEvolutionMascot must trigger haptics on tap");
+console.log("✓ StreakEvolutionMascot 4-stage procedural animations and sound feedback verified");
+
+console.log("🎉 P17 Duolingo Streak Remaster & Mascot Evolution test suite passed 100%!");

@@ -13,10 +13,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, spacing, typography, touchTarget, tidySpacing } from "../theme";
 import { useMobileStudyStore } from "../store";
 import { ScreenHeader } from "../components/common/ScreenHeader";
-import { StreakMilestone, STREAK_MILESTONES, MilestoneTier, StudyDay } from "../lib/studyStreakEngine";
+import {
+  StreakMilestone,
+  STREAK_MILESTONES,
+  MilestoneTier,
+  StudyDay,
+  getMascotStage,
+  getNextMascotStage,
+  MascotStage,
+} from "../lib/studyStreakEngine";
 import { StreakCelebrationModal } from "../components/streak/StreakCelebrationModal";
 import { StreakDebugModal } from "../components/streak/StreakDebugModal";
 import { AnimatedFlame } from "../components/streak/AnimatedFlame";
+import { StreakEvolutionMascot } from "../components/streak/StreakEvolutionMascot";
 import { HapticFeedback } from "../lib/haptics";
 import { soundFX } from "../lib/sound";
 import { formatLocaleDate } from "../lib/dateUtils";
@@ -48,6 +57,14 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
     recentWeekDays,
     todayStudyDay,
   } = streakState;
+
+  const currentMascot = getMascotStage(currentStreak);
+  const nextMascot = getNextMascotStage(currentStreak);
+
+  const handleMascotTap = (stage: MascotStage) => {
+    soundFX.playMascotInteraction(stage.id);
+    HapticFeedback.light();
+  };
 
   const handleBadgePress = (milestone: StreakMilestone) => {
     const isUnlocked = currentStreak >= milestone.days;
@@ -112,14 +129,16 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
       />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* ─── 1. Duolingo Flame Hero Stage ─── */}
+        {/* ─── 1. Growing Mascot Hero Stage ─── */}
         <View style={styles.heroStageCard}>
-          {/* Animated Glowing Flame with Breathing Spring & Floating Embers */}
+          {/* Animated Growing Mascot Companion */}
           <View style={styles.flameHeroWrapper}>
-            <AnimatedFlame
-              size={84}
+            <StreakEvolutionMascot
+              size={92}
+              days={currentStreak}
               isLit={todayStudied || currentStreak > 0}
               isAtRisk={isAtRisk}
+              onMascotPress={handleMascotTap}
             />
           </View>
 
@@ -127,14 +146,21 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
           <Text style={styles.heroStreakNumber}>{currentStreak}</Text>
           <Text style={styles.heroStreakCaps}>HARI STREAK</Text>
 
+          {/* Current Mascot Stage Tag */}
+          <View style={[styles.mascotStagePill, { backgroundColor: `${currentMascot.themeColor}20`, borderColor: currentMascot.themeColor }]}>
+            <Text style={[styles.mascotStagePillText, { color: currentMascot.themeColor }]}>
+              {currentMascot.emoji} {currentMascot.name.toUpperCase()}
+            </Text>
+          </View>
+
           {/* Dynamic Motivational Tagline */}
           <Text style={styles.heroStreakSub}>
             {todayStudied
-              ? "🔥 Kamu sedang membara! Streak belajarmu terus berkobar hari ini."
+              ? `🔥 ${currentMascot.tagline} Streak belajarmu terus berkobar hari ini.`
               : isAtRisk
               ? "⚠️ Jangan biarkan apimu padam! Selesaikan 1 tugas atau sesi fokus sebelum 23:59."
               : todayStudyDay?.isFreeDay
-              ? "❄️ Hari ini hari libur. Streakmu otomatis terlindungi!"
+              ? "❄️ Hari ini hari libur. Maskot naga & streakmu otomatis terlindungi!"
               : "Ayo selesaikan sesi belajar hari ini untuk menyalakan apimu!"}
           </Text>
 
@@ -155,6 +181,58 @@ export function StreakScreen({ navigation }: StreakScreenProps) {
               Rekor Terbaik: <Text style={styles.bestStreakNumber}>{bestStreak} Hari</Text>
             </Text>
           </View>
+        </View>
+
+        {/* ─── 2. Mascot Evolution Tracker Card ─── */}
+        <View style={styles.evolutionCard}>
+          <View style={styles.evolutionHeaderRow}>
+            <View style={[styles.sectionIconBadge, { backgroundColor: `${currentMascot.themeColor}20` }]}>
+              <Text style={{ fontSize: 18 }}>{currentMascot.emoji}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.evolutionCardTitle}>Evolusi Maskot: {currentMascot.name}</Text>
+              <Text style={styles.evolutionCardLore}>{currentMascot.lore}</Text>
+            </View>
+          </View>
+
+          {/* Next Evolution Progress */}
+          {nextMascot ? (
+            <View style={styles.evolutionProgressSection}>
+              <View style={styles.evolutionLabelRow}>
+                <Text style={styles.evolutionLabelText}>
+                  Menuju {nextMascot.emoji} {nextMascot.name}
+                </Text>
+                <Text style={[styles.evolutionDaysLeftText, { color: nextMascot.themeColor }]}>
+                  {Math.max(0, nextMascot.minDays - currentStreak)} hari lagi ({nextMascot.minDays}h)
+                </Text>
+              </View>
+
+              {/* Progress bar to next evolution */}
+              <View style={styles.evolutionBarWrapper}>
+                <View
+                  style={[
+                    styles.evolutionBarFill,
+                    {
+                      width: `${Math.min(100, Math.max(8, (currentStreak / nextMascot.minDays) * 100))}%`,
+                      backgroundColor: nextMascot.themeColor,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.maxEvolutionBox}>
+              <Ionicons name="sparkles" size={16} color="#FFD700" style={{ marginRight: 6 }} />
+              <Text style={styles.maxEvolutionText}>
+                Wujud Maskot Maksimal! Kamu telah mencapai tingkat Dewa Phoenix Kosmik abadi.
+              </Text>
+            </View>
+          )}
+
+          {/* Tap Mascot Tip */}
+          <Text style={styles.tapMascotTip}>
+            💡 Ketuk maskot naga di atas untuk mendengar suara khas & reaksinya!
+          </Text>
         </View>
 
         {/* ─── 2. Duolingo Streak Freeze Equipped Slots (Perlindungan Streak) ─── */}
@@ -682,6 +760,104 @@ const styles = StyleSheet.create({
   bestStreakNumber: {
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
+  },
+  mascotStagePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    marginBottom: spacing.xs,
+  },
+  mascotStagePillText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  // Mascot Evolution Card
+  evolutionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    borderWidth: 2,
+    borderColor: colors.borderLight,
+    borderBottomWidth: 4,
+    borderBottomColor: colors.borderBottom,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  evolutionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  evolutionCardTitle: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  evolutionCardLore: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  evolutionProgressSection: {
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    marginTop: spacing.xs,
+  },
+  evolutionLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  evolutionLabelText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.textSecondary,
+  },
+  evolutionDaysLeftText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+  },
+  evolutionBarWrapper: {
+    height: 8,
+    backgroundColor: colors.background,
+    borderRadius: radius.full,
+    overflow: "hidden",
+  },
+  evolutionBarFill: {
+    height: "100%",
+    borderRadius: radius.full,
+  },
+  maxEvolutionBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 215, 0, 0.12)",
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.35)",
+    marginTop: spacing.xs,
+  },
+  maxEvolutionText: {
+    flex: 1,
+    fontSize: typography.fontSizes.caption,
+    color: colors.text,
+    lineHeight: 18,
+    fontWeight: typography.fontWeights.medium,
+  },
+  tapMascotTip: {
+    fontSize: 10,
+    color: colors.textMuted,
+    fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 2,
   },
   // Freeze Section
   freezeSectionCard: {

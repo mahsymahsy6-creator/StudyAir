@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, touchTarget, tidySpacing } from "../../theme";
+import { getMascotStage } from "../../lib/studyStreakEngine";
 
 export interface HeaderAction {
   icon: keyof typeof Ionicons.glyphMap;
@@ -94,15 +95,19 @@ export function ScreenHeader({
       </View>
 
       <View style={styles.actionCluster}>
-        {streakText && (
-          onStreakPress ? (
+        {streakText && (() => {
+          const numericDays = parseInt(streakText.replace(/\D/g, ""), 10) || 0;
+          const mascotEmoji = getMascotStage(numericDays).emoji;
+
+          return onStreakPress ? (
             <Pressable
               style={[styles.streakBadge, isStreakAtRisk && styles.streakBadgeAtRisk]}
               onPress={onStreakPress}
               hitSlop={touchTarget.min / 4}
               accessibilityRole="button"
-              accessibilityLabel={`Streak ${streakText}, ${isStreakAtRisk ? "terancam" : "aktif"}, ketuk untuk rincian`}
+              accessibilityLabel={`Streak ${streakText}, ${isStreakAtRisk ? "terancam" : "aktif"}, maskot ${mascotEmoji}, ketuk untuk rincian`}
             >
+              <Text style={{ fontSize: 12, marginRight: 3 }}>{mascotEmoji}</Text>
               <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
                 <Ionicons
                   name={isStreakAtRisk ? "flame-outline" : "flame"}
@@ -117,6 +122,7 @@ export function ScreenHeader({
             </Pressable>
           ) : (
             <View style={[styles.streakBadge, isStreakAtRisk && styles.streakBadgeAtRisk]}>
+              <Text style={{ fontSize: 12, marginRight: 3 }}>{mascotEmoji}</Text>
               <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
                 <Ionicons
                   name={isStreakAtRisk ? "flame-outline" : "flame"}
@@ -129,8 +135,8 @@ export function ScreenHeader({
                 {streakText}
               </Text>
             </View>
-          )
-        )}
+          );
+        })()}
 
         {visibleActions.map((action, idx) => (
           <Pressable

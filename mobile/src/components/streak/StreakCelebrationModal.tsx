@@ -2,8 +2,8 @@ import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, Share } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, typography, touchTarget, spacing } from "../../theme";
-import { StreakMilestone } from "../../lib/studyStreakEngine";
-import { AnimatedFlame } from "./AnimatedFlame";
+import { StreakMilestone, getMascotStage } from "../../lib/studyStreakEngine";
+import { StreakEvolutionMascot } from "./StreakEvolutionMascot";
 import { ConfettiCannon } from "./ConfettiCannon";
 import { HapticFeedback } from "../../lib/haptics";
 import { soundFX } from "../../lib/sound";
@@ -31,6 +31,10 @@ export function StreakCelebrationModal({
   }, [visible, milestone]);
 
   if (!milestone) return null;
+
+  const mascotStage = getMascotStage(currentStreak);
+  const isMascotEvolutionDay =
+    currentStreak === 1 || currentStreak === 7 || currentStreak === 30 || currentStreak === 100;
 
   const isRainbow = milestone.tier === "rainbow";
   const isGold = milestone.tier === "gold";
@@ -65,7 +69,7 @@ export function StreakCelebrationModal({
     soundFX.playClick();
     try {
       await Share.share({
-        message: `🔥 Saya baru saja mencapai streak belajar ${currentStreak} hari di StudyAir! Konsistensi belajar harian semakin membara. #StudyAir #StudyStreak`,
+        message: `🔥 Saya baru saja mencapai streak belajar ${currentStreak} hari di StudyAir! Maskot naga api saya berevolusi menjadi ${mascotStage.name} ${mascotStage.emoji}! #StudyAir #StudyStreak`,
         title: `Pencapaian Streak ${currentStreak} Hari di StudyAir`,
       });
     } catch {
@@ -88,22 +92,27 @@ export function StreakCelebrationModal({
           {/* Confetti / Aura decorative circles */}
           <View style={[styles.auraCircle, { backgroundColor: `${tierColor}15` }]} />
 
-          {/* Secret Revealed Banner */}
-          {isSecretRevealed && (
+          {/* Secret / Evolution Banner */}
+          {isMascotEvolutionDay ? (
+            <View style={[styles.revealedBanner, { backgroundColor: tierColor }]}>
+              <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
+              <Text style={styles.revealedBannerText}>EVOLUSI MASKOT! {mascotStage.emoji}</Text>
+            </View>
+          ) : isSecretRevealed ? (
             <View style={[styles.revealedBanner, { backgroundColor: tierColor }]}>
               <Ionicons name="sparkles" size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
               <Text style={styles.revealedBannerText}>RAHASIA TERUNGKAP!</Text>
             </View>
-          )}
+          ) : null}
 
           {/* Tier Pill */}
           <View style={[styles.tierPill, { backgroundColor: `${tierColor}20` }]}>
             <Text style={[styles.tierPillText, { color: tierColor }]}>{tierLabel}</Text>
           </View>
 
-          {/* Animated Glowing Flame Centerpiece with Tier Aura */}
+          {/* Animated Mascot Centerpiece with Tier Aura */}
           <View style={styles.flameCenterWrapper}>
-            <AnimatedFlame size={72} isLit={true} tier={milestone.tier} />
+            <StreakEvolutionMascot size="compact" days={currentStreak} interactive={true} />
           </View>
 
           {/* Milestone Number & Title */}
@@ -111,11 +120,21 @@ export function StreakCelebrationModal({
           <Text style={styles.milestoneTitle}>{milestone.title}</Text>
           <Text style={styles.milestoneDescription}>{milestone.description}</Text>
 
+          {/* Evolution Lore Card if Mascot Evolved */}
+          {isMascotEvolutionDay && (
+            <View style={[styles.mascotEvolutionBox, { borderColor: `${tierColor}40` }]}>
+              <Text style={styles.mascotEvolutionTitle}>
+                {mascotStage.emoji} {mascotStage.name}
+              </Text>
+              <Text style={styles.mascotEvolutionDesc}>{mascotStage.lore}</Text>
+            </View>
+          )}
+
           {/* Congratulatory Motivation */}
           <View style={styles.quoteBox}>
             <Ionicons name="sparkles" size={14} color={tierColor} style={{ marginRight: 6 }} />
             <Text style={styles.quoteText}>
-              Dedikasi dan konsistensimu sungguh luar biasa. Terus pertahankan ritme belajarmu!
+              Dedikasi dan konsistensimu sungguh luar biasa. Ketuk maskot untuk mendengar suaranya!
             </Text>
           </View>
 
@@ -233,6 +252,27 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 4,
     lineHeight: 18,
+  },
+  mascotEvolutionBox: {
+    width: "100%",
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+    alignItems: "center",
+  },
+  mascotEvolutionTitle: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  mascotEvolutionDesc: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 15,
   },
   quoteBox: {
     flexDirection: "row",

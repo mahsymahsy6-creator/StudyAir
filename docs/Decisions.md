@@ -255,3 +255,19 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Turns milestone progression into an exciting, multi-sensory treasure hunt where students look forward to unlocking and hearing their next secret title.
 - **Attribution**: Builder (per user request).
 
+### 2026-10-30: Streak Mascot Evolution System — Growing Dragon Companion Across 4 Stages
+- **Decision**: Transformed the streak visualizer from just simple flames into an evolving mascot companion (**Sistem Maskot Bertumbuh: Telur Naga Api -> Anak Naga -> Naga Bersayap -> Dewa Phoenix Kosmik**) that unlocks cooler visual forms, audio voices, and animations the longer the student studies:
+  1. **4 Evolving Mascot Stages (`studyStreakEngine.ts`)**:
+     - **Stage 1 (1–6 Hari)**: `egg` — 🥚 **Telur Naga Api** (cangkang retak membara, wobble animasi hangat, suara ketukan cangkang).
+     - **Stage 2 (7–29 Hari)**: `baby` — 🐲 **Anak Naga Api** (melompat riang, sayap kecil mengepak cepat, semburan api biru cyan, kicauan riang).
+     - **Stage 3 (30–99 Hari)**: `winged` — 🐉 **Naga Bersayap Emas** (sayap lebar mengepak anggun, mahkota emas, dual halo api membara, deru semburan api).
+     - **Stage 4 (100+ Hari)**: `deity` — ✨ **Dewa Phoenix Kosmik** (sayap pelangi kosmik, cincin orbit planetary berputar 360°, orba bintang bersinar, sapuan resonansi kosmik harmonik).
+  2. **Interactive Sound Synthesis (`sound.ts`)**: Implemented `soundFX.playMascotInteraction(stageId)` with custom Web Audio synthesis tailored to each evolutionary phase.
+  3. **Interactive Procedural Vector Mascot (`StreakEvolutionMascot.tsx`)**: Built using pure React Native `Animated` physics (wobble, hops, wing flaps, dual orbiting rings, floating ember sparks) with responsive tap squash-and-stretch micro-physics and haptic sparkle.
+  4. **Streak Screen Hero & Mascot Evolution Tracker (`StreakScreen.tsx`)**: Added current mascot badge pill, interactive hero character, and a dedicated **Mascot Evolution Card** displaying current lore and days remaining progress bar toward next evolution form.
+  5. **Celebration Modal & Header Mascot Integration**: `StreakCelebrationModal.tsx` announces **"🎉 EVOLUSI MASKOT!"** when reaching milestone days (1, 7, 30, 100), and `ScreenHeader.tsx` renders dynamic mascot emoji badge next to the animated flame.
+  6. **Automated Verification**: Updated `test_p17_duolingo_streak_suite.mjs` (9 comprehensive assertions) integrated with `test_p13_release_qa_suite.mjs`. All 15 test suites passing (100%), zero TypeScript errors (`npx tsc --noEmit`).
+- **Rationale**: Provides deep gamified progression that gives students a tangible emotional connection to their study streak, rewarding long-term consistency with spectacular visual transformations.
+- **Attribution**: Builder (per user choice in clarification modal).
+
+

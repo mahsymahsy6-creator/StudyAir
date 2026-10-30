@@ -92,6 +92,7 @@ Cloud sync, social features, new analytics, Copilot chat, share-timetable (revis
 | - | Whole-App Remaster (O3 Space Ergonomics & Zen Focus Loop) | `done` |
 | - | Duolingo Streak Remaster (Animated Flame, 7-Day Chain, Freeze Slots & Confetti) | `done` |
 | - | Streak Update: Sound FX, Tier Variations & Secret Milestones | `done` |
+| - | Streak Mascot Evolution: 4-Stage Growing Dragon Companion & Procedural Animations | `done` |
 
 ### Superseded Packets (v1)
 
