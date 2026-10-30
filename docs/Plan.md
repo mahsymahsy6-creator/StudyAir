@@ -85,8 +85,9 @@ Cloud sync, social features, new analytics, Copilot chat, share-timetable (revis
 | - | Duolingo-Calibrated Streak Screen | `done` |
 | - | Error 19, Themes Proxy & Task Focus | `done` |
 | - | Subject Tab Removal & Task Scheduler Focus | `done` |
-| - | Streak Debug Menu & Simulator | `done` |
 | - | App Audit Polish & Task Scheduler Finalization | `done` |
+| - | O3 Space UI Redesign & Clean Navigation | `done` |
+| - | Remastered Tugas & PR Hari Ini (Gamified Progress & 1-Tap Focus) | `done` |
 
 ### Superseded Packets (v1)
 

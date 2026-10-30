@@ -21,6 +21,7 @@ const suites = [
   { name: "P10 Navigation Restructure (4 Tabs + Center FAB)", file: join(__dirname, "test_p10_navigation_suite.mjs") },
   { name: "P11 Streak Calibration & Exam Plans", file: join(__dirname, "test_p11_streak_exams_suite.mjs") },
   { name: "P12 AI Helpers (Duration & Batch Review)", file: join(__dirname, "test_p12_ai_helpers_suite.mjs") },
+  { name: "P14 Today Tasks Remaster", file: join(__dirname, "test_p14_today_tasks_remaster_suite.mjs") },
 ];
 
 console.log("==================================================");

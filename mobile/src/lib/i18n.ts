@@ -61,6 +61,21 @@ export const translations = {
     tabFocus: "Focus",
     tabProgress: "Progress",
 
+    // Remastered Today Tasks
+    tugas_pr_hari_ini: "Today's Tasks & Homework",
+    tugas_selesai_count: "{completed} / {total} Done",
+    progress_semua_tuntas: "Awesome! All tasks for today are done 🎉",
+    progress_sisa_tugas: "{count} tasks left for today. Keep it up! 🔥",
+    progress_siap_mulai: "Let's tackle your tasks today! 💪",
+    filter_semua: "All",
+    filter_tertunda: "Pending",
+    filter_selesai: "Done",
+    fokus_tugas: "Focus",
+    terjadwal_jam: "Scheduled {time}",
+    detail_tugas: "Task Details",
+    ubah_durasi: "Change Estimate",
+    tambah_pr_hari_ini: "Add Task for Today",
+
     // Quick Actions Bottom Sheet
     quickActionsTitle: "Quick Actions",
     quickAddTask: "Quick Add Task",
@@ -473,6 +488,21 @@ export const translations = {
     tabSubjects: "Pelajaran",
     tabFocus: "Fokus",
     tabProgress: "Kemajuan",
+
+    // Remastered Today Tasks
+    tugas_pr_hari_ini: "Tugas & PR Hari Ini",
+    tugas_selesai_count: "{completed} / {total} Selesai",
+    progress_semua_tuntas: "Luar biasa! Semua tugas hari ini sudah beres 🎉",
+    progress_sisa_tugas: "Tinggal {count} tugas lagi untuk hari ini. Semangat! 🔥",
+    progress_siap_mulai: "Ayo mulai cicil tugasmu hari ini! 💪",
+    filter_semua: "Semua",
+    filter_tertunda: "Tertunda",
+    filter_selesai: "Selesai",
+    fokus_tugas: "Fokus",
+    terjadwal_jam: "Terjadwal {time}",
+    detail_tugas: "Rincian Tugas",
+    ubah_durasi: "Ubah Estimasi",
+    tambah_pr_hari_ini: "Tambah Tugas Hari Ini",
 
     // Quick Actions Bottom Sheet
     quickActionsTitle: "Aksi Cepat",

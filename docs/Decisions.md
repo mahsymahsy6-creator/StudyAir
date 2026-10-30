@@ -194,6 +194,13 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Eliminates cognitive overload and UI clutter, providing an intuitive, delightful, and calming study companion that is ready to deploy.
 - **Attribution**: Builder (per user request).
 
-
-
-
+### 2026-10-30: Remastered "Tugas & PR Hari ini" with O3 Space Gamification & 1-Tap Focus
+- **Decision**: Overhauled the daily task section on `HomeScreen` into an interactive, gamified task center (`TodayTasksSection.tsx`):
+  1. **Smart Daily Ingestion (`deriveTodayTasks`)**: Intelligently surfaces (1) tasks with today's deadline, (2) tasks assigned to study blocks scheduled today, (3) overdue pending tasks (prioritized on top), and (4) tasks completed today. Falls back cleanly to upcoming pending tasks if none match.
+  2. **Gamified Progress Bar**: Real-time progress track with dynamic motivational micro-copy (`Luar biasa! Semua tugas hari ini sudah beres 🎉`, `Tinggal N tugas lagi, yuk selesaikan! 💪`, etc.) and `X / Y Selesai • Z%`.
+  3. **Interactive Task Cards**: Chunky circular checkbox with smooth line-through upon completion, subject colored dot, task type indicator (`PR`, `Kuis`, `Proyek`), estimated duration chip, scheduled time pill, and dedicated **`▶ Fokus`** 1-tap launcher.
+  4. **Task Quick Detail & Edit Modal**: Bottom sheet to view notes, quick-adjust duration estimates (`15m`, `30m`, `45m`, `60m`, `90m`), delete task, or launch a focused study timer.
+  5. **Quick Add PR CTA**: Header "+ Tambah PR" button opening `AddTaskSheet` pre-filled with today's date for frictionless sub-10 second task entry.
+  6. **Automated Verification**: Created dedicated test suite `test_p14_today_tasks_remaster_suite.mjs` (8 tests) integrated into master QA runner (`test_p13_release_qa_suite.mjs`). All 12 test suites passing (100%), clean TypeScript build, and full browser E2E verification.
+- **Rationale**: Transforms the static task checklist into a vibrant, motivating daily execution center where students immediately know what is due, track progress toward 100%, and can jump straight into a focused study session in 1 tap.
+- **Attribution**: Builder (per user request).

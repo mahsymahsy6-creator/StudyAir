@@ -22,8 +22,12 @@ import { StatusPill } from "../components/common/StatusPill";
 import { Banner } from "../components/common/Banner";
 import { Snackbar } from "../components/common/Snackbar";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
+import { AddTaskSheet } from "../components/tasks/AddTaskSheet";
+import { TodayTasksSection, deriveTodayTasks, calculateTodayTasksProgress } from "../components/home/TodayTasksSection";
 import { formatLocaleDate } from "../lib/dateUtils";
 import { getExamState } from "../lib/examEngine";
+
+export { deriveTodayTasks, calculateTodayTasksProgress };
 
 // ─── Pure Helpers (Preserved & Exported for Characterization & QA) ───
 
@@ -75,6 +79,8 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
 
   // Modal & Sheet visibility
   const [scheduleSheetVisible, setScheduleSheetVisible] = useState(false);
+  const [addTaskVisible, setAddTaskVisible] = useState(false);
+  const [addTaskInitialDeadline, setAddTaskInitialDeadline] = useState<string | undefined>(undefined);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [besokExpanded, setBesokExpanded] = useState(false);
@@ -408,70 +414,22 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
           )}
         </View>
 
-        {/* ─── 5. Tugas Hari Ini (Today's Priority Tasks) ─── */}
+        {/* ─── 5. Tugas & PR Hari Ini (Remastered O3 Space Component) ─── */}
         <View style={styles.sectionContainer}>
-          <SectionHeader
-            title="Tugas & PR Hari Ini"
-            badge={todayPendingTasks.length}
-            actionText={tasks.filter((t) => t.status !== "COMPLETED").length > 0 ? "Semua Tugas" : undefined}
-            onActionPress={() => navigation.navigate("Tasks")}
+          <TodayTasksSection
+            onStartFocus={(task, block) => {
+              if (block) {
+                navigation.navigate("Focus", { blockId: block.id, taskId: task.id });
+              } else {
+                navigation.navigate("Focus", { taskId: task.id });
+              }
+            }}
+            onOpenAllTasks={() => navigation.navigate("Tasks")}
+            onOpenAddTask={(initialDeadline) => {
+              setAddTaskInitialDeadline(initialDeadline || todayStr);
+              setAddTaskVisible(true);
+            }}
           />
-
-          {todayPendingTasks.length > 0 ? (
-            todayPendingTasks.map((task) => {
-              const sub = subjectsMap.get(task.subjectId);
-              const subColor = sub?.color || sub?.color_hex || colors.primary;
-
-              return (
-                <Card key={task.id} style={styles.todayTaskCard}>
-                  <View style={styles.todayTaskRow}>
-                    <Pressable
-                      style={styles.taskCheckTouch}
-                      onPress={() => handleToggleTask(task.id)}
-                      hitSlop={touchTarget.min / 4}
-                      accessibilityLabel={`Tandai selesai ${task.title}`}
-                    >
-                      <View style={styles.taskCheckbox}>
-                        <Ionicons name="square-outline" size={22} color={colors.textSecondary} />
-                      </View>
-                    </Pressable>
-
-                    <View style={styles.todayTaskInfo}>
-                      <View style={styles.taskSubMetaRow}>
-                        <View style={[styles.taskSubDot, { backgroundColor: subColor }]} />
-                        <Text style={styles.taskSubName} numberOfLines={1}>
-                          {sub?.name || "Umum"}
-                        </Text>
-                      </View>
-
-                      <Text style={styles.todayTaskTitle} numberOfLines={2}>
-                        {task.title}
-                      </Text>
-
-                      <View style={styles.taskMetaBottom}>
-                        {renderDeadlineBadge(task.deadlineDate)}
-                        {task.estimatedMinutes ? (
-                          <Text style={styles.taskDurationText}>
-                            ⏱ {task.estimatedMinutes}m
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  </View>
-                </Card>
-              );
-            })
-          ) : (
-            <Card style={styles.allTasksDoneCard}>
-              <Ionicons name="checkmark-done" size={26} color={colors.emerald} style={{ marginRight: spacing.sm }} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.allTasksDoneTitle}>Semua tugas hari ini beres!</Text>
-                <Text style={styles.allTasksDoneSub}>
-                  Tidak ada tugas yang mendesak. Santai sejenak atau cicil materi baru.
-                </Text>
-              </View>
-            </Card>
-          )}
         </View>
 
         {/* ─── 6. AI Smart Scheduling Assistant (Purple Accent) ─── */}
@@ -612,11 +570,17 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         </View>
       </ScrollView>
 
-      {/* ─── Schedule Sheet & Undo Snackbar ─── */}
+      {/* ─── Schedule Sheet, Add Task Sheet & Undo Snackbar ─── */}
       <CreateScheduleSheet
         visible={scheduleSheetVisible}
         onClose={() => setScheduleSheetVisible(false)}
         onScheduleApplied={handleScheduleApplied}
+      />
+
+      <AddTaskSheet
+        visible={addTaskVisible}
+        onClose={() => setAddTaskVisible(false)}
+        initialDeadline={addTaskInitialDeadline}
       />
 
       <Snackbar
