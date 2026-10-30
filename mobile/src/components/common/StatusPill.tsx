@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { colors, typography, radius, tidySpacing } from "../../theme";
 
-export type StatusVariant = "amber" | "green" | "red" | "gray" | "blue";
+export type StatusVariant = "amber" | "green" | "red" | "gray" | "blue" | "purple" | "ai";
 
 export interface StatusPillProps {
   label: string;
@@ -13,6 +13,14 @@ export interface StatusPillProps {
 export function StatusPill({ label, variant = "gray", style }: StatusPillProps) {
   const getTheme = () => {
     switch (variant) {
+      case "purple":
+      case "ai":
+        return {
+          bg: colors.accentLight,
+          text: colors.accent,
+          border: colors.accent,
+          borderBottom: colors.accentBottom,
+        };
       case "amber":
         return {
           bg: colors.amberLight,

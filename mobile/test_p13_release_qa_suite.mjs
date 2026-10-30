@@ -18,7 +18,7 @@ const suites = [
   { name: "P7 Tugas Screen (4 Groups)", file: join(__dirname, "test_p7_tugas_screen_suite.mjs") },
   { name: "P8 Kalender (Agenda & Grid)", file: join(__dirname, "test_p8_kalender_suite.mjs") },
   { name: "P9 Execution Loop (Focus & Rescheduling)", file: join(__dirname, "test_p9_execution_loop_suite.mjs") },
-  { name: "P10 Navigation Restructure (3 Tabs + FAB)", file: join(__dirname, "test_p10_navigation_suite.mjs") },
+  { name: "P10 Navigation Restructure (4 Tabs + Center FAB)", file: join(__dirname, "test_p10_navigation_suite.mjs") },
   { name: "P11 Streak Calibration & Exam Plans", file: join(__dirname, "test_p11_streak_exams_suite.mjs") },
   { name: "P12 AI Helpers (Duration & Batch Review)", file: join(__dirname, "test_p12_ai_helpers_suite.mjs") },
 ];

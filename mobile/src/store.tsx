@@ -31,6 +31,7 @@ import { analyzeCognitiveLoad } from "./engine/cognitive-load";
 import { format, parseISO, addDays, subDays, isBefore } from "date-fns";
 import { recalculateDynamicTaskDeadlines } from "./engine/deadlineEngine";
 import { setLanguage } from "./lib/i18n";
+import { applyTheme } from "./theme";
 import { getSecureGeminiKey, setSecureGeminiKey } from "./services/secureStoreService";
 import { calculateStreak, StreakState, StreakMilestone } from "./lib/studyStreakEngine";
 import { createExamStudyPlan } from "./lib/examEngine";
@@ -278,6 +279,9 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
             setAppSettings(loaded.appSettings);
             if (loaded.appSettings.language) {
               setLanguage(loaded.appSettings.language);
+            }
+            if (loaded.appSettings.theme) {
+              applyTheme(loaded.appSettings.theme);
             }
           }
         }
@@ -1377,6 +1381,9 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       const updated = { ...prev, ...partial };
       if (partial.language) {
         setLanguage(partial.language);
+      }
+      if (partial.theme) {
+        applyTheme(partial.theme);
       }
       return updated;
     });

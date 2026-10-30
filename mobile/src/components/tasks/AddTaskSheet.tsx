@@ -208,7 +208,7 @@ export function AddTaskSheet({
                 setCustomDeadline(detectedDateHint.suggestedDate);
               }}
             >
-              <Ionicons name="sparkles" size={14} color={colors.amber} style={{ marginRight: 6 }} />
+              <Ionicons name="sparkles" size={14} color={colors.accent} style={{ marginRight: 6 }} />
               <Text style={styles.hintChipText}>
                 {t("terdeteksi_tanggal", { date: detectedDateHint.label })}
               </Text>
@@ -278,7 +278,7 @@ export function AddTaskSheet({
               style={styles.aiDurationChip}
               onPress={() => handleSelectPreset(suggestedDuration)}
             >
-              <Ionicons name="sparkles" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+              <Ionicons name="sparkles" size={13} color={colors.accent} style={{ marginRight: 4 }} />
               <Text style={styles.aiDurationChipText}>
                 Saran AI: {suggestedDuration} menit (Terapkan)
               </Text>
@@ -602,13 +602,13 @@ const styles = StyleSheet.create({
   hintChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.amberLight,
+    backgroundColor: colors.accentLight,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     marginTop: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.amber,
+    borderColor: colors.accent,
   },
   hintChipText: {
     fontWeight: typography.fontWeights.medium,
@@ -619,19 +619,21 @@ const styles = StyleSheet.create({
   aiDurationChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.accentLight,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     marginBottom: spacing.xs,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.accent,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accentBottom,
     alignSelf: "flex-start",
   },
   aiDurationChipText: {
-    fontWeight: typography.fontWeights.medium,
+    fontWeight: typography.fontWeights.bold,
     fontSize: typography.fontSizes.caption,
-    color: colors.primary,
+    color: colors.accent,
   },
   chipsScroll: {
     flexDirection: "row",

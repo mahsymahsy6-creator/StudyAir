@@ -420,8 +420,12 @@ export function QuickActionSheet({
                   onNavigateToScan("whiteboard");
                 }}
               >
-                <Ionicons name="camera-outline" size={20} color="#8B5CF6" style={styles.btnIconLeft} />
+                <Ionicons name="camera-outline" size={20} color={colors.accent} style={styles.btnIconLeft} />
                 <Text style={styles.compactActionRowText}>Tambah dari foto</Text>
+                <View style={styles.aiBadge}>
+                  <Ionicons name="sparkles" size={10} color={colors.accent} style={{ marginRight: 2 }} />
+                  <Text style={styles.aiBadgeText}>AI</Text>
+                </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
 
@@ -430,8 +434,12 @@ export function QuickActionSheet({
                 style={styles.compactActionRow}
                 onPress={handleOpenAddFromText}
               >
-                <Ionicons name="document-text-outline" size={20} color="#8B5CF6" style={styles.btnIconLeft} />
+                <Ionicons name="document-text-outline" size={20} color={colors.accent} style={styles.btnIconLeft} />
                 <Text style={styles.compactActionRowText}>Tambah dari teks</Text>
+                <View style={styles.aiBadge}>
+                  <Ionicons name="sparkles" size={10} color={colors.accent} style={{ marginRight: 2 }} />
+                  <Text style={styles.aiBadgeText}>AI</Text>
+                </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
 
@@ -700,7 +708,7 @@ export function QuickActionSheet({
                       {/* Date phrases are shown as a note only (the date parser comes in Phase 7) */}
                       {item.datePhrase ? (
                         <View style={styles.datePhrasePill}>
-                          <Ionicons name="calendar-outline" size={13} color="#8B5CF6" style={{ marginRight: 4 }} />
+                          <Ionicons name="calendar-outline" size={13} color={colors.accent} style={{ marginRight: 4 }} />
                           <Text style={styles.datePhrasePillText}>
                             Catatan tanggal: "{item.datePhrase}" (sebagai catatan)
                           </Text>
@@ -1265,11 +1273,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#8B5CF6",
+    backgroundColor: colors.accent,
     borderRadius: radius.md,
     paddingVertical: 12,
     paddingHorizontal: 12,
     minHeight: 48,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.accentBottom,
   },
   extractBtnDisabled: {
     opacity: 0.65,
@@ -1277,12 +1287,12 @@ const styles = StyleSheet.create({
   extractBtnText: {
     fontSize: typography.fontSizes.xs + 1,
     fontWeight: typography.fontWeights.bold,
-    color: "#ffffff",
+    color: colors.textInverse,
   },
   loadingStateBanner: {
-    backgroundColor: "rgba(139, 92, 246, 0.12)",
+    backgroundColor: colors.accentLight,
     borderWidth: 1,
-    borderColor: "rgba(139, 92, 246, 0.25)",
+    borderColor: colors.accent,
     borderRadius: radius.sm,
     padding: 8,
     marginTop: 8,
@@ -1290,8 +1300,25 @@ const styles = StyleSheet.create({
   },
   loadingStateText: {
     fontSize: typography.fontSizes.xs,
-    color: "#8B5CF6",
+    color: colors.accent,
     fontWeight: typography.fontWeights.medium,
+  },
+  aiBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.accentLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    marginRight: spacing.xs,
+  },
+  aiBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.accent,
+    letterSpacing: 0.5,
   },
   errorBanner: {
     backgroundColor: "rgba(245, 158, 11, 0.12)",
@@ -1334,9 +1361,9 @@ const styles = StyleSheet.create({
   datePhrasePill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(139, 92, 246, 0.12)",
+    backgroundColor: colors.accentLight,
     borderWidth: 1,
-    borderColor: "rgba(139, 92, 246, 0.3)",
+    borderColor: colors.accent,
     borderRadius: radius.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1344,7 +1371,7 @@ const styles = StyleSheet.create({
   },
   datePhrasePillText: {
     fontSize: 11,
-    color: "#8B5CF6",
+    color: colors.accent,
     fontWeight: typography.fontWeights.medium,
   },
   notesBox: {

@@ -82,7 +82,7 @@ function MainApp() {
     if (norm === "home" || norm === "today" || norm === "rencana") target = "Today";
     else if (norm === "tasks" || norm === "tugas") target = "Tasks";
     else if (norm === "calendar" || norm === "kalender" || norm === "jadwal") target = "Calendar";
-    else if (norm === "syllabus" || norm === "subjects") {
+    else if (norm === "syllabus" || norm === "subjects" || norm === "pelajaran" || norm === "mapel") {
       target = "Subjects";
       if (params?.initialDay !== undefined || params?.day !== undefined) {
         setSyllabusInitialDay(params.initialDay !== undefined ? params.initialDay : params.day);
@@ -106,7 +106,13 @@ function MainApp() {
     else if (norm === "settings" || norm === "pengaturan") target = "Settings";
     else if (norm === "streak") target = "Streak";
 
-    if (activeTab === "Today" || activeTab === "Tasks" || activeTab === "Calendar" || activeTab === "Focus") {
+    if (
+      activeTab === "Today" ||
+      activeTab === "Tasks" ||
+      activeTab === "Subjects" ||
+      activeTab === "Calendar" ||
+      activeTab === "Focus"
+    ) {
       setPreviousTab(activeTab);
     }
     setActiveTab(target);
@@ -121,7 +127,7 @@ function MainApp() {
     goBack: handleBackToTab,
   };
 
-  const isAuxiliaryScreen = activeTab === "AIScanner" || activeTab === "Subjects";
+  const isAuxiliaryScreen = activeTab === "AIScanner";
 
   return (
     <SafeAreaView style={styles.appContainer}>
@@ -159,7 +165,7 @@ function MainApp() {
           style={styles.globalScanBanner}
           onPress={() => handleNavigate("AIScanner")}
         >
-          <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 8 }} />
+          <ActivityIndicator size="small" color={colors.textInverse} style={{ marginRight: 8 }} />
           <View style={{ flex: 1 }}>
             <Text style={styles.globalScanBannerTitle}>
               Gemini AI is analyzing schedule in background...
@@ -168,7 +174,7 @@ function MainApp() {
               Tap to view live progress
             </Text>
           </View>
-          <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+          <Ionicons name="arrow-forward" size={16} color={colors.textInverse} />
         </Pressable>
       )}
 
@@ -237,8 +243,8 @@ function MainApp() {
         </View>
       </View>
 
-      {/* ─── v2 3-Tab Navigation Bar with Elevated Center '+' Action Button ─── */}
-      {activeTab !== "TimetableWizard" && activeTab !== "Settings" && activeTab !== "Streak" && activeTab !== "Subjects" && activeTab !== "Focus" && (
+      {/* ─── v2 4-Tab Navigation Bar with Symmetrical Center '+' Action Button ─── */}
+      {activeTab !== "TimetableWizard" && activeTab !== "Settings" && activeTab !== "Streak" && activeTab !== "Focus" && (
         <View style={styles.tabBar}>
           {/* Tab 1: Rencana */}
           <Pressable
@@ -276,14 +282,30 @@ function MainApp() {
               style={styles.centerFab}
               onPress={() => openQuickAction("none")}
               hitSlop={8}
+              accessibilityLabel="Tambah Cepat"
             >
               <View style={styles.centerFabInner}>
-                <Ionicons name="add" size={28} color="#ffffff" />
+                <Ionicons name="add" size={28} color={colors.textInverse} />
               </View>
             </Pressable>
           </View>
 
-          {/* Tab 3: Kalender */}
+          {/* Tab 3: Pelajaran */}
+          <Pressable
+            style={[styles.tabItem, activeTab === "Subjects" && styles.tabItemActive]}
+            onPress={() => handleNavigate("Subjects")}
+          >
+            <Ionicons
+              name={activeTab === "Subjects" ? "book" : "book-outline"}
+              size={22}
+              color={activeTab === "Subjects" ? colors.primary : colors.textSecondary}
+            />
+            <Text style={[styles.tabLabel, activeTab === "Subjects" && styles.tabLabelActive]}>
+              {t("tabSubjects") || "Pelajaran"}
+            </Text>
+          </Pressable>
+
+          {/* Tab 4: Kalender */}
           <Pressable
             style={[styles.tabItem, activeTab === "Calendar" && styles.tabItemActive]}
             onPress={() => handleNavigate("Calendar")}
@@ -405,20 +427,21 @@ const styles = StyleSheet.create({
   globalScanBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primaryHover,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accentBottom,
   },
   globalScanBannerTitle: {
     fontSize: typography.fontSizes.xs,
     fontWeight: typography.fontWeights.bold,
-    color: "#ffffff",
+    color: colors.textInverse,
   },
   globalScanBannerSub: {
     fontSize: typography.fontSizes.xs,
-    color: "rgba(255, 255, 255, 0.8)",
+    color: colors.textInverse,
+    opacity: 0.9,
   },
   tabBar: {
     flexDirection: "row",

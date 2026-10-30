@@ -17,6 +17,9 @@ export function resolveTargetScreen(screenName) {
   if (norm === "calendar" || norm === "kalender" || norm === "jadwal") {
     return "Calendar"; // Kalender Screen
   }
+  if (norm === "syllabus" || norm === "subjects" || norm === "pelajaran" || norm === "mapel") {
+    return "Subjects"; // Pelajaran Screen
+  }
   if (norm === "settings" || norm === "pengaturan") {
     return "Settings";
   }
@@ -32,12 +35,13 @@ export function resolveTargetScreen(screenName) {
   return "Today";
 }
 
-// 3-tab layout descriptor
+// 4-tab symmetrical layout with center FAB
 export function getTabBarTabs() {
   return [
     { key: "Today", label: "Rencana", icon: "checkbox-outline" },
     { key: "Tasks", label: "Tugas", icon: "list-outline" },
     { key: "FAB", isCenterAction: true, icon: "add" },
+    { key: "Subjects", label: "Pelajaran", icon: "book-outline" },
     { key: "Calendar", label: "Kalender", icon: "calendar-outline" },
   ];
 }
@@ -74,6 +78,12 @@ it("maps 'Tugas', 'Tasks' to 'Tasks' screen", () => {
   assert.strictEqual(resolveTargetScreen("Tasks"), "Tasks");
 });
 
+it("maps 'Pelajaran', 'Subjects', 'Syllabus' to 'Subjects' screen", () => {
+  assert.strictEqual(resolveTargetScreen("Pelajaran"), "Subjects");
+  assert.strictEqual(resolveTargetScreen("Subjects"), "Subjects");
+  assert.strictEqual(resolveTargetScreen("Syllabus"), "Subjects");
+});
+
 it("maps 'Kalender', 'Calendar', 'Jadwal' to 'Calendar' screen", () => {
   assert.strictEqual(resolveTargetScreen("Kalender"), "Calendar");
   assert.strictEqual(resolveTargetScreen("Calendar"), "Calendar");
@@ -88,13 +98,14 @@ it("maps auxiliary screens correctly", () => {
 
 console.log("\n[2] Bottom Tab Bar Layout");
 
-it("has exactly 3 primary tabs and 1 center action FAB", () => {
+it("has exactly 4 primary tabs and 1 center action FAB neatly in the middle", () => {
   const tabs = getTabBarTabs();
-  assert.strictEqual(tabs.length, 4);
+  assert.strictEqual(tabs.length, 5);
   assert.strictEqual(tabs[0].key, "Today");
   assert.strictEqual(tabs[1].key, "Tasks");
   assert.strictEqual(tabs[2].isCenterAction, true);
-  assert.strictEqual(tabs[3].key, "Calendar");
+  assert.strictEqual(tabs[3].key, "Subjects");
+  assert.strictEqual(tabs[4].key, "Calendar");
 });
 
 console.log("\n==================================================");

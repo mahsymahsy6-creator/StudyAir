@@ -509,7 +509,7 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
                     </View>
 
                     <Pressable style={styles.analyzeBtn} onPress={handleAnalyzePhoto}>
-                      <Ionicons name="sparkles" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                      <Ionicons name="sparkles" size={16} color={colors.textInverse} style={{ marginRight: 6 }} />
                       <Text style={styles.analyzeBtnText}>Analyze Photo with Gemini AI</Text>
                     </Pressable>
                   </View>
@@ -536,7 +536,7 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
                   style={[styles.runButton, !syllabusInput.trim() && styles.runButtonDisabled]}
                   onPress={handleRunRealAI}
                 >
-                  <Ionicons name="sparkles" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                  <Ionicons name="sparkles" size={16} color={colors.textInverse} style={{ marginRight: 6 }} />
                   <Text style={styles.runButtonText}>
                     Extract Topics with AI
                   </Text>
@@ -1084,12 +1084,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.accentBottom,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
   },
   analyzeBtnText: {
-    color: "#ffffff",
+    color: colors.textInverse,
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.bold,
   },
@@ -1114,7 +1116,9 @@ const styles = StyleSheet.create({
   },
   runButton: {
     flexDirection: "row",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
+    borderBottomWidth: 3,
+    borderBottomColor: colors.accentBottom,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     alignItems: "center",
@@ -1125,7 +1129,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   runButtonText: {
-    color: colors.text,
+    color: colors.textInverse,
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.bold,
   },

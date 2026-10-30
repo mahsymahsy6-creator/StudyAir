@@ -264,9 +264,9 @@ export const THEMES: Record<AppTheme, ThemePalette> = {
     danger: "#FF4B4B",
     dangerBottom: "#D63434",
 
-    accent: "#1CB0F6",
-    accentBottom: "#1488C2",
-    accentLight: "rgba(28, 176, 246, 0.16)",
+    accent: "#CE82FF",
+    accentBottom: "#A855F7",
+    accentLight: "rgba(206, 130, 255, 0.18)",
     violet: "#CE82FF",
     violetBottom: "#A855F7",
 
@@ -760,3 +760,8 @@ export const typography = {
     heavy: "800" as const,
   },
 } as const;
+
+// Auto-initialize default theme on web load
+if (typeof document !== "undefined" && document.documentElement) {
+  applyTheme("navy");
+}
