@@ -1,13 +1,14 @@
 /**
  * StudyAir Mobile — School Planner Grades & GPA Screen (Tab 4)
  * 
- * Comprehensive academic performance tracker:
- * 1. Cumulative Report Card Average & 4.0 GPA Scale
- * 2. Subject Cards with weighted averages, letter grades, and target progress bars
- * 3. Expandable assessment breakdown with edit/delete actions
- * 4. Interactive "What-If" Target Simulator Calculator
- * 5. Quick Add Grade Sheet & Teacher Directory Modal integration
- * 6. Duolingo tactile 3D styling and theme compliance
+ * Comprehensive Indonesian academic performance tracker:
+ * 1. Indonesian Report Card Standard (Skala 0-100 & Predikat Kurikulum Merdeka)
+ * 2. KKM / KKTP Completion Monitor ("X dari Y Mapel Tuntas")
+ * 3. Analisis Kelayakan SNBP (Eligibilitas Kuota & Mapel Pendukung Prodi Tujuan)
+ * 4. Kalkulator Nilai TKA (UTBK Saintek/Soshum & SMA Unggulan)
+ * 5. Interactive "What-If" Target Simulator
+ * 6. Quick Add Grade Sheet & Teacher Directory Modal integration
+ * 7. Duolingo tactile 3D styling and theme compliance
  */
 
 import React, { useState, useMemo } from "react";
@@ -29,10 +30,12 @@ import { ScreenHeader } from "../components/common/ScreenHeader";
 import { Card } from "../components/common/Card";
 import { AddGradeSheet } from "../components/grades/AddGradeSheet";
 import { TeacherDirectoryModal } from "../components/teachers/TeacherDirectoryModal";
+import { TKACalculatorModal } from "../components/grades/TKACalculatorModal";
 import {
   calculateSubjectGrade,
   calculateOverallGPA,
   calculateNeededScoreForTarget,
+  calculateSNBPSupportingAverage,
   formatGradeCategory,
   getGradeCategoryIcon,
 } from "../lib/gradeEngine";
@@ -52,11 +55,18 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
   // Expanded subject cards state (subjectId -> boolean)
   const [expandedSubjectIds, setExpandedSubjectIds] = useState<Record<string, boolean>>({});
 
+  // Active view mode: "rapor" (standard report card) vs "snbp" (SNBP admission analysis)
+  const [activeTabMode, setActiveTabMode] = useState<"rapor" | "snbp">("rapor");
+
+  // Selected supporting subjects for SNBP (up to 2 subjects)
+  const [snbpSupportingSubjectIds, setSnbpSupportingSubjectIds] = useState<string[]>([]);
+
   // Modals state
   const [addGradeVisible, setAddGradeVisible] = useState(false);
   const [selectedSubjectIdForAdd, setSelectedSubjectIdForAdd] = useState<string | undefined>();
   const [gradeToEdit, setGradeToEdit] = useState<Grade | null>(null);
   const [teacherDirectoryVisible, setTeacherDirectoryVisible] = useState(false);
+  const [tkaModalVisible, setTkaModalVisible] = useState(false);
 
   // Simulator modal state
   const [simulatorVisible, setSimulatorVisible] = useState(false);
@@ -64,7 +74,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
   const [simTargetScore, setSimTargetScore] = useState<string>("85");
   const [simWeight, setSimWeight] = useState<number>(1);
 
-  // Overall GPA calculation
+  // Overall GPA & Indonesian Report calculation
   const overallSummary = useMemo(() => {
     return calculateOverallGPA(subjects, grades);
   }, [subjects, grades]);
@@ -73,11 +83,16 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
   const subjectSummaries = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calculateSubjectGrade>>();
     subjects.forEach((s) => {
-      const target = s.targetGrade != null ? s.targetGrade : 80;
+      const target = s.targetGrade != null ? s.targetGrade : 75;
       map.set(s.id, calculateSubjectGrade(grades, s.id, target));
     });
     return map;
   }, [subjects, grades]);
+
+  // SNBP Supporting Subjects average
+  const snbpSupportingAverage = useMemo(() => {
+    return calculateSNBPSupportingAverage(subjects, grades, snbpSupportingSubjectIds);
+  }, [subjects, grades, snbpSupportingSubjectIds]);
 
   const toggleExpandSubject = (subjectId: string) => {
     HapticFeedback.light();
@@ -85,6 +100,20 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
       ...prev,
       [subjectId]: !prev[subjectId],
     }));
+  };
+
+  const toggleSupportingSubject = (subjectId: string) => {
+    HapticFeedback.light();
+    setSnbpSupportingSubjectIds((prev) => {
+      if (prev.includes(subjectId)) {
+        return prev.filter((id) => id !== subjectId);
+      }
+      if (prev.length >= 2) {
+        // limit to 2 supporting subjects per SNBP rules, replace oldest
+        return [prev[1], subjectId];
+      }
+      return [...prev, subjectId];
+    });
   };
 
   const handleOpenAddGrade = (subjectId?: string) => {
@@ -129,7 +158,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
       initialSubId || (subjects.length > 0 ? subjects[0].id : "");
     setSimSubjectId(defaultSubId);
     const sub = subjects.find((s) => s.id === defaultSubId);
-    setSimTargetScore(String(sub?.targetGrade || 85));
+    setSimTargetScore(String(sub?.targetGrade || 80));
     setSimWeight(1);
     setSimulatorVisible(true);
   };
@@ -137,7 +166,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
   // Simulator calculation result
   const simulationResult = useMemo(() => {
     if (!simSubjectId) return null;
-    const target = parseFloat(simTargetScore) || 85;
+    const target = parseFloat(simTargetScore) || 80;
     return calculateNeededScoreForTarget(grades, simSubjectId, target, simWeight);
   }, [grades, simSubjectId, simTargetScore, simWeight]);
 
@@ -149,9 +178,18 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
         subtitle={
           overallSummary.gradedSubjectsCount > 0
             ? `Rata-rata: ${overallSummary.cumulativeAverage} (${overallSummary.letterGrade}) • ${overallSummary.totalAssessments} Penilaian`
-            : "Pelacak Nilai Akademik"
+            : "Pelacak Nilai Akademik Standar Indonesia"
         }
         actions={[
+          {
+            icon: "calculator-outline",
+            accessibilityLabel: "Kalkulator Nilai TKA",
+            onPress: () => {
+              HapticFeedback.light();
+              soundFX.playClick();
+              setTkaModalVisible(true);
+            },
+          },
           {
             icon: "people-outline",
             accessibilityLabel: "Daftar Guru",
@@ -174,11 +212,11 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Cumulative Report Card Hero Banner ─── */}
+        {/* ─── 1. Cumulative Report Card Hero Banner (Standar Indonesia) ─── */}
         <Card style={styles.heroCard}>
           <View style={styles.heroHeaderRow}>
-            <View>
-              <Text style={styles.heroLabel}>RATA-RATA NILAI RAPOR</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroLabel}>RATA-RATA RAPOR INDONESIA</Text>
               <View style={styles.heroScoreRow}>
                 <Text style={styles.heroScoreText}>
                   {overallSummary.cumulativeAverage > 0
@@ -187,29 +225,61 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
                 </Text>
                 <View style={styles.heroGradePill}>
                   <Text style={styles.heroGradePillText}>
-                    {overallSummary.letterGrade}
+                    Predikat {overallSummary.letterGrade}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.gpaScaleText}>
-                Skala 4.0:{" "}
-                <Text style={{ fontWeight: "800", color: colors.text }}>
-                  {overallSummary.gpaScale4.toFixed(2)}
-                </Text>{" "}
-                • {overallSummary.totalAssessments} Penilaian
-              </Text>
+
+              {/* Ketuntasan KKM indicator */}
+              <View style={styles.kkmSummaryRow}>
+                <Ionicons
+                  name={
+                    overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
+                      ? "checkmark-circle"
+                      : "alert-circle"
+                  }
+                  size={14}
+                  color={
+                    overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
+                      ? colors.emerald
+                      : colors.amber
+                  }
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.kkmSummaryText}>
+                  {overallSummary.gradedSubjectsCount > 0
+                    ? `${overallSummary.completedKKMCount} dari ${overallSummary.gradedSubjectsCount} Mapel Tuntas KKM (${overallSummary.kkmCompletionRate}%)`
+                    : "Belum ada nilai KKM"}
+                </Text>
+              </View>
             </View>
 
-            {/* What-If Simulator Action Button */}
-            <Pressable
-              style={styles.simulatorCtaBtn}
-              onPress={() => handleOpenSimulator()}
-              hitSlop={touchTarget.min / 4}
-              accessibilityLabel="Buka Simulator Nilai"
-            >
-              <Ionicons name="calculator-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.simulatorCtaText}>Simulator</Text>
-            </Pressable>
+            {/* Quick Action Buttons in Hero Banner */}
+            <View style={styles.heroActionsCol}>
+              <Pressable
+                style={styles.tkaCtaBtn}
+                onPress={() => {
+                  HapticFeedback.light();
+                  soundFX.playClick();
+                  setTkaModalVisible(true);
+                }}
+                hitSlop={touchTarget.min / 4}
+                accessibilityLabel="Kalkulator TKA"
+              >
+                <Ionicons name="calculator" size={15} color="#FFFFFF" />
+                <Text style={styles.tkaCtaText}>Nilai TKA</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.simulatorCtaBtn}
+                onPress={() => handleOpenSimulator()}
+                hitSlop={touchTarget.min / 4}
+                accessibilityLabel="Buka Simulator Nilai"
+              >
+                <Ionicons name="speedometer-outline" size={15} color="#FFFFFF" />
+                <Text style={styles.simulatorCtaText}>Simulator</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Performance Motivation Message */}
@@ -247,237 +317,435 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             )}
 
             <View style={styles.statBox}>
-              <Text style={styles.statBoxLabel}>MAPEL DINILAI</Text>
+              <Text style={styles.statBoxLabel}>KETUNTASAN KKM</Text>
               <Text style={styles.statBoxValue}>
-                {overallSummary.gradedSubjectsCount} / {overallSummary.totalSubjectsCount}
+                {overallSummary.completedKKMCount} / {overallSummary.gradedSubjectsCount}
               </Text>
-              <Text style={[styles.statBoxScore, { color: colors.primary }]}>Mapel</Text>
+              <Text style={[styles.statBoxScore, { color: colors.primary }]}>
+                {overallSummary.kkmCompletionRate}% Tuntas
+              </Text>
             </View>
           </View>
         </Card>
 
-        {/* ─── 2. Subject Grade Cards List ─── */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Nilai Per Mata Pelajaran</Text>
-          <Text style={styles.sectionBadge}>{subjects.length} Mapel</Text>
+        {/* ─── Mode Switcher: Rapor & KKM vs Analisis SNBP ─── */}
+        <View style={styles.viewModeSwitcher}>
+          <Pressable
+            style={[
+              styles.viewModeTab,
+              activeTabMode === "rapor" && styles.viewModeTabActive,
+            ]}
+            onPress={() => {
+              HapticFeedback.light();
+              setActiveTabMode("rapor");
+            }}
+          >
+            <Ionicons
+              name="book-outline"
+              size={15}
+              color={activeTabMode === "rapor" ? "#FFFFFF" : colors.textSecondary}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.viewModeTabText,
+                activeTabMode === "rapor" && styles.viewModeTabTextActive,
+              ]}
+            >
+              Rapor & KKM
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.viewModeTab,
+              activeTabMode === "snbp" && styles.viewModeTabActive,
+            ]}
+            onPress={() => {
+              HapticFeedback.light();
+              setActiveTabMode("snbp");
+            }}
+          >
+            <Ionicons
+              name="school-outline"
+              size={15}
+              color={activeTabMode === "snbp" ? "#FFFFFF" : colors.textSecondary}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              style={[
+                styles.viewModeTabText,
+                activeTabMode === "snbp" && styles.viewModeTabTextActive,
+              ]}
+            >
+              Analisis SNBP
+            </Text>
+          </Pressable>
         </View>
 
-        {subjects.length > 0 ? (
-          subjects.map((sub) => {
-            const summary = subjectSummaries.get(sub.id);
-            const subColor = sub.color || sub.color_hex || colors.primary;
-            const isExpanded = !!expandedSubjectIds[sub.id];
-            const subGrades = grades.filter((g) => g.subjectId === sub.id);
-
-            const hasGrades = summary && summary.gradeCount > 0;
-            const avg = summary ? summary.average : 0;
-            const target = sub.targetGrade != null ? sub.targetGrade : 80;
-
-            // Target progress percentage: (avg / target) * 100 capped at 100%
-            const targetProgress = target > 0 ? Math.min(100, (avg / target) * 100) : 0;
-            const isAboveTarget = avg >= target;
-
-            return (
-              <Card key={sub.id} style={styles.subjectCard}>
-                {/* Header Row: Color Stripe + Subject Title + Average Score + Expand Chevron */}
-                <Pressable
-                  style={styles.subjectCardHeader}
-                  onPress={() => toggleExpandSubject(sub.id)}
-                  hitSlop={touchTarget.min / 4}
-                >
-                  <View style={[styles.subjectStripe, { backgroundColor: subColor }]} />
-
-                  <View style={styles.subjectInfoCol}>
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={styles.subjectTitle} numberOfLines={1}>
-                        {sub.title || sub.name}
-                      </Text>
-                      {sub.room && (
-                        <Text style={styles.subjectRoomBadge}>
-                          {sub.room}
-                        </Text>
-                      )}
-                    </View>
-
-                    {sub.teacher && (
-                      <Text style={styles.subjectTeacherText}>
-                        Guru: {sub.teacher}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Average & Grade Badge */}
-                  <View style={styles.subjectScoreCol}>
-                    {hasGrades ? (
-                      <>
-                        <View style={styles.scoreWithLetter}>
-                          <Text style={[styles.subjectAverageScore, { color: subColor }]}>
-                            {avg.toFixed(1)}
-                          </Text>
-                          <View
-                            style={[
-                              styles.letterBadge,
-                              { backgroundColor: `${subColor}20` },
-                            ]}
-                          >
-                            <Text style={[styles.letterBadgeText, { color: subColor }]}>
-                              {summary.letterGrade}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.gradeCountText}>
-                          {summary.gradeCount} Penilaian
-                        </Text>
-                      </>
-                    ) : (
-                      <Text style={styles.noGradeLabel}>Belum ada nilai</Text>
-                    )}
-                  </View>
-
-                  <Ionicons
-                    name={isExpanded ? "chevron-up" : "chevron-down"}
-                    size={20}
-                    color={colors.textSecondary}
-                    style={{ marginLeft: 8 }}
-                  />
-                </Pressable>
-
-                {/* Target Progress Bar */}
-                <View style={styles.targetProgressContainer}>
-                  <View style={styles.targetLabelRow}>
-                    <Text style={styles.targetLabelText}>
-                      Target KKM: <Text style={{ fontWeight: "700", color: colors.text }}>{target}</Text>
-                    </Text>
-                    {hasGrades && (
-                      <Text
-                        style={[
-                          styles.diffLabelText,
-                          { color: isAboveTarget ? colors.emerald : colors.danger },
-                        ]}
-                      >
-                        {summary.diffFromTarget > 0 ? `+${summary.diffFromTarget}` : summary.diffFromTarget} dari target
-                      </Text>
-                    )}
-                  </View>
-
-                  <View style={styles.progressBarTrack}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        {
-                          width: `${targetProgress}%`,
-                          backgroundColor: isAboveTarget ? colors.emerald : subColor,
-                        },
-                      ]}
-                    />
-                  </View>
+        {/* ─── Mode 2: Analisis SNBP View ─── */}
+        {activeTabMode === "snbp" && (
+          <View style={styles.snbpContainer}>
+            <Card style={styles.snbpCard}>
+              <View style={styles.snbpHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.snbpTitle}>Proyeksi Kelayakan SNBP</Text>
+                  <Text style={styles.snbpSub}>
+                    Seleksi Nasional Berdasarkan Prestasi Rapor Semester 1–5
+                  </Text>
                 </View>
+                <View
+                  style={[
+                    styles.snbpTierPill,
+                    {
+                      backgroundColor:
+                        overallSummary.snbpSummary.eligibleTier === "high"
+                          ? `${colors.emerald}20`
+                          : overallSummary.snbpSummary.eligibleTier === "medium"
+                          ? `${colors.amber}20`
+                          : `${colors.danger}20`,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="ribbon"
+                    size={14}
+                    color={
+                      overallSummary.snbpSummary.eligibleTier === "high"
+                        ? colors.emerald
+                        : overallSummary.snbpSummary.eligibleTier === "medium"
+                        ? colors.amber
+                        : colors.danger
+                    }
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.snbpTierText,
+                      {
+                        color:
+                          overallSummary.snbpSummary.eligibleTier === "high"
+                            ? colors.emerald
+                            : overallSummary.snbpSummary.eligibleTier === "medium"
+                            ? colors.amber
+                            : colors.danger,
+                      },
+                    ]}
+                  >
+                    {overallSummary.snbpSummary.tierBadgeText}
+                  </Text>
+                </View>
+              </View>
 
-                {/* ─── Expanded Individual Assessments Breakdown ─── */}
-                {isExpanded && (
-                  <View style={styles.expandedAssessmentsBox}>
-                    <View style={styles.assessmentsHeaderRow}>
-                      <Text style={styles.assessmentsHeaderText}>Riwayat Penilaian</Text>
+              <Text style={styles.snbpDescText}>
+                {overallSummary.snbpSummary.eligibleDescription}
+              </Text>
+
+              {/* Supporting Subjects Selector (Mapel Pendukung Prodi) */}
+              <View style={styles.snbpSupportingSection}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+                  <Ionicons name="sparkles" size={14} color={colors.accent} style={{ marginRight: 4 }} />
+                  <Text style={styles.snbpSupportingLabel}>
+                    Mapel Pendukung Prodi Tujuan (Kepmendikbud)
+                  </Text>
+                </View>
+                <Text style={styles.snbpSupportingSub}>
+                  Pilih maksimal 2 mapel relevan dengan prodi impian (e.g. Kedokteran: Bio & Kimia; Teknik: Mat & Fisika)
+                </Text>
+
+                <View style={styles.snbpSupportingChipsRow}>
+                  {subjects.map((sub) => {
+                    const isSelected = snbpSupportingSubjectIds.includes(sub.id);
+                    return (
                       <Pressable
-                        style={styles.addAssessmentInlineBtn}
-                        onPress={() => handleOpenAddGrade(sub.id)}
+                        key={sub.id}
+                        style={[
+                          styles.snbpSubjectChip,
+                          isSelected && styles.snbpSubjectChipActive,
+                        ]}
+                        onPress={() => toggleSupportingSubject(sub.id)}
                       >
-                        <Ionicons name="add" size={14} color={subColor} style={{ marginRight: 2 }} />
-                        <Text style={[styles.addAssessmentInlineText, { color: subColor }]}>
-                          + Nilai Baru
+                        {isSelected && (
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={12}
+                            color={colors.primary}
+                            style={{ marginRight: 4 }}
+                          />
+                        )}
+                        <Text
+                          style={[
+                            styles.snbpSubjectChipText,
+                            isSelected && styles.snbpSubjectChipTextActive,
+                          ]}
+                        >
+                          {sub.title || sub.name}
                         </Text>
                       </Pressable>
-                    </View>
+                    );
+                  })}
+                </View>
 
-                    {subGrades.length > 0 ? (
-                      subGrades.map((g) => {
-                        return (
-                          <View key={g.id} style={styles.gradeItemRow}>
-                            <View
-                              style={[
-                                styles.gradeCategoryIconBox,
-                                { backgroundColor: `${subColor}15` },
-                              ]}
-                            >
-                              <Ionicons
-                                name={getGradeCategoryIcon(g.category) as any}
-                                size={16}
-                                color={subColor}
-                              />
-                            </View>
-
-                            <View style={styles.gradeItemInfoCol}>
-                              <Text style={styles.gradeItemTitle}>{g.title}</Text>
-                              <View style={styles.gradeItemMetaRow}>
-                                <Text style={styles.gradeCategoryTag}>
-                                  {formatGradeCategory(g.category)}
-                                </Text>
-                                <Text style={styles.gradeItemDate}>{g.date}</Text>
-                                {g.weight !== 1 && (
-                                  <Text style={styles.gradeWeightTag}>
-                                    Bobot: {g.weight}x
-                                  </Text>
-                                )}
-                              </View>
-                            </View>
-
-                            {/* Score Display */}
-                            <View style={styles.gradeItemScoreCol}>
-                              <Text style={[styles.gradeItemScoreText, { color: subColor }]}>
-                                {g.score}
-                              </Text>
-                              <Text style={styles.gradeItemMaxText}>/{g.maxScore}</Text>
-                            </View>
-
-                            {/* Actions */}
-                            <Pressable
-                              style={styles.gradeActionBtn}
-                              onPress={() => handleOpenEditGrade(g)}
-                              hitSlop={touchTarget.min / 4}
-                            >
-                              <Ionicons name="pencil" size={15} color={colors.textSecondary} />
-                            </Pressable>
-                            <Pressable
-                              style={styles.gradeActionBtn}
-                              onPress={() => handleDeleteGrade(g)}
-                              hitSlop={touchTarget.min / 4}
-                            >
-                              <Ionicons name="trash-outline" size={15} color={colors.danger} />
-                            </Pressable>
-                          </View>
-                        );
-                      })
-                    ) : (
-                      <View style={styles.noAssessmentsBox}>
-                        <Text style={styles.noAssessmentsText}>
-                          Belum ada tugas atau ulangan yang dicatat untuk mata pelajaran ini.
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Quick Simulator CTA for this subject */}
-                    <Pressable
-                      style={styles.simSubjectInlineBtn}
-                      onPress={() => handleOpenSimulator(sub.id)}
-                    >
-                      <Ionicons name="calculator-outline" size={14} color={colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={styles.simSubjectInlineText}>
-                        Hitung target nilai ujian {sub.title || sub.name} berikutnya
-                      </Text>
-                    </Pressable>
+                {snbpSupportingSubjectIds.length > 0 && (
+                  <View style={styles.snbpAverageResultBox}>
+                    <Text style={styles.snbpAverageLabel}>
+                      Rata-rata {snbpSupportingSubjectIds.length} Mapel Pendukung:
+                    </Text>
+                    <Text style={styles.snbpAverageScore}>
+                      {snbpSupportingAverage.toFixed(1)} / 100
+                    </Text>
                   </View>
                 )}
-              </Card>
-            );
-          })
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="school-outline" size={48} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>Belum Ada Mata Pelajaran</Text>
-            <Text style={styles.emptySub}>
-              Impor jadwal sekolah atau tambahkan mata pelajaran di menu Jadwal untuk mulai mencatat nilai.
-            </Text>
+              </View>
+
+              {/* SNBP Strategy Guidance */}
+              <View style={styles.snbpGuidanceList}>
+                <Text style={styles.snbpGuidanceTitle}>Strategi Masuk PTN Jalur SNBP:</Text>
+                <Text style={styles.snbpGuidanceItem}>
+                  • Kuota pendaftaran SNBP dihitung dari akreditasi sekolah (Akreditasi A: 40% terbaik).
+                </Text>
+                <Text style={styles.snbpGuidanceItem}>
+                  • Rata-rata seluruh mapel memiliki bobot minimal 50% dalam penilaian nasional.
+                </Text>
+                <Text style={styles.snbpGuidanceItem}>
+                  • Nilai mapel pendukung prodi menjadi penentu utama persaingan jurusan di kampus tujuan.
+                </Text>
+              </View>
+            </Card>
           </View>
+        )}
+
+        {/* ─── Mode 1: Rapor & KKM Subject Grade Cards List ─── */}
+        {activeTabMode === "rapor" && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Nilai Per Mata Pelajaran</Text>
+              <Text style={styles.sectionBadge}>{subjects.length} Mapel</Text>
+            </View>
+
+            {subjects.length > 0 ? (
+              subjects.map((sub) => {
+                const summary = subjectSummaries.get(sub.id);
+                const subColor = sub.color || sub.color_hex || colors.primary;
+                const isExpanded = !!expandedSubjectIds[sub.id];
+                const subGrades = grades.filter((g) => g.subjectId === sub.id);
+
+                const hasGrades = summary && summary.gradeCount > 0;
+                const avg = summary ? summary.average : 0;
+                const target = sub.targetGrade != null ? sub.targetGrade : 75;
+
+                // Target progress percentage: (avg / target) * 100 capped at 100%
+                const targetProgress = target > 0 ? Math.min(100, (avg / target) * 100) : 0;
+                const isAboveTarget = avg >= target;
+
+                return (
+                  <Card key={sub.id} style={styles.subjectCard}>
+                    {/* Header Row: Color Stripe + Subject Title + Average Score + Expand Chevron */}
+                    <Pressable
+                      style={styles.subjectCardHeader}
+                      onPress={() => toggleExpandSubject(sub.id)}
+                      hitSlop={touchTarget.min / 4}
+                    >
+                      <View style={[styles.subjectStripe, { backgroundColor: subColor }]} />
+
+                      <View style={styles.subjectInfoCol}>
+                        <View style={{ flexDirection: "row", alignItems: "center" }}>
+                          <Text style={styles.subjectTitle} numberOfLines={1}>
+                            {sub.title || sub.name}
+                          </Text>
+                          {sub.room && (
+                            <Text style={styles.subjectRoomBadge}>
+                              {sub.room}
+                            </Text>
+                          )}
+                        </View>
+
+                        {sub.teacher && (
+                          <Text style={styles.subjectTeacherText}>
+                            Guru: {sub.teacher}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Average & Grade Badge */}
+                      <View style={styles.subjectScoreCol}>
+                        {hasGrades ? (
+                          <>
+                            <View style={styles.scoreWithLetter}>
+                              <Text style={[styles.subjectAverageScore, { color: subColor }]}>
+                                {avg.toFixed(1)}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.letterBadge,
+                                  { backgroundColor: `${subColor}20` },
+                                ]}
+                              >
+                                <Text style={[styles.letterBadgeText, { color: subColor }]}>
+                                  {summary.letterGrade}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={styles.gradeCountText}>
+                              {summary.gradeCount} Penilaian
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={styles.noGradeLabel}>Belum ada nilai</Text>
+                        )}
+                      </View>
+
+                      <Ionicons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={20}
+                        color={colors.textSecondary}
+                        style={{ marginLeft: 8 }}
+                      />
+                    </Pressable>
+
+                    {/* Target KKM Progress Bar */}
+                    <View style={styles.targetProgressContainer}>
+                      <View style={styles.targetLabelRow}>
+                        <Text style={styles.targetLabelText}>
+                          KKM: <Text style={{ fontWeight: "700", color: colors.text }}>{target}</Text>
+                          {hasGrades && (
+                            <Text style={{ color: isAboveTarget ? colors.emerald : colors.danger, fontWeight: "700" }}>
+                              {" "}• {summary.kkmStatusText}
+                            </Text>
+                          )}
+                        </Text>
+                        {hasGrades && (
+                          <Text
+                            style={[
+                              styles.diffLabelText,
+                              { color: isAboveTarget ? colors.emerald : colors.danger },
+                            ]}
+                          >
+                            {summary.diffFromTarget > 0 ? `+${summary.diffFromTarget}` : summary.diffFromTarget} dari KKM
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.progressBarTrack}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            {
+                              width: `${targetProgress}%`,
+                              backgroundColor: isAboveTarget ? colors.emerald : subColor,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+
+                    {/* ─── Expanded Individual Assessments Breakdown ─── */}
+                    {isExpanded && (
+                      <View style={styles.expandedAssessmentsBox}>
+                        <View style={styles.assessmentsHeaderRow}>
+                          <Text style={styles.assessmentsHeaderText}>Riwayat Penilaian</Text>
+                          <Pressable
+                            style={styles.addAssessmentInlineBtn}
+                            onPress={() => handleOpenAddGrade(sub.id)}
+                          >
+                            <Ionicons name="add" size={14} color={subColor} style={{ marginRight: 2 }} />
+                            <Text style={[styles.addAssessmentInlineText, { color: subColor }]}>
+                              + Nilai Baru
+                            </Text>
+                          </Pressable>
+                        </View>
+
+                        {subGrades.length > 0 ? (
+                          subGrades.map((g) => {
+                            return (
+                              <View key={g.id} style={styles.gradeItemRow}>
+                                <View
+                                  style={[
+                                    styles.gradeCategoryIconBox,
+                                    { backgroundColor: `${subColor}15` },
+                                  ]}
+                                >
+                                  <Ionicons
+                                    name={getGradeCategoryIcon(g.category) as any}
+                                    size={16}
+                                    color={subColor}
+                                  />
+                                </View>
+
+                                <View style={styles.gradeItemInfoCol}>
+                                  <Text style={styles.gradeItemTitle}>{g.title}</Text>
+                                  <View style={styles.gradeItemMetaRow}>
+                                    <Text style={styles.gradeCategoryTag}>
+                                      {formatGradeCategory(g.category)}
+                                    </Text>
+                                    <Text style={styles.gradeItemDate}>{g.date}</Text>
+                                    {g.weight !== 1 && (
+                                      <Text style={styles.gradeWeightTag}>
+                                        Bobot: {g.weight}x
+                                      </Text>
+                                    )}
+                                  </View>
+                                </View>
+
+                                {/* Score Display */}
+                                <View style={styles.gradeItemScoreCol}>
+                                  <Text style={[styles.gradeItemScoreText, { color: subColor }]}>
+                                    {g.score}
+                                  </Text>
+                                  <Text style={styles.gradeItemMaxText}>/{g.maxScore}</Text>
+                                </View>
+
+                                {/* Actions */}
+                                <Pressable
+                                  style={styles.gradeActionBtn}
+                                  onPress={() => handleOpenEditGrade(g)}
+                                  hitSlop={touchTarget.min / 4}
+                                >
+                                  <Ionicons name="pencil" size={15} color={colors.textSecondary} />
+                                </Pressable>
+                                <Pressable
+                                  style={styles.gradeActionBtn}
+                                  onPress={() => handleDeleteGrade(g)}
+                                  hitSlop={touchTarget.min / 4}
+                                >
+                                  <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                                </Pressable>
+                              </View>
+                            );
+                          })
+                        ) : (
+                          <View style={styles.noAssessmentsBox}>
+                            <Text style={styles.noAssessmentsText}>
+                              Belum ada tugas atau ulangan yang dicatat untuk mata pelajaran ini.
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Quick Simulator CTA for this subject */}
+                        <Pressable
+                          style={styles.simSubjectInlineBtn}
+                          onPress={() => handleOpenSimulator(sub.id)}
+                        >
+                          <Ionicons name="calculator-outline" size={14} color={colors.primary} style={{ marginRight: 6 }} />
+                          <Text style={styles.simSubjectInlineText}>
+                            Hitung target nilai ujian {sub.title || sub.name} berikutnya
+                          </Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </Card>
+                );
+              })
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="school-outline" size={48} color={colors.textMuted} />
+                <Text style={styles.emptyTitle}>Belum Ada Mata Pelajaran</Text>
+                <Text style={styles.emptySub}>
+                  Impor jadwal sekolah atau tambahkan mata pelajaran di menu Jadwal untuk mulai mencatat nilai.
+                </Text>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -526,7 +794,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             </View>
 
             <Text style={styles.simDescription}>
-              Hitung berapa nilai yang harus kamu peroleh pada ulangan berikutnya agar mencapai target rata-rata akhir.
+              Hitung berapa nilai yang harus kamu peroleh pada ulangan berikutnya agar mencapai target rata-rata akhir KKM.
             </Text>
 
             {/* Select Subject */}
@@ -538,27 +806,23 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             >
               {subjects.map((s) => {
                 const isSelected = s.id === simSubjectId;
-                const subCol = s.color || s.color_hex || colors.primary;
+                const subColor = s.color || s.color_hex || colors.primary;
                 return (
                   <Pressable
                     key={s.id}
                     style={[
-                      styles.simSubChip,
-                      isSelected && {
-                        borderColor: subCol,
-                        backgroundColor: `${subCol}20`,
-                      },
+                      styles.simSubjectChip,
+                      isSelected && { backgroundColor: subColor, borderColor: subColor },
                     ]}
                     onPress={() => {
                       HapticFeedback.light();
                       setSimSubjectId(s.id);
                     }}
                   >
-                    <View style={[styles.simColorDot, { backgroundColor: subCol }]} />
                     <Text
                       style={[
-                        styles.simSubChipText,
-                        isSelected && { color: subCol, fontWeight: "700" },
+                        styles.simSubjectChipText,
+                        isSelected && { color: "#FFFFFF", fontWeight: "700" },
                       ]}
                     >
                       {s.title || s.name}
@@ -569,48 +833,44 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             </ScrollView>
 
             {/* Target Score Input */}
-            <Text style={styles.simInputLabel}>Target Nilai Rata-rata yang Diinginkan</Text>
+            <Text style={styles.simInputLabel}>Target Rata-Rata yang Diinginkan</Text>
             <TextInput
-              style={styles.simInput}
+              style={styles.simTextInput}
               keyboardType="numeric"
               value={simTargetScore}
               onChangeText={setSimTargetScore}
-              placeholder="Contoh: 85"
+              placeholder="e.g. 85"
               placeholderTextColor={colors.textMuted}
             />
 
-            {/* Next Test Weight */}
+            {/* Weight Picker */}
             <Text style={styles.simInputLabel}>Bobot Ulangan Berikutnya</Text>
-            <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-              {[
-                { label: "1x (Normal)", val: 1 },
-                { label: "2x (Utama / PTS)", val: 2 },
-                { label: "3x (Final / PAS)", val: 3 },
-              ].map((w) => (
-                <Pressable
-                  key={w.val}
-                  style={[
-                    styles.simWeightChip,
-                    simWeight === w.val && styles.simWeightChipSelected,
-                  ]}
-                  onPress={() => {
-                    HapticFeedback.light();
-                    setSimWeight(w.val);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.simWeightText,
-                      simWeight === w.val && styles.simWeightTextSelected,
-                    ]}
+            <View style={styles.simWeightRow}>
+              {[1, 2, 3].map((w) => {
+                const isSel = simWeight === w;
+                return (
+                  <Pressable
+                    key={w}
+                    style={[styles.simWeightChip, isSel && styles.simWeightChipActive]}
+                    onPress={() => {
+                      HapticFeedback.light();
+                      setSimWeight(w);
+                    }}
                   >
-                    {w.label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.simWeightChipText,
+                        isSel && styles.simWeightChipTextActive,
+                      ]}
+                    >
+                      {w}x Bobot
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
-            {/* Simulation Result Box */}
+            {/* Calculation Result */}
             {simulationResult && (
               <View
                 style={[
@@ -652,6 +912,12 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
           </View>
         </View>
       </Modal>
+
+      {/* ─── TKA Calculator Modal ─── */}
+      <TKACalculatorModal
+        visible={tkaModalVisible}
+        onClose={() => setTkaModalVisible(false)}
+      />
     </View>
   );
 }
@@ -711,30 +977,55 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   heroGradePillText: {
-    fontSize: typography.fontSizes.body,
+    fontSize: typography.fontSizes.caption,
     fontWeight: "800",
     color: colors.primary,
   },
-  gpaScaleText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  kkmSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 4,
+  },
+  kkmSummaryText: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.textSecondary,
+  },
+  heroActionsCol: {
+    gap: 6,
+    alignItems: "flex-end",
+  },
+  tkaCtaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    borderBottomWidth: 3,
+    borderBottomColor: "#7C3AED",
+  },
+  tkaCtaText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+    marginLeft: 5,
   },
   simulatorCtaBtn: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: radius.md,
     borderBottomWidth: 3,
     borderBottomColor: "#1D4ED8",
   },
   simulatorCtaText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "700",
-    marginLeft: 6,
+    marginLeft: 5,
   },
   performanceRow: {
     flexDirection: "row",
@@ -760,34 +1051,192 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
+    alignItems: "center",
     backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderRadius: radius.sm,
+    padding: 6,
   },
   statBoxLabel: {
     fontSize: 9,
     fontWeight: "800",
-    color: colors.textSecondary,
+    color: colors.textMuted,
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   statBoxValue: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
     color: colors.text,
     marginTop: 2,
   },
   statBoxScore: {
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "900",
+    marginTop: 1,
+  },
+  // Mode Switcher
+  viewModeSwitcher: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  viewModeTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+  },
+  viewModeTabActive: {
+    backgroundColor: colors.primary,
+  },
+  viewModeTabText: {
+    fontSize: typography.fontSizes.sm,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  viewModeTabTextActive: {
+    color: "#FFFFFF",
+    fontWeight: typography.fontWeights.bold,
+  },
+  // SNBP Styles
+  snbpContainer: {
+    gap: spacing.md,
+  },
+  snbpCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.cardLarge,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  snbpHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  snbpTitle: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  snbpSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
     marginTop: 2,
   },
+  snbpTierPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  snbpTierText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+  },
+  snbpDescText: {
+    fontSize: typography.fontSizes.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  snbpSupportingSection: {
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  snbpSupportingLabel: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+    textTransform: "uppercase",
+  },
+  snbpSupportingSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  snbpSupportingChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 8,
+  },
+  snbpSubjectChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  snbpSubjectChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}18`,
+  },
+  snbpSubjectChipText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeights.medium,
+  },
+  snbpSubjectChipTextActive: {
+    color: colors.primary,
+    fontWeight: typography.fontWeights.bold,
+  },
+  snbpAverageResultBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  snbpAverageLabel: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.text,
+  },
+  snbpAverageScore: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+  snbpGuidanceList: {
+    backgroundColor: "rgba(58, 134, 255, 0.06)",
+    borderRadius: radius.md,
+    padding: spacing.sm + 2,
+    gap: 4,
+  },
+  snbpGuidanceTitle: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  snbpGuidanceItem: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  // Section Header
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: spacing.xs,
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: typography.fontSizes.body,
@@ -795,31 +1244,32 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   sectionBadge: {
-    fontSize: 11,
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
     backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: radius.full,
   },
+  // Subject Cards
   subjectCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.cardLarge,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    padding: spacing.md,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.borderLight,
+    padding: 0,
+    overflow: "hidden",
   },
   subjectCardHeader: {
     flexDirection: "row",
     alignItems: "center",
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   subjectStripe: {
-    width: 5,
-    height: 42,
-    borderRadius: radius.full,
-    marginRight: 10,
+    width: 4,
+    height: 40,
+    borderRadius: 2,
   },
   subjectInfoCol: {
     flex: 1,
@@ -828,6 +1278,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
+    flexShrink: 1,
   },
   subjectRoomBadge: {
     fontSize: 10,
@@ -835,7 +1286,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: radius.sm,
+    borderRadius: 4,
     marginLeft: 6,
   },
   subjectTeacherText: {
@@ -852,7 +1303,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   subjectAverageScore: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
   },
   letterBadge: {
@@ -861,27 +1312,27 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   letterBadgeText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
   },
   gradeCountText: {
     fontSize: 10,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     marginTop: 2,
   },
   noGradeLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textMuted,
     fontStyle: "italic",
   },
   targetProgressContainer: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
   },
   targetLabelRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 4,
   },
   targetLabelText: {
@@ -894,47 +1345,52 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     height: 6,
-    borderRadius: 3,
     backgroundColor: colors.surfaceSubtle,
+    borderRadius: 3,
     overflow: "hidden",
   },
   progressBarFill: {
     height: "100%",
     borderRadius: 3,
   },
+  // Expanded Assessments
   expandedAssessmentsBox: {
-    marginTop: spacing.md,
-    paddingTop: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceSubtle,
+    gap: spacing.sm,
   },
   assessmentsHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   assessmentsHeaderText: {
-    fontSize: 11,
-    fontWeight: "800",
+    fontSize: typography.fontSizes.caption,
+    fontWeight: "700",
     color: colors.textSecondary,
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   addAssessmentInlineBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 2,
   },
   addAssessmentInlineText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
   },
   gradeItemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    backgroundColor: colors.surface,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    gap: spacing.sm,
   },
   gradeCategoryIconBox: {
     width: 32,
@@ -942,14 +1398,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
   },
   gradeItemInfoCol: {
     flex: 1,
   },
   gradeItemTitle: {
     fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.semibold,
+    fontWeight: "700",
     color: colors.text,
   },
   gradeItemMetaRow: {
@@ -972,16 +1427,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   gradeItemScoreCol: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginRight: 8,
+    alignItems: "flex-end",
   },
   gradeItemScoreText: {
     fontSize: 16,
     fontWeight: "800",
   },
   gradeItemMaxText: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
   },
   gradeActionBtn: {
@@ -994,56 +1447,60 @@ const styles = StyleSheet.create({
   noAssessmentsText: {
     fontSize: 12,
     color: colors.textMuted,
-    textAlign: "center",
+    fontStyle: "italic",
   },
   simSubjectInlineBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: `${colors.primary}12`,
     paddingVertical: 8,
-    borderRadius: radius.md,
-    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.primary,
+    borderRadius: radius.sm,
+    marginTop: 4,
   },
   simSubjectInlineText: {
     fontSize: 11,
-    color: colors.primary,
     fontWeight: "600",
+    color: colors.primary,
   },
+  // Empty State
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 60,
+    paddingHorizontal: spacing.xl,
   },
   emptyTitle: {
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
-    marginTop: spacing.md,
+    marginTop: 12,
   },
   emptySub: {
     fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
     textAlign: "center",
-    marginTop: 6,
-    paddingHorizontal: 24,
+    marginTop: 4,
     lineHeight: 18,
   },
+  // Simulator Modal
   simOverlay: {
     flex: 1,
-    backgroundColor: "rgba(11, 19, 43, 0.8)",
+    backgroundColor: "rgba(11, 19, 43, 0.75)",
     justifyContent: "center",
     alignItems: "center",
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   simCard: {
     width: "100%",
-    maxWidth: 360,
     backgroundColor: colors.surface,
     borderRadius: radius.cardLarge,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
     padding: spacing.lg,
+    maxHeight: "85%",
   },
   simHeaderRow: {
     flexDirection: "row",
@@ -1057,85 +1514,81 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   simDescription: {
-    fontSize: 11,
+    fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
-    lineHeight: 16,
     marginBottom: spacing.md,
+    lineHeight: 18,
   },
   simInputLabel: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "700",
     color: colors.textSecondary,
+    marginBottom: 6,
     textTransform: "uppercase",
-    marginBottom: 4,
   },
-  simSubChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
+  simSubjectChip: {
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radius.full,
     borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: colors.surfaceSubtle,
   },
-  simColorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  simSubChipText: {
-    fontSize: 11,
+  simSubjectChipText: {
+    fontSize: 12,
     color: colors.textSecondary,
   },
-  simInput: {
-    backgroundColor: colors.surfaceSubtle,
+  simTextInput: {
+    height: 44,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    borderRadius: radius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: colors.surfaceSubtle,
+    paddingHorizontal: spacing.md,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
-    color: colors.text,
-    marginBottom: 12,
+    marginBottom: spacing.md,
+  },
+  simWeightRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: spacing.md,
   },
   simWeightChip: {
     flex: 1,
-    height: 36,
-    borderRadius: radius.md,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: colors.surfaceSubtle,
     alignItems: "center",
-    justifyContent: "center",
   },
-  simWeightChipSelected: {
+  simWeightChipActive: {
     borderColor: colors.primary,
-    backgroundColor: `${colors.primary}20`,
+    backgroundColor: colors.primaryLight,
   },
-  simWeightText: {
-    fontSize: 11,
+  simWeightChipText: {
+    fontSize: 12,
+    fontWeight: "600",
     color: colors.textSecondary,
   },
-  simWeightTextSelected: {
+  simWeightChipTextActive: {
     color: colors.primary,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   simResultBox: {
-    backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.md,
     borderWidth: 1.5,
+    backgroundColor: colors.surfaceSubtle,
     padding: spacing.md,
-    alignItems: "center",
     marginBottom: spacing.md,
   },
   simResultHeading: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "800",
-    color: colors.textSecondary,
-    letterSpacing: 0.8,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
   },
   simNeededScoreRow: {
     marginVertical: 4,
@@ -1145,23 +1598,22 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   simResultMessage: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: "center",
+    fontSize: 12,
+    color: colors.text,
     lineHeight: 16,
   },
   simDoneBtn: {
     height: 44,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
-    borderBottomWidth: 4,
-    borderBottomColor: "#1D4ED8",
     alignItems: "center",
     justifyContent: "center",
+    borderBottomWidth: 3,
+    borderBottomColor: "#1D4ED8",
   },
   simDoneBtnText: {
     color: "#FFFFFF",
-    fontSize: typography.fontSizes.caption,
+    fontSize: typography.fontSizes.body,
     fontWeight: "700",
   },
 });

@@ -317,6 +317,40 @@ export interface Teacher {
   notes?: string;
 }
 
+// ─── 8b. School Planner: TKA & SNBP Standards ───
+export type TKAPresetType = "utbk_saintek" | "utbk_soshum" | "sma_unggulan" | "custom";
+
+export interface TKASubtest {
+  id: string;
+  name: string;
+  score: number;
+  maxScore: number;
+  weight: number;
+}
+
+export interface TKACalculationResult {
+  presetType: TKAPresetType;
+  averageScore: number;
+  totalWeightedScore: number;
+  targetPassingGrade: number;
+  isPassed: boolean;
+  diffFromTarget: number;
+  strongestSubtest: { name: string; score: number } | null;
+  weakestSubtest: { name: string; score: number } | null;
+  recommendation: string;
+}
+
+export type SNBPEligibilityTier = "high" | "medium" | "low";
+
+export interface SNBPSummary {
+  overallAverage: number;
+  eligibleTier: SNBPEligibilityTier;
+  tierBadgeText: string;
+  eligibleDescription: string;
+  supportingSubjectIds?: string[];
+  supportingAverage?: number;
+}
+
 // ─── 9. Persistence State ───
 export interface DatabaseState {
   subjects: Subject[];

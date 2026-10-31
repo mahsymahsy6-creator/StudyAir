@@ -294,5 +294,39 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Elevates the app from a simple task scheduler into a complete School Planner with grade tracking and timetable management, giving students complete control over their academic life.
 - **Attribution**: Builder (per user choice in clarification modal).
 
+### 2026-10-31: Indonesian Report Card Standard (Kurikulum Merdeka), SNBP Eligibility Analysis, and Flexible TKA Calculator
+- **Decision**: Calibrated the Grades system specifically to Indonesian academic conventions and added a comprehensive Tes Kemampuan Akademik (TKA) calculator:
+  1. **Indonesian Kurikulum Merdeka Grade Standard (`gradeEngine.ts`)**:
+     - Converted primary report card scale to 0–100 with official Kurikulum Merdeka & K13 predicate bands:
+       - **A (85–100)**: Sangat Baik / Mahir
+       - **B (75–84)**: Baik / Cakap
+       - **C (65–74)**: Cukup / Layak
+       - **D (50–64)**: Kurang / Perlu Bimbingan
+       - **E (<50)**: Perlu Remedial
+     - Secondary 4.0 GPA scale mapper retained for international scholarship & university readiness references.
+  2. **KKM / KKTP Completion Tracking**:
+     - Computes subject-level ketuntasan (`isCompletedKKM`, "Tuntas KKM" vs "Di Bawah KKM").
+     - Report card hero metrics display overall completion rate: `"✓ X dari Y Mapel Tuntas KKM (KKTP)"` with progress percentage.
+  3. **SNBP (Seleksi Nasional Berdasarkan Prestasi) Eligibility Engine**:
+     - Analyzes cumulative 0–100 average across semesters against SNBP admission benchmarks:
+       - `high`: "Sangat Berpeluang (Top 25%)" (Rata-rata $\ge 85$)
+       - `medium`: "Berpeluang Bersaing" (Rata-rata $\ge 78$)
+       - `low`: "Perlu Peningkatan"
+     - Interactive **Mapel Pendukung Prodi SNBP** selector (per Kepmendikbudristek No. 345/M/2022): calculates real-time average for 2 target major supporting subjects.
+  4. **Flexible TKA (Tes Kemampuan Akademik) Calculator (`TKACalculatorModal.tsx`)**:
+     - **UTBK Saintek Preset**: 4 subtests (Matematika IPA, Fisika, Kimia, Biologi) on 0–1000 scale, default passing grade 650.
+     - **UTBK Soshum Preset**: 4 subtests (Sosiologi, Sejarah, Geografi, Ekonomi) on 0–1000 scale, default passing grade 650.
+     - **SMA Unggulan Preset**: 4 weighted subtests (Matematika w=2, IPA w=2, B. Indo w=1, B. Inggris w=1) on 0–100 scale, default passing grade 80.
+     - **Custom Mode**: Free dynamic addition, deletion, and weight adjustment of custom subtests.
+     - **Real-Time Analysis**: Identifies strongest subtest (unggulan), weakest subtest requiring immediate drill, passing grade delta, and tactical study tips.
+     - **Duolingo 3D Tactile Styling**: Complete with haptic feedback, sound synthesis, and interactive score steppers.
+  5. **Automated Verification**:
+     - Updated `test_p18_school_planner_suite.mjs` with 5 new validation suites (15 total specifications).
+     - Verified by `test_p13_release_qa_suite.mjs` (16 of 16 test suites passing 100%, 0 failures).
+     - Zero TypeScript errors (`npx tsc --noEmit`).
+- **Rationale**: GPA 4.0 scale alone is alien to Indonesian high school and middle school students who rely strictly on 0–100 marks, KKM/KKTP benchmarks, SNBP quota rankings, and UTBK/SMA Unggulan entrance exams.
+- **Attribution**: Builder (per user request and clarification modal).
+
+
 
 

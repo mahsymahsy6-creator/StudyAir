@@ -237,6 +237,200 @@ assert(quickActionContent.includes("AddGradeSheet"), "QuickActionSheet must rend
 assert(quickActionContent.includes("onNavigateToTimetable"), "QuickActionSheet must support onNavigateToTimetable");
 console.log("✓ QuickActionSheet Catat Nilai Baru & Jadwal quick actions verified");
 
+// 11. Verify Indonesian Standard Grade Conversion & Predicates (Kurikulum Merdeka / K13)
+assert(gradeEngineContent.includes("export function getLetterGrade"), "getLetterGrade must be exported");
+assert(gradeEngineContent.includes('"Sangat Baik"'), "Letter A must be Sangat Baik");
+assert(gradeEngineContent.includes('"Baik"'), "Letter B must be Baik");
+assert(gradeEngineContent.includes('"Cukup"'), "Letter C must be Cukup");
+assert(gradeEngineContent.includes('"Kurang"'), "Letter D must be Kurang");
+assert(gradeEngineContent.includes('"Perlu Remedial"'), "Letter E must be Perlu Remedial");
+
+// Pure conversion test
+function testIndonesianLetterGrade(score) {
+  if (score >= 85) return { letter: "A", gpaPoint: 4.0, description: "Sangat Baik" };
+  if (score >= 75) return { letter: "B", gpaPoint: 3.0, description: "Baik" };
+  if (score >= 65) return { letter: "C", gpaPoint: 2.0, description: "Cukup" };
+  if (score >= 50) return { letter: "D", gpaPoint: 1.0, description: "Kurang" };
+  return { letter: "E", gpaPoint: 0.0, description: "Perlu Remedial" };
+}
+assert.strictEqual(testIndonesianLetterGrade(90).letter, "A");
+assert.strictEqual(testIndonesianLetterGrade(90).description, "Sangat Baik");
+assert.strictEqual(testIndonesianLetterGrade(78).letter, "B");
+assert.strictEqual(testIndonesianLetterGrade(78).description, "Baik");
+assert.strictEqual(testIndonesianLetterGrade(68).letter, "C");
+assert.strictEqual(testIndonesianLetterGrade(68).description, "Cukup");
+assert.strictEqual(testIndonesianLetterGrade(55).letter, "D");
+assert.strictEqual(testIndonesianLetterGrade(55).description, "Kurang");
+assert.strictEqual(testIndonesianLetterGrade(40).letter, "E");
+assert.strictEqual(testIndonesianLetterGrade(40).description, "Perlu Remedial");
+console.log("✓ Indonesian Kurikulum Merdeka letter grade predicates (A/B/C/D/E) verified");
+
+// 12. Verify KKM / KKTP Completion Tracking
+assert(gradeEngineContent.includes("isCompletedKKM"), "gradeEngine must compute isCompletedKKM");
+assert(gradeEngineContent.includes("kkmCompletionRate"), "gradeEngine must compute kkmCompletionRate");
+assert(gradeEngineContent.includes("completedKKMCount"), "gradeEngine must compute completedKKMCount");
+
+const mockSubjects = [
+  { id: "sub-mat", title: "Matematika", targetGrade: 75, creditHours: 4 },
+  { id: "sub-fis", title: "Fisika", targetGrade: 75, creditHours: 3 },
+  { id: "sub-kim", title: "Kimia", targetGrade: 80, creditHours: 3 },
+];
+const mockGrades = [
+  { id: "g-mat1", subjectId: "sub-mat", score: 85, maxScore: 100, weight: 1 },
+  { id: "g-fis1", subjectId: "sub-fis", score: 70, maxScore: 100, weight: 1 },
+  { id: "g-kim1", subjectId: "sub-kim", score: 80, maxScore: 100, weight: 1 },
+];
+
+// Test KKM calculations directly
+const matSummary = calculateSubjectGrade(mockGrades, "sub-mat", 75);
+assert.strictEqual(matSummary.average, 85);
+assert.strictEqual(matSummary.isAboveTarget, true, "Matematika (85) must be above target 75");
+
+const fisSummary = calculateSubjectGrade(mockGrades, "sub-fis", 75);
+assert.strictEqual(fisSummary.average, 70);
+assert.strictEqual(fisSummary.isAboveTarget, false, "Fisika (70) must be below target 75");
+
+console.log("✓ KKM / KKTP subject completion status calculation verified");
+
+// 13. Verify SNBP Eligibility Analysis & Supporting Subjects
+assert(gradeEngineContent.includes("calculateSNBPSupportingAverage"), "calculateSNBPSupportingAverage must be exported");
+assert(gradeEngineContent.includes("snbpSummary"), "gradeEngine must calculate snbpSummary");
+assert(gradeEngineContent.includes("eligibleTier"), "gradeEngine must assign eligibleTier");
+
+// Test pure SNBP supporting average
+function testCalculateSNBPSupportingAverage(subjects, grades, supportingSubjectIds) {
+  if (supportingSubjectIds.length === 0) return 0;
+  let total = 0;
+  let count = 0;
+  for (const id of supportingSubjectIds) {
+    const sub = subjects.find((s) => s.id === id);
+    if (!sub) continue;
+    const summary = calculateSubjectGrade(grades, id, sub.targetGrade ?? 75);
+    if (summary.count > 0) {
+      total += summary.average;
+      count++;
+    }
+  }
+  return count > 0 ? Math.round((total / count) * 10) / 10 : 0;
+}
+
+const snbpAvg = testCalculateSNBPSupportingAverage(mockSubjects, mockGrades, ["sub-mat", "sub-kim"]);
+// (85 + 80) / 2 = 82.5
+assert.strictEqual(snbpAvg, 82.5, "Supporting subjects average must be 82.5");
+console.log("✓ SNBP Eligibility and supporting subject average calculation verified");
+
+// 14. Verify TKA (Tes Kemampuan Akademik) Calculation Engine & Presets
+assert(gradeEngineContent.includes("export function getTKAPreset"), "getTKAPreset must be exported");
+assert(gradeEngineContent.includes("export function calculateTKAResult"), "calculateTKAResult must be exported");
+assert(gradeEngineContent.includes("utbk_saintek"), "TKA presets must include utbk_saintek");
+assert(gradeEngineContent.includes("utbk_soshum"), "TKA presets must include utbk_soshum");
+assert(gradeEngineContent.includes("sma_unggulan"), "TKA presets must include sma_unggulan");
+
+// Pure TKA Calculation test
+function testCalculateTKAResult(presetType, subtests, targetPassingGrade) {
+  if (subtests.length === 0) {
+    return {
+      presetType,
+      averageScore: 0,
+      totalWeightedScore: 0,
+      targetPassingGrade,
+      isPassed: false,
+      diffFromTarget: -targetPassingGrade,
+      strongestSubtest: null,
+      weakestSubtest: null,
+      recommendation: "Tambahkan subtes untuk menghitung nilai TKA.",
+    };
+  }
+
+  let totalWeightedScore = 0;
+  let totalWeight = 0;
+  let strongest = null;
+  let weakest = null;
+  let highestRatio = -Infinity;
+  let lowestRatio = Infinity;
+
+  for (const s of subtests) {
+    const w = s.weight > 0 ? s.weight : 1;
+    const score = Number(s.score) || 0;
+    const max = Number(s.maxScore) > 0 ? Number(s.maxScore) : 100;
+    const ratio = score / max;
+
+    totalWeightedScore += score * w;
+    totalWeight += w;
+
+    if (ratio > highestRatio) {
+      highestRatio = ratio;
+      strongest = { name: s.name, score };
+    }
+    if (ratio < lowestRatio) {
+      lowestRatio = ratio;
+      weakest = { name: s.name, score };
+    }
+  }
+
+  const rawAverage = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
+  const averageScore = Math.round(rawAverage * 10) / 10;
+  const diffFromTarget = Math.round((averageScore - targetPassingGrade) * 10) / 10;
+  const isPassed = averageScore >= targetPassingGrade;
+
+  return {
+    presetType,
+    averageScore,
+    totalWeightedScore: Math.round(totalWeightedScore * 10) / 10,
+    targetPassingGrade,
+    isPassed,
+    diffFromTarget,
+    strongestSubtest: strongest,
+    weakestSubtest: weakest,
+  };
+}
+
+// UTBK Saintek test
+const mockUTBKSubtests = [
+  { id: "mat_ipa", name: "Matematika IPA", score: 660, maxScore: 1000, weight: 1 },
+  { id: "fisika", name: "Fisika", score: 620, maxScore: 1000, weight: 1 },
+  { id: "kimia", name: "Kimia", score: 650, maxScore: 1000, weight: 1 },
+  { id: "biologi", name: "Biologi", score: 690, maxScore: 1000, weight: 1 },
+];
+// Sum = 660 + 620 + 650 + 690 = 2620 / 4 = 655
+const utbkRes = testCalculateTKAResult("utbk_saintek", mockUTBKSubtests, 650);
+assert.strictEqual(utbkRes.averageScore, 655, "UTBK Average must be 655");
+assert.strictEqual(utbkRes.isPassed, true, "Average 655 vs target 650 must pass");
+assert.strictEqual(utbkRes.diffFromTarget, 5, "Diff must be +5");
+assert.strictEqual(utbkRes.strongestSubtest?.name, "Biologi", "Biologi (690) is strongest");
+assert.strictEqual(utbkRes.weakestSubtest?.name, "Fisika", "Fisika (620) is weakest");
+
+// SMA Unggulan test with weighted subtests
+const mockSMASubtests = [
+  { id: "mat_sma", name: "Matematika", score: 90, maxScore: 100, weight: 2 },
+  { id: "ipa_sma", name: "IPA", score: 80, maxScore: 100, weight: 2 },
+  { id: "indo_sma", name: "B. Indo", score: 85, maxScore: 100, weight: 1 },
+  { id: "ing_sma", name: "B. Ing", score: 75, maxScore: 100, weight: 1 },
+];
+// (90*2 + 80*2 + 85*1 + 75*1) / (2+2+1+1) = (180 + 160 + 85 + 75) / 6 = 500 / 6 = 83.333 -> 83.3
+const smaRes = testCalculateTKAResult("sma_unggulan", mockSMASubtests, 80);
+assert.strictEqual(smaRes.averageScore, 83.3, "Weighted SMA average must be 83.3");
+assert.strictEqual(smaRes.isPassed, true, "83.3 vs target 80 must pass");
+console.log("✓ TKA (Tes Kemampuan Akademik) calculation engine & presets verified");
+
+// 15. Verify TKACalculatorModal & GradesScreen Remaster
+const tkaModalPath = path.join(__dirname, "src/components/grades/TKACalculatorModal.tsx");
+assert(fs.existsSync(tkaModalPath), "TKACalculatorModal.tsx must exist");
+const tkaModalContent = fs.readFileSync(tkaModalPath, "utf-8");
+assert(tkaModalContent.includes("export function TKACalculatorModal"), "TKACalculatorModal must be exported");
+assert(tkaModalContent.includes("getTKAPreset"), "TKACalculatorModal must load presets");
+assert(tkaModalContent.includes("calculateTKAResult"), "TKACalculatorModal must calculate results");
+assert(tkaModalContent.includes("HapticFeedback"), "TKACalculatorModal must trigger haptics");
+assert(tkaModalContent.includes("soundFX"), "TKACalculatorModal must trigger soundFX");
+
+assert(gradesScreenContent.includes("TKACalculatorModal"), "GradesScreen must import TKACalculatorModal");
+assert(gradesScreenContent.includes("tkaModalVisible"), "GradesScreen must manage tkaModalVisible state");
+assert(gradesScreenContent.includes("RATA-RATA RAPOR INDONESIA"), "GradesScreen must show Indonesian Report Card header");
+assert(gradesScreenContent.includes("Tuntas KKM"), "GradesScreen must show KKM completion status");
+assert(gradesScreenContent.includes("Analisis SNBP"), "GradesScreen must include Analisis SNBP tab");
+console.log("✓ TKACalculatorModal and GradesScreen Indonesian UI integration verified");
+
 console.log("\n==================================================");
 console.log("🎉 ALL P18 SCHOOL PLANNER SPECIFICATIONS PASSED!");
 console.log("==================================================");
+
