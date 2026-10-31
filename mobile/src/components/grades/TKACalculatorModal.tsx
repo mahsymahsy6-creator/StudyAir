@@ -77,8 +77,17 @@ export function TKACalculatorModal({ visible, onClose }: TKACalculatorModalProps
     );
   };
 
+  const handleResetPreset = () => {
+    HapticFeedback.light();
+    soundFX.playClick();
+    const config = getTKAPreset(activePreset);
+    setSubtests(config.subtests);
+    setTargetScore(config.defaultTarget);
+  };
+
   const handleAdjustSubtestScore = (id: string, delta: number) => {
     HapticFeedback.light();
+    soundFX.playClick();
     setSubtests((prev) =>
       prev.map((s) => {
         if (s.id !== id) return s;
@@ -90,6 +99,7 @@ export function TKACalculatorModal({ visible, onClose }: TKACalculatorModalProps
 
   const handleAdjustTarget = (delta: number) => {
     HapticFeedback.light();
+    soundFX.playClick();
     setTargetScore((prev) => Math.max(0, prev + delta));
   };
 
@@ -151,14 +161,25 @@ export function TKACalculatorModal({ visible, onClose }: TKACalculatorModalProps
                 Tes Kemampuan Akademik UTBK & Seleksi Sekolah
               </Text>
             </View>
-            <Pressable
-              style={styles.closeBtn}
-              onPress={handleClose}
-              hitSlop={touchTarget.min / 4}
-              accessibilityLabel="Tutup"
-            >
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                style={styles.resetBtn}
+                onPress={handleResetPreset}
+                hitSlop={touchTarget.min / 4}
+                accessibilityLabel="Reset Standar"
+              >
+                <Ionicons name="refresh" size={13} color={colors.textSecondary} style={{ marginRight: 3 }} />
+                <Text style={styles.resetBtnText}>Reset</Text>
+              </Pressable>
+              <Pressable
+                style={styles.closeBtn}
+                onPress={handleClose}
+                hitSlop={touchTarget.min / 4}
+                accessibilityLabel="Tutup"
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Preset Segmented Tabs */}
@@ -489,6 +510,26 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginLeft: 36,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  resetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  resetBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
   closeBtn: {
     width: 32,
     height: 32,
@@ -764,6 +805,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.borderLight,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.border,
   },
   quickChipText: {
     fontSize: 12,

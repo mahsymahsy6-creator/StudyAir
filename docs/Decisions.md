@@ -327,6 +327,26 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: GPA 4.0 scale alone is alien to Indonesian high school and middle school students who rely strictly on 0–100 marks, KKM/KKTP benchmarks, SNBP quota rankings, and UTBK/SMA Unggulan entrance exams.
 - **Attribution**: Builder (per user request and clarification modal).
 
-
-
-
+### 2026-10-31: App-Wide UI/UX Review & Tactile Polish
+- **Decision**: Implemented high-impact visual, tactile, and ergonomic enhancements across navigation, tabs, and grades workflows:
+  1. **Minimalist Brand Iconography**:
+     - Upgraded app launcher icon and favicon (`icon.png`, `adaptive-icon.png`, `favicon.png`) with a sleek geometric origami facet paper airplane in electric blue and cyan on deep obsidian slate, matching the minimal aesthetic request.
+  2. **Tactile Bottom Tab Bar & 3D Center FAB (`App.tsx`)**:
+     - Added pill capsule active indicator (`tabIconWrapperActive`) with theme-adaptive `colors.primaryLight` and smooth rounded styling.
+     - Added physical 3D bottom bevel (`borderBottomWidth: 4, borderBottomColor: colors.accentBottom`) on the center "+" FAB for Duolingo-grade physical compression.
+     - Added light haptics (`HapticFeedback.light()`) and click sound synthesis (`soundFX.playClick()`) on tab changes and FAB taps.
+     - Added full accessibility tab semantics (`accessibilityRole="tab"`).
+  3. **Direct Nilai TKA Shortcut on HomeScreen (`HomeScreen.tsx`)**:
+     - Replaced redundant "Nilai" hub tile with **"Nilai TKA"** shortcut tile directly opening `TKACalculatorModal`.
+     - Added light haptics and sound FX across all 4 quick hub tiles (`Ulangan`, `Nilai TKA`, `Kalender`, `Guru`).
+  4. **Grades & SNBP UX Polish (`GradesScreen.tsx`)**:
+     - Added sound and haptic feedback on `viewModeSwitcher` mode tabs (`Rapor & KKM` vs `Analisis SNBP`).
+     - Added informative empty-state guidance card in SNBP view when 0 supporting subjects are selected.
+     - Added 1-tap `+ Catat Nilai Sekarang` button with dashed border inside expanded subject cards with 0 assessments.
+  5. **TKA Calculator Reset & Stepper Ergonomics (`TKACalculatorModal.tsx`)**:
+     - Added "Reset" button in the modal header to instantly restore default preset subtests and passing grades.
+     - Added 3D bottom bevel on quick increment chips (`-25`, `+25`, `+50`) and auditory click feedback on steppers.
+  6. **Tasks Filter Switcher Audio-Tactile Feedback (`TasksScreen.tsx`)**:
+     - Added click sound synthesis (`soundFX.playClick()`) to all 4 filter pills (`Semua`, `Terjadwal`, `Belum Dijadwalkan`, `Selesai`).
+- **Rationale**: Eliminates visual redundancy, improves student navigation speed, and delivers a polished, responsive tactile study experience.
+- **Attribution**: Builder (per user request).

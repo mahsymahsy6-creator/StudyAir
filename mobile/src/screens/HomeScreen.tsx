@@ -27,6 +27,8 @@ import { TodayTasksSection, deriveTodayTasks, calculateTodayTasksProgress } from
 import { formatLocaleDate } from "../lib/dateUtils";
 import { getExamState } from "../lib/examEngine";
 import { TeacherDirectoryModal } from "../components/teachers/TeacherDirectoryModal";
+import { TKACalculatorModal } from "../components/grades/TKACalculatorModal";
+import { soundFX } from "../lib/sound";
 
 export { deriveTodayTasks, calculateTodayTasksProgress };
 
@@ -86,6 +88,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [besokExpanded, setBesokExpanded] = useState(false);
   const [teacherDirectoryVisible, setTeacherDirectoryVisible] = useState(false);
+  const [tkaModalVisible, setTkaModalVisible] = useState(false);
 
   // Subject dictionary map for fast lookups
   const subjectsMap = useMemo(() => {
@@ -356,9 +359,14 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         {/* ─── 4. Akses Cepat Akademik (School Planner Fast Links) ─── */}
         <View style={styles.sectionContainer}>
           <View style={styles.quickHubRow}>
+            {/* 1. Ulangan */}
             <Pressable
               style={styles.quickHubTile}
-              onPress={() => navigation.navigate("Exams")}
+              onPress={() => {
+                HapticFeedback.light();
+                soundFX.playClick();
+                navigation.navigate("Exams");
+              }}
               accessibilityLabel="Buka jadwal ulangan"
             >
               <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(236, 72, 153, 0.12)" }]}>
@@ -367,20 +375,30 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
               <Text style={styles.quickHubLabel}>Ulangan</Text>
             </Pressable>
 
+            {/* 2. Nilai TKA (1-Tap Fast Calculator) */}
             <Pressable
               style={styles.quickHubTile}
-              onPress={() => navigation.navigate("Grades")}
-              accessibilityLabel="Buka nilai dan rapor"
+              onPress={() => {
+                HapticFeedback.light();
+                soundFX.playClick();
+                setTkaModalVisible(true);
+              }}
+              accessibilityLabel="Buka kalkulator nilai TKA"
             >
-              <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
-                <Ionicons name="stats-chart" size={20} color={colors.emerald} />
+              <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(206, 130, 255, 0.15)" }]}>
+                <Ionicons name="calculator" size={20} color={colors.accent} />
               </View>
-              <Text style={styles.quickHubLabel}>Nilai</Text>
+              <Text style={styles.quickHubLabel}>Nilai TKA</Text>
             </Pressable>
 
+            {/* 3. Kalender */}
             <Pressable
               style={styles.quickHubTile}
-              onPress={() => navigation.navigate("Calendar")}
+              onPress={() => {
+                HapticFeedback.light();
+                soundFX.playClick();
+                navigation.navigate("Calendar");
+              }}
               accessibilityLabel="Buka kalender belajar"
             >
               <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(58, 134, 255, 0.12)" }]}>
@@ -389,9 +407,14 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
               <Text style={styles.quickHubLabel}>Kalender</Text>
             </Pressable>
 
+            {/* 4. Guru */}
             <Pressable
               style={styles.quickHubTile}
-              onPress={() => setTeacherDirectoryVisible(true)}
+              onPress={() => {
+                HapticFeedback.light();
+                soundFX.playClick();
+                setTeacherDirectoryVisible(true);
+              }}
               accessibilityLabel="Buka daftar guru"
             >
               <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(245, 158, 11, 0.12)" }]}>
@@ -634,6 +657,11 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
       <TeacherDirectoryModal
         visible={teacherDirectoryVisible}
         onClose={() => setTeacherDirectoryVisible(false)}
+      />
+
+      <TKACalculatorModal
+        visible={tkaModalVisible}
+        onClose={() => setTkaModalVisible(false)}
       />
     </SafeAreaView>
   );

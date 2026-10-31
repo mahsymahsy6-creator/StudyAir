@@ -29,6 +29,8 @@ import { QuickActionSheet } from "./src/components/QuickActionSheet";
 import { OnboardingModal } from "./src/components/onboarding/OnboardingModal";
 import { colors, spacing, radius, typography, touchTarget, applyTheme, THEMES } from "./src/theme";
 import { t } from "./src/lib/i18n";
+import { HapticFeedback } from "./src/lib/haptics";
+import { soundFX } from "./src/lib/sound";
 
 export type TabScreen =
   | "Today"
@@ -54,6 +56,8 @@ function MainApp() {
   >("none");
 
   const openQuickAction = (mode: "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addGrade" = "none") => {
+    HapticFeedback.light();
+    soundFX.playClick();
     setQuickActionInitialMode(mode);
     setQuickActionVisible(true);
   };
@@ -125,6 +129,10 @@ function MainApp() {
       activeTab === "Focus"
     ) {
       setPreviousTab(activeTab);
+    }
+    if (target !== activeTab) {
+      HapticFeedback.light();
+      soundFX.playClick();
     }
     setActiveTab(target);
   };
@@ -276,12 +284,16 @@ function MainApp() {
           <Pressable
             style={[styles.tabItem, activeTab === "Today" && styles.tabItemActive]}
             onPress={() => handleNavigate("Today")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === "Today" }}
           >
-            <Ionicons
-              name={activeTab === "Today" ? "today" : "today-outline"}
-              size={22}
-              color={activeTab === "Today" ? colors.primary : colors.textSecondary}
-            />
+            <View style={[styles.tabIconWrapper, activeTab === "Today" && styles.tabIconWrapperActive]}>
+              <Ionicons
+                name={activeTab === "Today" ? "today" : "today-outline"}
+                size={21}
+                color={activeTab === "Today" ? colors.primary : colors.textSecondary}
+              />
+            </View>
             <Text style={[styles.tabLabel, activeTab === "Today" && styles.tabLabelActive]}>
               {t("tabToday") || "Hari Ini"}
             </Text>
@@ -291,12 +303,16 @@ function MainApp() {
           <Pressable
             style={[styles.tabItem, activeTab === "Timetable" && styles.tabItemActive]}
             onPress={() => handleNavigate("Timetable")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === "Timetable" }}
           >
-            <Ionicons
-              name={activeTab === "Timetable" ? "time" : "time-outline"}
-              size={22}
-              color={activeTab === "Timetable" ? colors.primary : colors.textSecondary}
-            />
+            <View style={[styles.tabIconWrapper, activeTab === "Timetable" && styles.tabIconWrapperActive]}>
+              <Ionicons
+                name={activeTab === "Timetable" ? "time" : "time-outline"}
+                size={21}
+                color={activeTab === "Timetable" ? colors.primary : colors.textSecondary}
+              />
+            </View>
             <Text style={[styles.tabLabel, activeTab === "Timetable" && styles.tabLabelActive]}>
               Jadwal
             </Text>
@@ -320,12 +336,16 @@ function MainApp() {
           <Pressable
             style={[styles.tabItem, activeTab === "Tasks" && styles.tabItemActive]}
             onPress={() => handleNavigate("Tasks")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === "Tasks" }}
           >
-            <Ionicons
-              name={activeTab === "Tasks" ? "checkbox" : "checkbox-outline"}
-              size={22}
-              color={activeTab === "Tasks" ? colors.primary : colors.textSecondary}
-            />
+            <View style={[styles.tabIconWrapper, activeTab === "Tasks" && styles.tabIconWrapperActive]}>
+              <Ionicons
+                name={activeTab === "Tasks" ? "checkbox" : "checkbox-outline"}
+                size={21}
+                color={activeTab === "Tasks" ? colors.primary : colors.textSecondary}
+              />
+            </View>
             <Text style={[styles.tabLabel, activeTab === "Tasks" && styles.tabLabelActive]}>
               {t("tabTasks") || "Tugas"}
             </Text>
@@ -335,12 +355,16 @@ function MainApp() {
           <Pressable
             style={[styles.tabItem, activeTab === "Grades" && styles.tabItemActive]}
             onPress={() => handleNavigate("Grades")}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === "Grades" }}
           >
-            <Ionicons
-              name={activeTab === "Grades" ? "stats-chart" : "stats-chart-outline"}
-              size={22}
-              color={activeTab === "Grades" ? colors.primary : colors.textSecondary}
-            />
+            <View style={[styles.tabIconWrapper, activeTab === "Grades" && styles.tabIconWrapperActive]}>
+              <Ionicons
+                name={activeTab === "Grades" ? "stats-chart" : "stats-chart-outline"}
+                size={21}
+                color={activeTab === "Grades" ? colors.primary : colors.textSecondary}
+              />
+            </View>
             <Text style={[styles.tabLabel, activeTab === "Grades" && styles.tabLabelActive]}>
               Nilai
             </Text>
@@ -484,15 +508,26 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xs,
+    paddingVertical: 4,
     minHeight: touchTarget.min,
   },
   tabItemActive: {},
+  tabIconWrapper: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 1,
+  },
+  tabIconWrapperActive: {
+    backgroundColor: colors.primaryLight,
+  },
   tabLabel: {
     fontSize: 11,
     fontWeight: typography.fontWeights.medium,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   tabLabelActive: {
     color: colors.primary,
@@ -513,8 +548,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 2,
     borderColor: colors.surface,
+    borderBottomWidth: 4,
+    borderBottomColor: colors.accentBottom,
     shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 6,

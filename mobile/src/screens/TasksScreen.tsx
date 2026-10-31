@@ -14,6 +14,7 @@ import { useMobileStudyStore } from "../store";
 import { Task, StudyBlock, Subject } from "../types";
 import { t } from "../lib/i18n";
 import { HapticFeedback } from "../lib/haptics";
+import { soundFX } from "../lib/sound";
 import { formatLocaleDate } from "../lib/dateUtils";
 import { ScreenHeader } from "../components/common/ScreenHeader";
 import { Card } from "../components/common/Card";
@@ -381,6 +382,7 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
             style={[styles.filterPill, activeFilter === "all" && styles.filterPillActive]}
             onPress={() => {
               HapticFeedback.light();
+              soundFX.playClick();
               setActiveFilter("all");
             }}
           >
@@ -399,6 +401,7 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
             style={[styles.filterPill, activeFilter === "scheduled" && styles.filterPillActive]}
             onPress={() => {
               HapticFeedback.light();
+              soundFX.playClick();
               setActiveFilter("scheduled");
             }}
           >
@@ -417,6 +420,7 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
             style={[styles.filterPill, activeFilter === "unscheduled" && styles.filterPillActive]}
             onPress={() => {
               HapticFeedback.light();
+              soundFX.playClick();
               setActiveFilter("unscheduled");
             }}
           >
@@ -435,6 +439,7 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
             style={[styles.filterPill, activeFilter === "completed" && styles.filterPillActive]}
             onPress={() => {
               HapticFeedback.light();
+              soundFX.playClick();
               setActiveFilter("completed");
             }}
           >

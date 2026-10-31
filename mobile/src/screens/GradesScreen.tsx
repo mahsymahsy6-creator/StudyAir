@@ -337,6 +337,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             ]}
             onPress={() => {
               HapticFeedback.light();
+              soundFX.playClick();
               setActiveTabMode("rapor");
             }}
           >
@@ -363,6 +364,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             ]}
             onPress={() => {
               HapticFeedback.light();
+              soundFX.playClick();
               setActiveTabMode("snbp");
             }}
           >
@@ -486,13 +488,25 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
                   })}
                 </View>
 
-                {snbpSupportingSubjectIds.length > 0 && (
+                {snbpSupportingSubjectIds.length > 0 ? (
                   <View style={styles.snbpAverageResultBox}>
                     <Text style={styles.snbpAverageLabel}>
                       Rata-rata {snbpSupportingSubjectIds.length} Mapel Pendukung:
                     </Text>
                     <Text style={styles.snbpAverageScore}>
                       {snbpSupportingAverage.toFixed(1)} / 100
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.snbpEmptyHintBox}>
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={colors.accent}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.snbpEmptyHintText}>
+                      Ketuk 1 atau 2 mata pelajaran di atas untuk menghitung rata-rata mapel pendukung prodi impian.
                     </Text>
                   </View>
                 )}
@@ -715,9 +729,24 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
                           })
                         ) : (
                           <View style={styles.noAssessmentsBox}>
+                            <Ionicons
+                              name="document-text-outline"
+                              size={22}
+                              color={colors.textSecondary}
+                              style={{ marginBottom: 4 }}
+                            />
                             <Text style={styles.noAssessmentsText}>
                               Belum ada tugas atau ulangan yang dicatat untuk mata pelajaran ini.
                             </Text>
+                            <Pressable
+                              style={[styles.addFirstGradeBtn, { borderColor: subColor }]}
+                              onPress={() => handleOpenAddGrade(sub.id)}
+                            >
+                              <Ionicons name="add-circle-outline" size={15} color={subColor} style={{ marginRight: 4 }} />
+                              <Text style={[styles.addFirstGradeText, { color: subColor }]}>
+                                + Catat Nilai Sekarang
+                              </Text>
+                            </Pressable>
                           </View>
                         )}
 
@@ -1214,6 +1243,22 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: colors.primary,
   },
+  snbpEmptyHintBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(206, 130, 255, 0.08)",
+    borderRadius: radius.sm,
+    padding: 10,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "rgba(206, 130, 255, 0.2)",
+  },
+  snbpEmptyHintText: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
   snbpGuidanceList: {
     backgroundColor: "rgba(58, 134, 255, 0.06)",
     borderRadius: radius.md,
@@ -1448,6 +1493,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     fontStyle: "italic",
+    textAlign: "center",
+  },
+  addFirstGradeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginTop: 8,
+    backgroundColor: colors.surfaceSubtle,
+  },
+  addFirstGradeText: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   simSubjectInlineBtn: {
     flexDirection: "row",
