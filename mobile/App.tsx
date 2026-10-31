@@ -22,6 +22,8 @@ import { FocusScreen } from "./src/screens/FocusScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { StreakScreen } from "./src/screens/StreakScreen";
+import { TimetableScreen } from "./src/screens/TimetableScreen";
+import { GradesScreen } from "./src/screens/GradesScreen";
 import { StreakCelebrationModal } from "./src/components/streak/StreakCelebrationModal";
 import { QuickActionSheet } from "./src/components/QuickActionSheet";
 import { OnboardingModal } from "./src/components/onboarding/OnboardingModal";
@@ -30,7 +32,9 @@ import { t } from "./src/lib/i18n";
 
 export type TabScreen =
   | "Today"
+  | "Timetable"
   | "Tasks"
+  | "Grades"
   | "Calendar"
   | "Exams"
   | "Subjects"
@@ -46,10 +50,10 @@ function MainApp() {
   const [previousTab, setPreviousTab] = useState<TabScreen>("Today");
   const [quickActionVisible, setQuickActionVisible] = useState(false);
   const [quickActionInitialMode, setQuickActionInitialMode] = useState<
-    "none" | "addTask" | "addSubject" | "pasteWhatsApp"
+    "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addGrade"
   >("none");
 
-  const openQuickAction = (mode: "none" | "addTask" | "addSubject" | "pasteWhatsApp" = "none") => {
+  const openQuickAction = (mode: "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addGrade" = "none") => {
     setQuickActionInitialMode(mode);
     setQuickActionVisible(true);
   };
@@ -82,8 +86,10 @@ function MainApp() {
     let target: TabScreen = "Today";
     const norm = screen.toLowerCase();
     if (norm === "home" || norm === "today" || norm === "rencana") target = "Today";
+    else if (norm === "timetable" || norm === "jadwal" || norm === "jadwalpelajaran") target = "Timetable";
     else if (norm === "tasks" || norm === "tugas") target = "Tasks";
-    else if (norm === "calendar" || norm === "kalender" || norm === "jadwal") target = "Calendar";
+    else if (norm === "grades" || norm === "nilai" || norm === "rapor" || norm === "gpa") target = "Grades";
+    else if (norm === "calendar" || norm === "kalender") target = "Calendar";
     else if (norm === "exams" || norm === "ulangan" || norm === "ujian") target = "Exams";
     else if (norm === "syllabus" || norm === "subjects" || norm === "pelajaran" || norm === "mapel") {
       target = "Subjects";
@@ -102,7 +108,6 @@ function MainApp() {
     else if (
       norm === "timetablewizard" ||
       norm === "timetableimport" ||
-      norm === "timetable" ||
       norm === "import"
     )
       target = "TimetableWizard";
@@ -111,7 +116,9 @@ function MainApp() {
 
     if (
       activeTab === "Today" ||
+      activeTab === "Timetable" ||
       activeTab === "Tasks" ||
+      activeTab === "Grades" ||
       activeTab === "Exams" ||
       activeTab === "Subjects" ||
       activeTab === "Calendar" ||
@@ -201,6 +208,16 @@ function MainApp() {
           />
         </View>
 
+        {/* Tab / Screen: Timetable / Jadwal */}
+        <View style={[styles.screenWrapper, activeTab !== "Timetable" && styles.screenHidden]}>
+          <TimetableScreen navigation={navigation} />
+        </View>
+
+        {/* Tab / Screen: Grades / Nilai & Rapor */}
+        <View style={[styles.screenWrapper, activeTab !== "Grades" && styles.screenHidden]}>
+          <GradesScreen navigation={navigation} />
+        </View>
+
         {/* Tab 3: Calendar / Kalender */}
         <View style={[styles.screenWrapper, activeTab !== "Calendar" && styles.screenHidden]}>
           <CalendarScreen navigation={navigation} />
@@ -252,7 +269,7 @@ function MainApp() {
         </View>
       </View>
 
-      {/* ─── v2 4-Tab Navigation Bar with Symmetrical Center '+' Action Button ─── */}
+      {/* ─── School Planner 5-Tab Navigation Bar with Center '+' Action Button ─── */}
       {activeTab !== "TimetableWizard" && activeTab !== "Settings" && activeTab !== "Streak" && activeTab !== "Focus" && (
         <View style={styles.tabBar}>
           {/* Tab 1: Hari Ini */}
@@ -270,18 +287,18 @@ function MainApp() {
             </Text>
           </Pressable>
 
-          {/* Tab 2: Tugas */}
+          {/* Tab 2: Jadwal Pelajaran (Timetable) */}
           <Pressable
-            style={[styles.tabItem, activeTab === "Tasks" && styles.tabItemActive]}
-            onPress={() => handleNavigate("Tasks")}
+            style={[styles.tabItem, activeTab === "Timetable" && styles.tabItemActive]}
+            onPress={() => handleNavigate("Timetable")}
           >
             <Ionicons
-              name={activeTab === "Tasks" ? "checkbox" : "checkbox-outline"}
+              name={activeTab === "Timetable" ? "time" : "time-outline"}
               size={22}
-              color={activeTab === "Tasks" ? colors.primary : colors.textSecondary}
+              color={activeTab === "Timetable" ? colors.primary : colors.textSecondary}
             />
-            <Text style={[styles.tabLabel, activeTab === "Tasks" && styles.tabLabelActive]}>
-              {t("tabTasks") || "Tugas"}
+            <Text style={[styles.tabLabel, activeTab === "Timetable" && styles.tabLabelActive]}>
+              Jadwal
             </Text>
           </Pressable>
 
@@ -299,33 +316,33 @@ function MainApp() {
             </Pressable>
           </View>
 
-          {/* Tab 3: Ulangan (Next Exams) */}
+          {/* Tab 3: Tugas (Tasks) */}
           <Pressable
-            style={[styles.tabItem, activeTab === "Exams" && styles.tabItemActive]}
-            onPress={() => handleNavigate("Exams")}
+            style={[styles.tabItem, activeTab === "Tasks" && styles.tabItemActive]}
+            onPress={() => handleNavigate("Tasks")}
           >
             <Ionicons
-              name={activeTab === "Exams" ? "ribbon" : "ribbon-outline"}
+              name={activeTab === "Tasks" ? "checkbox" : "checkbox-outline"}
               size={22}
-              color={activeTab === "Exams" ? colors.primary : colors.textSecondary}
+              color={activeTab === "Tasks" ? colors.primary : colors.textSecondary}
             />
-            <Text style={[styles.tabLabel, activeTab === "Exams" && styles.tabLabelActive]}>
-              {t("tabExams") || "Ulangan"}
+            <Text style={[styles.tabLabel, activeTab === "Tasks" && styles.tabLabelActive]}>
+              {t("tabTasks") || "Tugas"}
             </Text>
           </Pressable>
 
-          {/* Tab 4: Kalender */}
+          {/* Tab 4: Nilai & Rapor (Grades & GPA) */}
           <Pressable
-            style={[styles.tabItem, activeTab === "Calendar" && styles.tabItemActive]}
-            onPress={() => handleNavigate("Calendar")}
+            style={[styles.tabItem, activeTab === "Grades" && styles.tabItemActive]}
+            onPress={() => handleNavigate("Grades")}
           >
             <Ionicons
-              name={activeTab === "Calendar" ? "calendar" : "calendar-outline"}
+              name={activeTab === "Grades" ? "stats-chart" : "stats-chart-outline"}
               size={22}
-              color={activeTab === "Calendar" ? colors.primary : colors.textSecondary}
+              color={activeTab === "Grades" ? colors.primary : colors.textSecondary}
             />
-            <Text style={[styles.tabLabel, activeTab === "Calendar" && styles.tabLabelActive]}>
-              {t("studyCalendarTitle") || "Kalender"}
+            <Text style={[styles.tabLabel, activeTab === "Grades" && styles.tabLabelActive]}>
+              Nilai
             </Text>
           </Pressable>
         </View>
@@ -339,6 +356,7 @@ function MainApp() {
           setQuickActionVisible(false);
           setQuickActionInitialMode("none");
         }}
+        onNavigateToTimetable={() => handleNavigate("Timetable")}
         onNavigateToScan={(mode) => {
           if (mode === "timetable") {
             handleNavigate("TimetableWizard");

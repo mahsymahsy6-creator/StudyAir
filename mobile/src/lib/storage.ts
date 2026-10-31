@@ -17,6 +17,8 @@ import {
   StudyBlock,
   SchedulePrefs,
   DEFAULT_SCHEDULE_PREFS,
+  Grade,
+  Teacher,
 } from "../types";
 import { INITIAL_SUBJECTS, INITIAL_STUDY_UNITS, INITIAL_BLOCKS } from "../mockData";
 
@@ -40,6 +42,8 @@ export interface DatabaseState {
   appSettings?: AppSettings;
   studyBlocks?: StudyBlock[];
   schedulePrefs?: SchedulePrefs;
+  grades?: Grade[];
+  teachers?: Teacher[];
 }
 
 export interface BackupPayload {
@@ -242,14 +246,42 @@ export async function initDatabase(): Promise<boolean> {
         value TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS grades (
+        id TEXT PRIMARY KEY,
+        subject_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        score REAL NOT NULL,
+        max_score REAL DEFAULT 100,
+        weight REAL DEFAULT 1,
+        category TEXT DEFAULT 'exam',
+        date TEXT NOT NULL,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS teachers (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        subject_ids TEXT,
+        phone TEXT,
+        email TEXT,
+        room TEXT,
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+
       CREATE INDEX IF NOT EXISTS idx_timetable_weekday ON timetable_entries(weekday);
       CREATE INDEX IF NOT EXISTS idx_tasks_subject ON tasks(subject_id);
       CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline_date);
       CREATE INDEX IF NOT EXISTS idx_study_blocks_date ON study_blocks(date);
       CREATE INDEX IF NOT EXISTS idx_study_blocks_task ON study_blocks(task_id);
+      CREATE INDEX IF NOT EXISTS idx_grades_subject ON grades(subject_id);
+      CREATE INDEX IF NOT EXISTS idx_grades_date ON grades(date);
     `);
 
     // Safe schema migrations for existing local databases
+    await ensureColumnExists(db, "subjects", "target_grade", "REAL DEFAULT 80");
+    await ensureColumnExists(db, "subjects", "credit_hours", "INTEGER DEFAULT 2");
     await ensureColumnExists(db, "tasks", "estimated_minutes", "INTEGER DEFAULT 30");
     await ensureColumnExists(db, "overrides", "period_number", "INTEGER");
     await ensureColumnExists(db, "overrides", "custom_label", "TEXT");
@@ -322,6 +354,8 @@ export async function loadAllData(): Promise<DatabaseState> {
             room: r.room || undefined,
             bringItems,
             examDate,
+            targetGrade: r.target_grade != null ? Number(r.target_grade) : 80,
+            creditHours: r.credit_hours != null ? Number(r.credit_hours) : 2,
             // Legacy aliases
             title: name,
             color_hex: color,
@@ -492,6 +526,53 @@ export async function loadAllData(): Promise<DatabaseState> {
           }
         }
 
+        let grades: Grade[] = [];
+        try {
+          const gradeRows = await dbInstance.getAllAsync<any>(
+            "SELECT * FROM grades ORDER BY date DESC, created_at DESC"
+          );
+          grades = gradeRows.map((r) => ({
+            id: r.id,
+            subjectId: r.subject_id,
+            title: r.title,
+            score: Number(r.score) || 0,
+            maxScore: Number(r.max_score) || 100,
+            weight: Number(r.weight) || 1,
+            category: r.category || "exam",
+            date: r.date,
+            notes: r.notes || undefined,
+            createdAt: r.created_at || undefined,
+          }));
+        } catch (gErr) {
+          console.warn("[Storage] Could not query grades table:", gErr);
+        }
+
+        let teachers: Teacher[] = [];
+        try {
+          const teacherRows = await dbInstance.getAllAsync<any>(
+            "SELECT * FROM teachers ORDER BY name ASC"
+          );
+          teachers = teacherRows.map((r) => {
+            let subjectIds: string[] = [];
+            try {
+              subjectIds = r.subject_ids ? JSON.parse(r.subject_ids) : [];
+            } catch {
+              subjectIds = [];
+            }
+            return {
+              id: r.id,
+              name: r.name,
+              subjectIds,
+              phone: r.phone || undefined,
+              email: r.email || undefined,
+              room: r.room || undefined,
+              notes: r.notes || undefined,
+            };
+          });
+        } catch (tErr) {
+          console.warn("[Storage] Could not query teachers table:", tErr);
+        }
+
         const loadedState: DatabaseState = {
           subjects,
           periodTimes,
@@ -509,6 +590,8 @@ export async function loadAllData(): Promise<DatabaseState> {
           appSettings,
           studyBlocks,
           schedulePrefs,
+          grades,
+          teachers,
         };
 
         // Keep mirror up-to-date
@@ -599,6 +682,8 @@ async function _executePersistFullState(state: DatabaseState): Promise<void> {
         DELETE FROM review_history;
         DELETE FROM daily_stats;
         DELETE FROM study_blocks;
+        DELETE FROM grades;
+        DELETE FROM teachers;
       `);
 
       // 1. Insert subjects
@@ -610,8 +695,8 @@ async function _executePersistFullState(state: DatabaseState): Promise<void> {
         const bringItems = JSON.stringify(s.bringItems || []);
 
         await dbInstance!.runAsync(
-          `INSERT OR REPLACE INTO subjects (id, name, title, color, color_hex, aliases, teacher, room, bring_items, exam_date, total_estimated_minutes)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR REPLACE INTO subjects (id, name, title, color, color_hex, aliases, teacher, room, bring_items, exam_date, total_estimated_minutes, target_grade, credit_hours)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           s.id || `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           name,
           name,
@@ -622,7 +707,9 @@ async function _executePersistFullState(state: DatabaseState): Promise<void> {
           s.room || null,
           bringItems,
           examDate,
-          s.total_estimated_minutes || 0
+          s.total_estimated_minutes || 0,
+          s.targetGrade != null ? s.targetGrade : 80,
+          s.creditHours != null ? s.creditHours : 2
         );
       }
 
@@ -811,6 +898,44 @@ async function _executePersistFullState(state: DatabaseState): Promise<void> {
           sb.completedAt || null,
           sb.createdAt || new Date().toISOString()
         );
+      }
+
+      // 14. Insert grades
+      if (state.grades) {
+        for (const g of state.grades) {
+          await dbInstance!.runAsync(
+            `INSERT OR REPLACE INTO grades (id, subject_id, title, score, max_score, weight, category, date, notes, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            g.id || `grade-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            g.subjectId || "",
+            g.title || "Penilaian",
+            g.score != null ? g.score : 0,
+            g.maxScore != null ? g.maxScore : 100,
+            g.weight != null ? g.weight : 1,
+            g.category || "exam",
+            g.date || new Date().toISOString().slice(0, 10),
+            g.notes || null,
+            g.createdAt || new Date().toISOString()
+          );
+        }
+      }
+
+      // 15. Insert teachers
+      if (state.teachers) {
+        for (const tc of state.teachers) {
+          await dbInstance!.runAsync(
+            `INSERT OR REPLACE INTO teachers (id, name, subject_ids, phone, email, room, notes, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            tc.id || `teacher-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            tc.name || "Guru",
+            JSON.stringify(tc.subjectIds || []),
+            tc.phone || null,
+            tc.email || null,
+            tc.room || null,
+            tc.notes || null,
+            new Date().toISOString()
+          );
+        }
       }
     });
 }

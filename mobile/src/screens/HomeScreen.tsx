@@ -26,6 +26,7 @@ import { AddTaskSheet } from "../components/tasks/AddTaskSheet";
 import { TodayTasksSection, deriveTodayTasks, calculateTodayTasksProgress } from "../components/home/TodayTasksSection";
 import { formatLocaleDate } from "../lib/dateUtils";
 import { getExamState } from "../lib/examEngine";
+import { TeacherDirectoryModal } from "../components/teachers/TeacherDirectoryModal";
 
 export { deriveTodayTasks, calculateTodayTasksProgress };
 
@@ -84,6 +85,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [besokExpanded, setBesokExpanded] = useState(false);
+  const [teacherDirectoryVisible, setTeacherDirectoryVisible] = useState(false);
 
   // Subject dictionary map for fast lookups
   const subjectsMap = useMemo(() => {
@@ -351,13 +353,62 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
           </Card>
         </View>
 
-        {/* ─── 4. Jadwal Kelas Hari Ini (School Classes Strip) ─── */}
+        {/* ─── 4. Akses Cepat Akademik (School Planner Fast Links) ─── */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.quickHubRow}>
+            <Pressable
+              style={styles.quickHubTile}
+              onPress={() => navigation.navigate("Exams")}
+              accessibilityLabel="Buka jadwal ulangan"
+            >
+              <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(236, 72, 153, 0.12)" }]}>
+                <Ionicons name="ribbon" size={20} color="#EC4899" />
+              </View>
+              <Text style={styles.quickHubLabel}>Ulangan</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickHubTile}
+              onPress={() => navigation.navigate("Grades")}
+              accessibilityLabel="Buka nilai dan rapor"
+            >
+              <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(16, 185, 129, 0.12)" }]}>
+                <Ionicons name="stats-chart" size={20} color={colors.emerald} />
+              </View>
+              <Text style={styles.quickHubLabel}>Nilai</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickHubTile}
+              onPress={() => navigation.navigate("Calendar")}
+              accessibilityLabel="Buka kalender belajar"
+            >
+              <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(58, 134, 255, 0.12)" }]}>
+                <Ionicons name="calendar-outline" size={20} color={colors.primary} />
+              </View>
+              <Text style={styles.quickHubLabel}>Kalender</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.quickHubTile}
+              onPress={() => setTeacherDirectoryVisible(true)}
+              accessibilityLabel="Buka daftar guru"
+            >
+              <View style={[styles.quickHubIconCircle, { backgroundColor: "rgba(245, 158, 11, 0.12)" }]}>
+                <Ionicons name="school-outline" size={20} color={colors.amber} />
+              </View>
+              <Text style={styles.quickHubLabel}>Guru</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ─── 5. Jadwal Kelas Hari Ini (School Classes Strip) ─── */}
         <View style={styles.sectionContainer}>
           <SectionHeader
             title="Jadwal Kelas Hari Ini"
             badge={todaySchedule.items?.length || 0}
-            actionText="Lihat Kalender"
-            onActionPress={() => navigation.navigate("Calendar")}
+            actionText="Buka Jadwal"
+            onActionPress={() => navigation.navigate("Timetable")}
           />
 
           {todaySchedule.isDayOff ? (
@@ -384,7 +435,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
                   <Pressable
                     key={item.entryId || idx}
                     style={styles.classChip}
-                    onPress={() => navigation.navigate("Subjects")}
+                    onPress={() => navigation.navigate("Timetable")}
                   >
                     <View style={[styles.classChipStripe, { backgroundColor: subColor }]} />
                     <View style={styles.classChipContent}>
@@ -578,6 +629,11 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         onActionPress={handleUndo}
         onDismiss={() => setSnackbarVisible(false)}
         duration={8000}
+      />
+
+      <TeacherDirectoryModal
+        visible={teacherDirectoryVisible}
+        onClose={() => setTeacherDirectoryVisible(false)}
       />
     </SafeAreaView>
   );
@@ -945,5 +1001,35 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontStyle: "italic",
     paddingVertical: 2,
+  },
+  quickHubRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderRadius: radius.cardLarge,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  quickHubTile: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickHubIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  quickHubLabel: {
+    fontSize: typography.fontSizes.xs,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text,
+    textAlign: "center",
   },
 });

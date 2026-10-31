@@ -267,7 +267,32 @@ This document records architectural, functional, and product decisions made for 
   4. **Streak Screen Hero & Mascot Evolution Tracker (`StreakScreen.tsx`)**: Added current mascot badge pill, interactive hero character, and a dedicated **Mascot Evolution Card** displaying current lore and days remaining progress bar toward next evolution form.
   5. **Celebration Modal & Header Mascot Integration**: `StreakCelebrationModal.tsx` announces **"🎉 EVOLUSI MASKOT!"** when reaching milestone days (1, 7, 30, 100), and `ScreenHeader.tsx` renders dynamic mascot emoji badge next to the animated flame.
   6. **Automated Verification**: Updated `test_p17_duolingo_streak_suite.mjs` (9 comprehensive assertions) integrated with `test_p13_release_qa_suite.mjs`. All 15 test suites passing (100%), zero TypeScript errors (`npx tsc --noEmit`).
-- **Rationale**: Provides deep gamified progression that gives students a tangible emotional connection to their study streak, rewarding long-term consistency with spectacular visual transformations.
+### 2026-10-31: School Planner Transformation — Grades & GPA Tracker, Timetable Tab, Teacher Directory, and 5-Tab Ergonomics
+- **Decision**: Transformed StudyAir into a comprehensive student companion mirroring the iconic features of Google Playstore's top-rated "School Planner" (by Andrea Dal Cin) while preserving StudyAir's unique AI vision scanner, 4-stage dragon streak mascot, and Pomodoro focus timer:
+  1. **Grades & GPA Tracker Engine (`gradeEngine.ts`)**:
+     - Weighted average calculator per subject supporting customizable weights (1x, 2x, 10%, 20%, 30%, 40%) and categories (`exam`, `quiz`, `assignment`, `project`, `other`).
+     - Standard 4.0 GPA scale mapper and Indonesian letter grades (A, B, C, D, E) with motivational performance descriptors.
+     - Target grade (KKM) comparisons with color-coded surplus/deficit indicators.
+     - Interactive **"What-If" Target Simulator**: mathematically calculates the exact minimum score needed on the next upcoming exam to achieve a target subject grade.
+  2. **Primary Timetable Screen (`TimetableScreen.tsx`)**:
+     - Promoted Timetable to a top-level tab with dual views: `Per Hari` (using `TimetableDayView`) and `Ikhtisar Mingguan` (full 6-day matrix displaying period numbers, subjects, rooms, and teacher tags).
+     - Full Add/Edit/Delete class modal with weekday selector chips, period number picker, room, teacher, and entry kind (academic class vs. break).
+  3. **Teacher Directory (`TeacherDirectoryModal.tsx`)**:
+     - Unified directory aggregating explicitly created teachers and auto-discovered instructors from subjects and timetable schedules.
+     - 1-tap direct **WhatsApp launcher** (`Linking.openURL("https://wa.me/...")`) and native phone dialer (`Linking.openURL("tel:...")`).
+     - Search filter by teacher name, subject, or classroom.
+  4. **Focused 5-Tab Bar (`App.tsx`)**:
+     - Symmetrical 5-item bottom bar: `[Hari Ini]` (Agenda), `[Jadwal]` (Timetable), `[(+) FAB]` (Tambah Cepat), `[Tugas]` (Tasks), `[Nilai]` (Grades & GPA).
+     - Central `(+)` QuickActionSheet enhanced with `Catat Nilai Baru` (opens `AddGradeSheet`) and `Jadwal Pelajaran` shortcuts.
+     - Academic shortcuts hub card on `HomeScreen` offering instant 1-tap access to Ulangan, Nilai, Kalender, and Guru.
+  5. **SQLite Storage & Global Store Persistence (`storage.ts`, `store.tsx`, `types.ts`)**:
+     - Added `grades` and `teachers` tables with auto-migration of `target_grade` and `credit_hours` on `subjects`.
+     - Reactive store handlers: `addGrade`, `updateGrade`, `deleteGrade`, `setSubjectTargetGrade`, `addTeacher`, `updateTeacher`, `deleteTeacher`.
+  6. **Automated Verification**:
+     - Created `test_p18_school_planner_suite.mjs` verifying models, pure calculations, simulator formulas, SQLite persistence, and UI component integrations.
+     - Added to master test runner `test_p13_release_qa_suite.mjs`. All 16 regression test suites passing 100% cleanly, 0 TypeScript errors (`npx tsc --noEmit`).
+- **Rationale**: Elevates the app from a simple task scheduler into a complete School Planner with grade tracking and timetable management, giving students complete control over their academic life.
 - **Attribution**: Builder (per user choice in clarification modal).
+
 
 

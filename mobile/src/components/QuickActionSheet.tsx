@@ -27,12 +27,14 @@ import {
   suggestTaskDuration,
 } from "../services/aiService";
 import { AddTaskSheet } from "./tasks/AddTaskSheet";
+import { AddGradeSheet } from "./grades/AddGradeSheet";
 
 export interface QuickActionSheetProps {
   visible: boolean;
-  initialMode?: "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addFromText";
+  initialMode?: "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addFromText" | "addGrade";
   onClose: () => void;
   onNavigateToScan: (mode: "timetable" | "whiteboard") => void;
+  onNavigateToTimetable?: () => void;
 }
 
 interface ParsedBatchTask {
@@ -52,6 +54,7 @@ export function QuickActionSheet({
   initialMode = "none",
   onClose,
   onNavigateToScan,
+  onNavigateToTimetable,
 }: QuickActionSheetProps) {
   const {
     subjects,
@@ -60,11 +63,12 @@ export function QuickActionSheet({
     overrides,
     addTask,
     addSubject,
+    addGrade,
   } = useMobileStudyStore();
 
   // Modal sub-flows
   const [activeModal, setActiveModal] = useState<
-    "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addFromText"
+    "none" | "addTask" | "addSubject" | "pasteWhatsApp" | "addFromText" | "addGrade"
   >("none");
 
   // Add Subject Form State
@@ -98,6 +102,8 @@ export function QuickActionSheet({
       if (initialMode && initialMode !== "none") {
         if (initialMode === "addTask") {
           handleOpenAddTask();
+        } else if (initialMode === "addGrade") {
+          setActiveModal("addGrade");
         } else if (initialMode === "pasteWhatsApp" || initialMode === "addFromText") {
           handleOpenAddFromText();
         } else if (initialMode === "addSubject") {
@@ -426,7 +432,25 @@ export function QuickActionSheet({
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
 
-              {/* Card 2: Camera Scan AI (Purple Accent) */}
+              {/* Card 2: Catat Nilai Baru */}
+              <Pressable
+                style={styles.gridCard}
+                onPress={() => setActiveModal("addGrade")}
+                accessibilityLabel="Catat nilai baru"
+              >
+                <View style={[styles.gridIconCircle, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
+                  <Ionicons name="stats-chart" size={22} color={colors.emerald} />
+                </View>
+                <View style={styles.gridCardContent}>
+                  <Text style={styles.gridCardTitle}>Catat Nilai Baru</Text>
+                  <Text style={styles.gridCardSub}>
+                    Nilai tugas, kuis, atau ulangan untuk rapor
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Pressable>
+
+              {/* Card 3: Camera Scan AI (Purple Accent) */}
               <Pressable
                 style={[styles.gridCard, styles.aiCardBorder]}
                 onPress={() => {
@@ -453,7 +477,7 @@ export function QuickActionSheet({
                 <Ionicons name="chevron-forward" size={18} color={colors.accent} />
               </Pressable>
 
-              {/* Card 3: WhatsApp Text AI (Purple Accent) */}
+              {/* Card 4: WhatsApp Text AI (Purple Accent) */}
               <Pressable
                 style={[styles.gridCard, styles.aiCardBorder]}
                 onPress={handleOpenAddFromText}
@@ -476,6 +500,29 @@ export function QuickActionSheet({
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.accent} />
               </Pressable>
+
+              {/* Card 5: Timetable / Jadwal Pelajaran */}
+              {onNavigateToTimetable && (
+                <Pressable
+                  style={styles.gridCard}
+                  onPress={() => {
+                    onClose();
+                    onNavigateToTimetable();
+                  }}
+                  accessibilityLabel="Atur jadwal pelajaran"
+                >
+                  <View style={[styles.gridIconCircle, { backgroundColor: "rgba(58, 134, 255, 0.12)" }]}>
+                    <Ionicons name="time" size={22} color={colors.primary} />
+                  </View>
+                  <View style={styles.gridCardContent}>
+                    <Text style={styles.gridCardTitle}>Jadwal Pelajaran</Text>
+                    <Text style={styles.gridCardSub}>
+                      Atur jam pelajaran & ruang kelas mingguan
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+              )}
             </View>
 
             {/* Subtle Add Subject Action */}
@@ -848,6 +895,21 @@ export function QuickActionSheet({
     <AddTaskSheet
       visible={visible && activeModal === "addTask"}
       onClose={() => {
+        setActiveModal("none");
+        onClose();
+      }}
+    />
+
+    {/* ─── School Planner Add Grade Sheet ─── */}
+    <AddGradeSheet
+      visible={visible && activeModal === "addGrade"}
+      subjects={subjects}
+      onClose={() => {
+        setActiveModal("none");
+        onClose();
+      }}
+      onSave={async (data) => {
+        await addGrade(data);
         setActiveModal("none");
         onClose();
       }}
@@ -1230,7 +1292,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: tidySpacing.screen,
     paddingTop: 12,
     paddingBottom: spacing.xl,
-    maxHeight: "65%",
+    maxHeight: "85%",
   },
   gridHeader: {
     marginBottom: spacing.md,

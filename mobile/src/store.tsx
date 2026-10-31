@@ -25,6 +25,8 @@ import {
   SchedulePrefs,
   DEFAULT_SCHEDULE_PREFS,
   ExamEvent,
+  Grade,
+  Teacher,
 } from "./types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { INITIAL_SUBJECTS, INITIAL_STUDY_UNITS, INITIAL_BLOCKS } from "./mockData";
@@ -227,6 +229,17 @@ interface MobileStudyContextType {
   simulateStreakDays: (days: number) => void;
   addMockStudyToday: (minutes?: number) => void;
   clearTodayStudySessions: () => void;
+
+  // School Planner: Grades & Teachers
+  grades: Grade[];
+  teachers: Teacher[];
+  addGrade: (data: Omit<Grade, "id" | "createdAt">) => Promise<Grade>;
+  updateGrade: (id: string, updates: Partial<Grade>) => Promise<void>;
+  deleteGrade: (id: string) => Promise<void>;
+  setSubjectTargetGrade: (subjectId: string, targetGrade: number) => Promise<void>;
+  addTeacher: (data: Omit<Teacher, "id">) => Promise<Teacher>;
+  updateTeacher: (id: string, updates: Partial<Teacher>) => Promise<void>;
+  deleteTeacher: (id: string) => Promise<void>;
 }
 
 const MobileStudyContext = createContext<MobileStudyContextType | null>(null);
@@ -243,6 +256,8 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [studyBlocks, setStudyBlocks] = useState<StudyBlock[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [lastScheduleBackup, setLastScheduleBackup] = useState<StudyBlock[] | null>(null);
   const [schedulePrefs, setSchedulePrefs] = useState<SchedulePrefs>(DEFAULT_SCHEDULE_PREFS);
   const [studyUnits, setStudyUnits] = useState<StudyUnit[]>(INITIAL_STUDY_UNITS);
@@ -274,6 +289,8 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
           if (loaded.tasks) setTasks(loaded.tasks);
           if (loaded.studyBlocks) setStudyBlocks(loaded.studyBlocks);
           if (loaded.schedulePrefs) setSchedulePrefs(loaded.schedulePrefs);
+          if (loaded.grades) setGrades(loaded.grades);
+          if (loaded.teachers) setTeachers(loaded.teachers);
           if (loaded.studyUnits) setStudyUnits(loaded.studyUnits);
           if (loaded.blocks) setBlocks(loaded.blocks);
           if (loaded.focusLogs) setFocusLogs(loaded.focusLogs);
@@ -337,6 +354,8 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       appSettings,
       studyBlocks,
       schedulePrefs,
+      grades,
+      teachers,
     };
     const timer = setTimeout(() => {
       saveStateImmediately(stateToSave);
@@ -361,6 +380,8 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     appSettings,
     studyBlocks,
     schedulePrefs,
+    grades,
+    teachers,
   ]);
 
   // Compute enriched blocks with subject and study unit details
@@ -585,6 +606,53 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     );
     setStudyUnits((prev) => prev.filter((u) => u.subject_id !== id));
     setBlocks((prev) => prev.filter((b) => !affectedUnitIds.has(b.study_unit_id)));
+  };
+
+  // ─── Actions: Grades & School Planner ───
+  const addGrade = async (data: Omit<Grade, "id" | "createdAt">): Promise<Grade> => {
+    const newGrade: Grade = {
+      id: `grade-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: new Date().toISOString(),
+      ...data,
+    };
+    setGrades((prev) => [newGrade, ...prev]);
+    return newGrade;
+  };
+
+  const updateGrade = async (id: string, updates: Partial<Grade>): Promise<void> => {
+    setGrades((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, ...updates } : g))
+    );
+  };
+
+  const deleteGrade = async (id: string): Promise<void> => {
+    setGrades((prev) => prev.filter((g) => g.id !== id));
+  };
+
+  const setSubjectTargetGrade = async (subjectId: string, targetGrade: number): Promise<void> => {
+    setSubjects((prev) =>
+      prev.map((s) => (s.id === subjectId ? { ...s, targetGrade } : s))
+    );
+  };
+
+  // ─── Actions: Teachers ───
+  const addTeacher = async (data: Omit<Teacher, "id">): Promise<Teacher> => {
+    const newTeacher: Teacher = {
+      id: `teacher-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      ...data,
+    };
+    setTeachers((prev) => [...prev, newTeacher]);
+    return newTeacher;
+  };
+
+  const updateTeacher = async (id: string, updates: Partial<Teacher>): Promise<void> => {
+    setTeachers((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
+  };
+
+  const deleteTeacher = async (id: string): Promise<void> => {
+    setTeachers((prev) => prev.filter((t) => t.id !== id));
   };
 
   // ─── Actions: Periods & Timetable ───
@@ -1603,6 +1671,15 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         simulateStreakDays,
         addMockStudyToday,
         clearTodayStudySessions,
+        grades,
+        teachers,
+        addGrade,
+        updateGrade,
+        deleteGrade,
+        setSubjectTargetGrade,
+        addTeacher,
+        updateTeacher,
+        deleteTeacher,
       }}
     >
       {children}

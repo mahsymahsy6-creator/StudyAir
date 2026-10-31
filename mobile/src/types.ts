@@ -19,6 +19,8 @@ export interface Subject {
   room?: string;
   bringItems: string[];
   examDate?: string; // YYYY-MM-DD
+  targetGrade?: number; // e.g. 80 (KKM / target nilai)
+  creditHours?: number; // e.g. 2 (JP / SKS)
 
   // Backward compatibility fields for legacy views
   title: string;
@@ -289,7 +291,33 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   lastCelebratedMilestone: 0,
 };
 
-// ─── 8. Persistence State ───
+// ─── 8. School Planner: Grades & Teachers ───
+export type GradeCategory = "assignment" | "quiz" | "exam" | "project" | "other";
+
+export interface Grade {
+  id: string;
+  subjectId: string;
+  title: string;
+  score: number; // e.g. 85
+  maxScore: number; // default 100
+  weight: number; // e.g. 1, 2, or percentage 20
+  category: GradeCategory;
+  date: string; // YYYY-MM-DD
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface Teacher {
+  id: string;
+  name: string;
+  subjectIds: string[];
+  phone?: string;
+  email?: string;
+  room?: string;
+  notes?: string;
+}
+
+// ─── 9. Persistence State ───
 export interface DatabaseState {
   subjects: Subject[];
   periodTimes: PeriodTime[];
@@ -307,5 +335,7 @@ export interface DatabaseState {
   appSettings?: AppSettings;
   studyBlocks?: StudyBlock[];
   schedulePrefs?: SchedulePrefs;
+  grades?: Grade[];
+  teachers?: Teacher[];
 }
 
