@@ -221,10 +221,10 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         return <StatusPill variant="red" label={t("deadline_terlambat", { days: Math.abs(diff) })} />;
       }
       if (diff === 0) {
-        return <StatusPill variant="red" label={t("deadline_hari_ini") || "Hari Ini"} />;
+        return <StatusPill variant="amber" label={t("deadline_hari_ini") || "Hari Ini"} />;
       }
       if (diff === 1) {
-        return <StatusPill variant="amber" label={t("deadline_besok") || "Besok"} />;
+        return <StatusPill variant="blue" label={t("deadline_besok") || "Besok"} />;
       }
       if (diff <= 3) {
         return <StatusPill variant="blue" label={t("deadline_hari_lagi", { days: diff })} />;
@@ -685,6 +685,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.caption,
     color: colors.textMuted,
     marginLeft: 30,
+    marginTop: 2,
     marginBottom: 6,
   },
   taskFooterRow: {

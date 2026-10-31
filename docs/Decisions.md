@@ -365,3 +365,22 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Prevents claustrophobic information density and screen crowding, adhering to Product Brief v2 tidy rules ("No duplicated information or actions on a screen").
 - **Attribution**: Builder (per user feedback).
 
+### 2026-10-31: UI/UX Comfort & Calm Productivity Enhancements
+- **Decision**: Implemented comprehensive calm-design ergonomics and visual comfort improvements:
+  1. **Color Semantics & Alarm Fatigue Reduction**:
+     - Converted deadline pill for *Hari Ini* (`deadline_hari_ini`) from alarming Red (`colors.danger`) to warm, focused **Amber (`colors.amber`)** across `HomeScreen.tsx` and `TasksScreen.tsx`.
+     - Reserved Red strictly for overdue tasks (`diff < 0`), preventing false panic when students are on track.
+     - Converted *Besok* (`deadline_besok`) to reassuring Electric Blue (`colors.primary`).
+  2. **GradesScreen Hero Progressive Disclosure**:
+     - Restructured the cluttered hero card: the main score, Kurikulum Merdeka predicate, and KKM completion bar now enjoy full horizontal width.
+     - Extracted *Kalkulator TKA* and *Target Simulator* into an ergonomic horizontal 2-button action bar (`heroToolsRow`) with tactile 3D borders and generous touch targets.
+  3. **Rest-Day Guilt Elimination**:
+     - Added an emotional reassurance badge (`"🛡️ Hari Libur • Streak Aman"`) on the Day Off card in `HomeScreen.tsx`, confirming to students that scheduled rest days protect their streak.
+  4. **Task Title Readability & Leading**:
+     - Added `lineHeight: 20` and `marginTop: 2` on `taskNotesText` in `TasksScreen.tsx` to prevent text collision on multi-line assignments.
+  5. **Calendar Navigation Linkage**:
+     - Passed `onBack={handleBackToTab}` to `CalendarScreen` in `App.tsx`, providing a visible left back arrow so students can return smoothly to their previous tab.
+- **Rationale**: Elevates user comfort, reduces academic anxiety, and creates an intuitive, delightful daily routine for students.
+- **Attribution**: Builder (per user request and approved plan).
+
+

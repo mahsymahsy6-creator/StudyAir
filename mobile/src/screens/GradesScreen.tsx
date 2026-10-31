@@ -214,72 +214,71 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
       >
         {/* ─── 1. Cumulative Report Card Hero Banner (Standar Indonesia) ─── */}
         <Card style={styles.heroCard}>
-          <View style={styles.heroHeaderRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroLabel}>RATA-RATA RAPOR INDONESIA</Text>
-              <View style={styles.heroScoreRow}>
-                <Text style={styles.heroScoreText}>
-                  {overallSummary.cumulativeAverage > 0
-                    ? overallSummary.cumulativeAverage.toFixed(1)
-                    : "0.0"}
-                </Text>
-                <View style={styles.heroGradePill}>
-                  <Text style={styles.heroGradePillText}>
-                    Predikat {overallSummary.letterGrade}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Ketuntasan KKM indicator */}
-              <View style={styles.kkmSummaryRow}>
-                <Ionicons
-                  name={
-                    overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
-                      ? "checkmark-circle"
-                      : "alert-circle"
-                  }
-                  size={14}
-                  color={
-                    overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
-                      ? colors.emerald
-                      : colors.amber
-                  }
-                  style={{ marginRight: 4 }}
-                />
-                <Text style={styles.kkmSummaryText}>
-                  {overallSummary.gradedSubjectsCount > 0
-                    ? `${overallSummary.completedKKMCount} dari ${overallSummary.gradedSubjectsCount} Mapel Tuntas KKM (${overallSummary.kkmCompletionRate}%)`
-                    : "Belum ada nilai KKM"}
+          {/* Main Score Section: Full Width */}
+          <View style={styles.heroMainScoreSection}>
+            <Text style={styles.heroLabel}>RATA-RATA RAPOR INDONESIA</Text>
+            <View style={styles.heroScoreRow}>
+              <Text style={styles.heroScoreText}>
+                {overallSummary.cumulativeAverage > 0
+                  ? overallSummary.cumulativeAverage.toFixed(1)
+                  : "0.0"}
+              </Text>
+              <View style={styles.heroGradePill}>
+                <Text style={styles.heroGradePillText}>
+                  Predikat {overallSummary.letterGrade}
                 </Text>
               </View>
             </View>
 
-            {/* Quick Action Buttons in Hero Banner */}
-            <View style={styles.heroActionsCol}>
-              <Pressable
-                style={styles.tkaCtaBtn}
-                onPress={() => {
-                  HapticFeedback.light();
-                  soundFX.playClick();
-                  setTkaModalVisible(true);
-                }}
-                hitSlop={touchTarget.min / 4}
-                accessibilityLabel="Kalkulator TKA"
-              >
-                <Ionicons name="calculator" size={15} color="#FFFFFF" />
-                <Text style={styles.tkaCtaText}>Nilai TKA</Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.simulatorCtaBtn}
-                onPress={() => handleOpenSimulator()}
-                hitSlop={touchTarget.min / 4}
-                accessibilityLabel="Buka Simulator Nilai"
-              >
-                <Ionicons name="speedometer-outline" size={15} color="#FFFFFF" />
-                <Text style={styles.simulatorCtaText}>Simulator</Text>
-              </Pressable>
+            {/* Ketuntasan KKM indicator */}
+            <View style={styles.kkmSummaryRow}>
+              <Ionicons
+                name={
+                  overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
+                    ? "checkmark-circle"
+                    : "alert-circle"
+                }
+                size={14}
+                color={
+                  overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
+                    ? colors.emerald
+                    : colors.amber
+                }
+                style={{ marginRight: 5 }}
+              />
+              <Text style={styles.kkmSummaryText}>
+                {overallSummary.gradedSubjectsCount > 0
+                  ? `${overallSummary.completedKKMCount} dari ${overallSummary.gradedSubjectsCount} Mapel Tuntas KKM (${overallSummary.kkmCompletionRate}%)`
+                  : "Belum ada nilai KKM"}
+              </Text>
             </View>
+          </View>
+
+          {/* Quick Action Tools Bar (Target Simulator & Kalkulator TKA) */}
+          <View style={styles.heroToolsRow}>
+            <Pressable
+              style={styles.heroToolBtn}
+              onPress={() => {
+                HapticFeedback.light();
+                soundFX.playClick();
+                setTkaModalVisible(true);
+              }}
+              hitSlop={touchTarget.min / 4}
+              accessibilityLabel="Kalkulator TKA"
+            >
+              <Ionicons name="calculator" size={15} color={colors.accent} style={{ marginRight: 6 }} />
+              <Text style={styles.heroToolBtnText}>Kalkulator TKA</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.heroToolBtn}
+              onPress={() => handleOpenSimulator()}
+              hitSlop={touchTarget.min / 4}
+              accessibilityLabel="Buka Target Simulator Nilai"
+            >
+              <Ionicons name="speedometer-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.heroToolBtnText}>Target Simulator</Text>
+            </Pressable>
           </View>
 
           {/* Performance Motivation Message */}
@@ -1020,41 +1019,32 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.semibold,
     color: colors.textSecondary,
   },
-  heroActionsCol: {
-    gap: 6,
-    alignItems: "flex-end",
+  heroMainScoreSection: {
+    width: "100%",
   },
-  tkaCtaBtn: {
+  heroToolsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: spacing.sm + 4,
+  },
+  heroToolBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    justifyContent: "center",
+    backgroundColor: colors.surfaceSubtle,
     borderRadius: radius.md,
-    borderBottomWidth: 3,
-    borderBottomColor: "#7C3AED",
-  },
-  tkaCtaText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "700",
-    marginLeft: 5,
-  },
-  simulatorCtaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderBottomWidth: 2.5,
+    borderBottomColor: colors.border,
+    paddingVertical: 9,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radius.md,
-    borderBottomWidth: 3,
-    borderBottomColor: "#1D4ED8",
   },
-  simulatorCtaText: {
-    color: "#FFFFFF",
-    fontSize: 11,
+  heroToolBtnText: {
+    fontSize: 12,
     fontWeight: "700",
-    marginLeft: 5,
+    color: colors.text,
   },
   performanceRow: {
     flexDirection: "row",

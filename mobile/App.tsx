@@ -228,7 +228,7 @@ function MainApp() {
 
         {/* Tab 3: Calendar / Kalender */}
         <View style={[styles.screenWrapper, activeTab !== "Calendar" && styles.screenHidden]}>
-          <CalendarScreen navigation={navigation} />
+          <CalendarScreen navigation={navigation} onBack={handleBackToTab} />
         </View>
 
         {/* Tab 3 / Screen: Exams / Ulangan */}

@@ -210,10 +210,10 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         return <StatusPill variant="red" label={t("deadline_terlambat", { days: Math.abs(diff) })} />;
       }
       if (diff === 0) {
-        return <StatusPill variant="red" label={t("deadline_hari_ini") || "Hari Ini"} />;
+        return <StatusPill variant="amber" label={t("deadline_hari_ini") || "Hari Ini"} />;
       }
       if (diff === 1) {
-        return <StatusPill variant="amber" label={t("deadline_besok") || "Besok"} />;
+        return <StatusPill variant="blue" label={t("deadline_besok") || "Besok"} />;
       }
       return <StatusPill variant="gray" label={formatLocaleDate(deadline, "d MMM")} />;
     } catch {
@@ -377,9 +377,15 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
               <View style={styles.dayOffRow}>
                 <Ionicons name="sunny" size={24} color={colors.amber} style={{ marginRight: spacing.sm }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.dayOffTitle}>Hari Bebas Kelas</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={styles.dayOffTitle}>Hari Bebas Kelas</Text>
+                    <View style={styles.streakSafePill}>
+                      <Ionicons name="shield-checkmark" size={12} color={colors.emerald} style={{ marginRight: 3 }} />
+                      <Text style={styles.streakSafeText}>Streak Aman</Text>
+                    </View>
+                  </View>
                   <Text style={styles.dayOffSub}>
-                    {todaySchedule.dayOffReason || "Tidak ada kelas sekolah terjadwal hari ini. Nikmati istirahatmu!"}
+                    {todaySchedule.dayOffReason || "Tidak ada kelas sekolah terjadwal hari ini. Nikmati istirahatmu tanpa khawatir streak berkurang!"}
                   </Text>
                 </View>
               </View>
@@ -774,6 +780,21 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
+  },
+  streakSafePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: `${colors.emerald}18`,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: `${colors.emerald}40`,
+  },
+  streakSafeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.emerald,
   },
   dayOffSub: {
     fontSize: typography.fontSizes.caption,
