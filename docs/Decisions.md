@@ -350,3 +350,18 @@ This document records architectural, functional, and product decisions made for 
      - Added click sound synthesis (`soundFX.playClick()`) to all 4 filter pills (`Semua`, `Terjadwal`, `Belum Dijadwalkan`, `Selesai`).
 - **Rationale**: Eliminates visual redundancy, improves student navigation speed, and delivers a polished, responsive tactile study experience.
 - **Attribution**: Builder (per user request).
+
+### 2026-10-31: HomeScreen Declutter & De-Compaction
+- **Decision**: Cleaned up HomeScreen to remove visual cramping and eliminate redundant elements:
+  1. **Removed "Nilai TKA" from HomeScreen**: Removed TKA modal integration, shortcut button, and state from `HomeScreen.tsx`. Nilai TKA resides strictly in its natural home: Tab 4 (`GradesScreen.tsx`) where students track report cards and academic projections.
+  2. **Removed Bulky 4-Tile Hub**: Removed the crammed `quickHubRow` (Ulangan, Nilai, Kalender, Guru) that duplicated bottom navigation tabs and took up ~110dp of vertical space between the Hero widget and class schedule.
+  3. **Elevated Teacher Directory to Header**: Moved "Daftar Guru" access into `ScreenHeader.actions` as an elegant `people-outline` icon next to Settings (`settings-outline`), keeping header actions strictly at the 2-action maximum.
+  4. **Clean, Uncompacted Flow**: The HomeScreen now breathes with a focused 3-step hierarchy:
+     - Header (date, streak, teacher directory, settings)
+     - What to study now (Hero focus card)
+     - What classes are today (Jadwal Kelas horizontal strip)
+     - What homework is due (Tugas & PR checklist)
+     - Tomorrow preview (Besok collapsed row)
+- **Rationale**: Prevents claustrophobic information density and screen crowding, adhering to Product Brief v2 tidy rules ("No duplicated information or actions on a screen").
+- **Attribution**: Builder (per user feedback).
+
