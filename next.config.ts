@@ -16,6 +16,33 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
   },
+  async redirects() {
+    return [
+      {
+        source: "/dl",
+        destination: "/download",
+        permanent: false,
+      },
+      {
+        source: "/apk",
+        destination:
+          "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk",
+        permanent: false,
+      },
+      {
+        source: "/StudyAir-v2.0.1.apk",
+        destination:
+          "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk",
+        permanent: false,
+      },
+      {
+        source: "/StudyAir-v2.0.0.apk",
+        destination:
+          "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

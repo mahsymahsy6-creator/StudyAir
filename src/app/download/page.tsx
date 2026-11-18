@@ -112,12 +112,14 @@ export default function DownloadPage() {
   };
 
   const lanDownloadUrl = `http://${versionState.lanIp}:8080/download`;
+  const githubApkUrl =
+    "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk";
 
   const handleCopyLink = async () => {
     try {
       const urlToCopy =
         typeof window !== "undefined"
-          ? `${window.location.origin}/StudyAir-v2.0.1.apk`
+          ? `${window.location.origin}/download`
           : lanDownloadUrl;
       await navigator.clipboard.writeText(urlToCopy);
       setCopied(true);
@@ -162,7 +164,7 @@ export default function DownloadPage() {
           {/* Primary Download & Update Check Actions */}
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="/StudyAir-v2.0.1.apk"
+              href={githubApkUrl}
               download="StudyAir-v2.0.1.apk"
               onClick={handleDownloadClick}
               className="w-full sm:w-auto"
@@ -232,7 +234,7 @@ export default function DownloadPage() {
             {qrLoaded && (
               <div className="bg-white p-3.5 rounded-2xl shadow-lg shrink-0 border border-border/40">
                 <img
-                  src="http://localhost:8080/qr.svg"
+                  src="/qr.svg"
                   alt="QR Code Unduh StudyAir APK"
                   className="h-36 w-36"
                   onError={() => setQrLoaded(false)}

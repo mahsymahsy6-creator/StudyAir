@@ -20,8 +20,11 @@ export async function GET() {
       apkFilename: "StudyAir-v2.0.1.apk",
       apkSizeMB: "86.2",
       minAndroidSdk: 26,
-      downloadUrl: "/StudyAir-v2.0.1.apk",
+      downloadUrl:
+        "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk",
       portalUrl: "/download",
+      githubReleaseUrl:
+        "https://github.com/mahsymahsy6-creator/StudyAir/releases/tag/v2.0.1",
       changelog: [
         "Sinkronisasi Jam Pelajaran dua arah antara Pengaturan, Jadwal, dan Susun Manual",
         "Akses langsung modal Jam Pelajaran (Bell Times) pada layar Jadwal (Tab 2)",
