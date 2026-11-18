@@ -4,17 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
+  Smartphone,
+  Download,
+  Play,
   CalendarDays,
-  BookOpen,
-  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BOTTOM_NAV_ITEMS = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/subjects", label: "Syllabus", icon: BookOpen },
-  { href: "/dashboard", label: "Analytics", icon: BarChart3 },
+  { href: "/", label: "Beranda", icon: Home },
+  { href: "/app", label: "Web App", icon: Smartphone },
+  { href: "/download", label: "Unduh APK", icon: Download },
+  { href: "/trailer", label: "Trailer", icon: Play },
+  { href: "/calendar", label: "Kalender", icon: CalendarDays },
 ] as const;
 
 export function BottomNav() {

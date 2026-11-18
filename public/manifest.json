@@ -1,8 +1,8 @@
 {
-  "name": "StudyAir — Adaptive Study Scheduler",
+  "name": "StudyAir — Jadwal Pelajaran & Tugas Sekolah",
   "short_name": "StudyAir",
-  "description": "Adaptive study scheduling and SM-2 spaced repetition time-blocking web application",
-  "start_url": "/calendar",
+  "description": "Aplikasi pembuat jadwal belajar otomatis di sela jam sekolah untuk siswa SMP & SMA Indonesia",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#090d16",
   "theme_color": "#090d16",

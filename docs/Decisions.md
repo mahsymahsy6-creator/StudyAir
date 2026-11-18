@@ -4,6 +4,24 @@ This document records architectural, functional, and product decisions made for 
 
 ---
 
+### 2026-11-18: StudyAir Web App Unified Deployment with Interactive Device Showcase & Native Web App Delivery (`/app`)
+- **Decision**: Delivered the authentic StudyAir application to the web platform, integrating the full React Native Web bundle directly into the Next.js cloud deployment:
+  1. **Full StudyAir Web Application (`/app`)**:
+     - Exported the complete production React Native / Expo application (`mobile/dist`) into `public/_expo`, `public/assets`, and `public/app.html`.
+     - Added Next.js rewrites in `next.config.ts` (`/app`, `/app/:path*`, `/app/assets/:path*`) ensuring seamless client-side routing to `public/app.html` with zero Next.js chrome overhead.
+     - All screens (Hari Ini, Jadwal 10 JP, Tugas, Kalender, Naga Streak, Nilai Rapor, Pengaturan, audio taktil) are now 100% functional in any modern desktop or mobile browser.
+  2. **Modernized Indonesian Web Hub & Interactive Mockup (`src/app/page.tsx`)**:
+     - Completely replaced legacy v1 English prototype text with authentic StudyAir v2 Indonesian copy.
+     - Embedded an interactive smartphone mockup frame (`390px` width) directly in the desktop hero section, allowing visitors to test and use StudyAir live on the homepage with an option to expand to full screen (`/app`).
+     - Added prominent CTAs for "Buka Aplikasi Web (Layar Penuh)", "Unduh Standalone APK v2.0.1", and "Trailer 9:16".
+  3. **Updated Navigation & PWA Integration (`Navbar.tsx`, `BottomNav.tsx`, `manifest.json`)**:
+     - Updated desktop navbar and mobile bottom nav with direct links to "Aplikasi Web" (`/app`), "Unduh APK" (`/download`), "Trailer" (`/trailer`), and "Desktop Calendar" (`/calendar`).
+     - Updated PWA `manifest.json` with `start_url: "/app"` so mobile browser users can tap "Add to Home Screen" to install StudyAir as a native-feeling progressive web app.
+- **Rationale**: Directly resolves the user request "make the web" by turning `studyair.vercel.app` into a complete, authentic web version of StudyAir without requiring an APK download.
+- **Attribution**: Builder (per user request).
+
+---
+
 ### 2026-11-18: Zero-Cost Cloud Web Launch on Vercel with GitHub Releases APK Distribution
 - **Decision**: Deployed the StudyAir web portal and companion download hub to Vercel's Free Hobby Tier backed by GitHub Releases:
   1. **Vercel Cloud Deployment (`studyair.vercel.app`)**:

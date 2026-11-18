@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "export:mobile-web": "cd mobile && npx expo export --platform web && cp -r dist/_expo/* ../public/_expo/ && cp -r dist/assets/* ../public/assets/ && cp dist/index.html ../public/app.html && cp dist/index.html ../public/app/index.html",
     "start": "next start",
     "lint": "eslint"
   },

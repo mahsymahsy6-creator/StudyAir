@@ -146,7 +146,7 @@ export function GeminiApiKeyModal({ open, onClose }: GeminiApiKeyModalProps) {
               <Input
                 id="gemini-key"
                 type="password"
-                placeholder="AIzaSy..."
+                placeholder="Masukkan API key Gemini..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="h-9 pr-9 text-xs font-mono border-border bg-background"

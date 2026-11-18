@@ -16,6 +16,22 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "date-fns"],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/app/assets/:path*",
+        destination: "/assets/:path*",
+      },
+      {
+        source: "/app",
+        destination: "/app.html",
+      },
+      {
+        source: "/app/:path*",
+        destination: "/app.html",
+      },
+    ];
+  },
   async redirects() {
     return [
       {

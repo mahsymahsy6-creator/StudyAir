@@ -1206,7 +1206,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   style={styles.apiKeyInput}
                   value={apiKeyInput}
                   onChangeText={setApiKeyInput}
-                  placeholder="AIzaSy..."
+                  placeholder="Masukkan API Key..."
                   placeholderTextColor={colors.textMuted}
                   secureTextEntry={!apiKeyVisible}
                   autoCapitalize="none"

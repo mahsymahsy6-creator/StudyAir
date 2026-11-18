@@ -9,6 +9,8 @@ import {
   BarChart3,
   Sparkles,
   Download,
+  Smartphone,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
@@ -25,10 +27,10 @@ const GeminiApiKeyModal = dynamic(
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/subjects", label: "Syllabus", icon: BookOpen },
-  { href: "/dashboard", label: "Analytics", icon: BarChart3 },
-  { href: "/download", label: "Unduh App", icon: Download },
+  { href: "/app", label: "Aplikasi Web", icon: Smartphone },
+  { href: "/download", label: "Unduh APK v2.0.1", icon: Download },
+  { href: "/trailer", label: "Trailer 9:16", icon: Play },
+  { href: "/calendar", label: "Desktop Calendar", icon: CalendarDays },
 ] as const;
 
 export function Navbar() {
@@ -40,7 +42,7 @@ export function Navbar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-8">
         {/* ─── Brand Logo ─── */}
         <Link
-          href="/calendar"
+          href="/"
           className="mr-8 flex items-center gap-2.5 transition-opacity hover:opacity-90 group"
         >
           <img
@@ -78,6 +80,16 @@ export function Navbar() {
 
         {/* ─── Right Controls ─── */}
         <div className="ml-auto flex items-center gap-2">
+          <Link href="/app">
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 rounded-xl px-3 bg-primary text-primary-foreground font-semibold text-xs shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+              <span>Buka Web App</span>
+            </Button>
+          </Link>
+
           {/* Active Gemini Status Pill */}
           <Button
             variant="outline"

@@ -362,7 +362,7 @@ export function AIPhotoScheduleDialog({
                 <div className="flex gap-2">
                   <Input
                     type="password"
-                    placeholder="Paste AIzaSy... API key"
+                    placeholder="Tempel API key Gemini..."
                     value={quickKeyInput}
                     onChange={(e) => setQuickKeyInput(e.target.value)}
                     className="h-8 text-xs font-mono bg-background/50 border-primary/30"
