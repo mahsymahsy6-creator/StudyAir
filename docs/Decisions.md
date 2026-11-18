@@ -4,6 +4,24 @@ This document records architectural, functional, and product decisions made for 
 
 ---
 
+### 2026-11-18: Zero-Cost Cloud Web Launch on Vercel with GitHub Releases APK Distribution
+- **Decision**: Deployed the StudyAir web portal and companion download hub to Vercel's Free Hobby Tier backed by GitHub Releases:
+  1. **Vercel Cloud Deployment (`studyair.vercel.app`)**:
+     - Linked repository `mahsymahsy6-creator/StudyAir` on branch `main` to Vercel project `studyair` (`prj_Ig2athK1e4iu8IEURSEABo4RlT6J`).
+     - Installed Vercel GitHub App for continuous integration and automated production deployments on push to `main`.
+     - Verified live production domain `https://studyair.vercel.app` and alternative staging endpoints with HTTP 200 responses.
+  2. **Git Hygiene & Large Asset Strategy (`.vercelignore`, `.gitignore`)**:
+     - Excluded `*.apk` and `.playwright-mcp/` from Git and Vercel payloads, keeping the production deployment bundle lean (<15 MB) and build times fast (~51s).
+     - Preserved all APK binaries safely on local disk for offline testing and local server distribution.
+  3. **High-Bandwidth APK CDN via GitHub Releases (`v2.0.1`)**:
+     - Published official GitHub Release `v2.0.1` (`tag: v2.0.1`) and uploaded the full standalone binary `StudyAir-v2.0.1.apk` (86.2 MB / 90,339,618 bytes) to GitHub Releases.
+     - Added Next.js redirects in `next.config.ts` (`/StudyAir-v2.0.1.apk`, `/apk`, `/dl`) routing directly to GitHub's global release asset CDN.
+     - Generated vector QR code (`public/qr.svg`) pointing to `https://studyair.vercel.app/dl` for universal cross-device scanning.
+- **Rationale**: Fulfills the user request to launch the web app on a completely free hosting platform while ensuring reliable, high-speed APK downloads without hitting serverless bundle limits.
+- **Attribution**: Builder (per user request).
+
+---
+
 ### 2026-11-18: Official App Release Re-calibrated to v2.0.1 (Build 4) Across Downloads, APIs & Build Configs
 - **Decision**: Standardized official release version to `v2.0.1` (`versionCode: 4`, `buildNumber: "2.0.1"`) across web download portals, mobile update checkers, and APK servers:
   1. **Download Portal & Version API (`src/app/download/page.tsx`, `src/app/page.tsx`, `src/app/api/version/route.ts`, `mobile/scripts/apk_download_server.mjs`)**:
