@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyAir - 12s Keynote Product Sting (1080x1080)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --stage-size: 1080px;
+      --bg-dark: #0A0D14;
+      --page-bg: #FDFDFB;
+      --haze: #B7CFEB;
+      --ice: #E6F0FA;
+      --floor-glow: #DBEEFD;
+      --navy: #1E2F52;
+      --deep-blue: #294376;
+      --blue-accent: #2F6BFF;
+      --cyan-accent: #3CC8F0;
+      --mint-accent: #4ED6A0;
+      --text-grey: #BCBCBA;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #FFFFFF;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 20px 0 100px;
+    }
+
+    /* Top control panel */
+    .top-panel {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 8px 18px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 1000;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #E2E8F0;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .pill-btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    .pill-btn.active {
+      background: var(--blue-accent);
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #FFF;
+      box-shadow: 0 0 12px rgba(47, 107, 255, 0.5);
+    }
+
+    .frame-indicator {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan-accent);
+      min-width: 130px;
+      text-align: center;
+    }
+
+    /* 1080x1080 Viewport Wrapper */
+    .viewport-scaler {
+      width: 720px;
+      height: 720px;
+      position: relative;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    @media (min-width: 1200px) {
+      .viewport-scaler {
+        width: 860px;
+        height: 860px;
+      }
+    }
+
+    /* Master 1080x1080 Render Stage */
+    #stage {
+      width: 1080px;
+      height: 1080px;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
+      background-color: var(--page-bg);
+      overflow: hidden;
+      color: #000;
+    }
+
+    /* Bottom Timeline Bar */
+    .timeline-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 80px;
+      background: rgba(10, 13, 20, 0.95);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 24px;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .scrubber-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .scrubber-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue-accent), var(--cyan-accent));
+      border-radius: 3px;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cut-marker {
+      position: absolute;
+      top: -3px;
+      width: 2px;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.4);
+      transform: translateX(-50%);
+    }
+
+    .cut-label {
+      position: absolute;
+      top: -18px;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+      color: #94A3B8;
+    }
+
+    /* Hide element utility */
+    .scene-layer {
+      position: absolute;
+      inset: 0;
+      width: 1080px;
+      height: 1080px;
+      pointer-events: none;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Quick Jump & Still Export Bar -->
+  <div class="top-panel">
+    <button class="pill-btn" id="playToggleBtn">▶ Play</button>
+    <div class="frame-indicator" id="frameDisplay">f0 / 359 (0.00s)</div>
+
+    <div style="height: 18px; width: 1px; background: rgba(255,255,255,0.2);"></div>
+
+    <span style="font-size: 11px; color: #94A3B8; font-weight: 700;">STILLS:</span>
+    <button class="pill-btn still-btn" data-frame="40">f40: Header</button>
+    <button class="pill-btn still-btn" data-frame="86">f86: Orbit Cross</button>
+    <button class="pill-btn still-btn" data-frame="150">f150: Prompt</button>
+    <button class="pill-btn still-btn" data-frame="230">f230: Cards</button>
+
+    <div style="height: 18px; width: 1px; background: rgba(255,255,255,0.2);"></div>
+
+    <button class="pill-btn" id="exportPngBtn" title="Unduh snapshot frame saat ini (1080x1080 PNG)">
+      📸 Unduh Still (PNG)
+    </button>
+    <button class="pill-btn" id="audioToggleBtn">🔊 Audio</button>
+  </div>
+
+  <!-- Centered 1080x1080 Stage Viewport -->
+  <div class="viewport-scaler" id="viewportScaler">
+    <div id="stage">
+      
+      <!-- SVG Filters for Dynamic Directional Motion Blur -->
+      <svg width="0" height="0" style="position: absolute;">
+        <defs>
+          <filter id="directionalBlur">
+            <feGaussianBlur id="blurFilter" stdDeviation="0 0" />
+          </filter>
+        </defs>
+      </svg>
+
+      <!-- S1 Layer (f0–71) -->
+      <div class="scene-layer" id="layerS1"></div>
+
+      <!-- S2 Layer (f72–100) -->
+      <div class="scene-layer" id="layerS2"></div>
+
+      <!-- S3 Layer (f101–158) -->
+      <div class="scene-layer" id="layerS3"></div>
+
+      <!-- S4 Layer (f159–186) -->
+      <div class="scene-layer" id="layerS4"></div>
+
+      <!-- S5 Layer (f187–214) -->
+      <div class="scene-layer" id="layerS5"></div>
+
+      <!-- S6 Layer (f215–244) -->
+      <div class="scene-layer" id="layerS6"></div>
+
+      <!-- S7 Layer (f245–300) -->
+      <div class="scene-layer" id="layerS7"></div>
+
+      <!-- S8 Layer (f301–359) -->
+      <div class="scene-layer" id="layerS8"></div>
+
+    </div>
+  </div>
+
+  <!-- Bottom Timeline & Scrubber -->
+  <div class="timeline-bar">
+    <div class="scrubber-track" id="scrubberTrack">
+      <div class="scrubber-fill" id="scrubberFill"></div>
+      
+      <!-- Hard Cut markers at f72, f101, f159 -->
+      <div class="cut-marker" style="left: calc(72 / 359 * 100%);">
+        <span class="cut-label">f72</span>
+      </div>
+      <div class="cut-marker" style="left: calc(101 / 359 * 100%);">
+        <span class="cut-label">f101</span>
+      </div>
+      <div class="cut-marker" style="left: calc(159 / 359 * 100%);">
+        <span class="cut-label">f159</span>
+      </div>
+      <div class="cut-marker" style="left: calc(215 / 359 * 100%);">
+        <span class="cut-label">f215</span>
+      </div>
+      <div class="cut-marker" style="left: calc(301 / 359 * 100%);">
+        <span class="cut-label">f301</span>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div style="font-size: 12px; color: #94A3B8;">
+        <span>Scene: <b id="sceneLabel" style="color: #FFF;">S1: Header</b></span> •
+        <span>Tempo: <b>124 BPM</b> (1 Beat = 14.5f)</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="pill-btn" onclick="seek(0)">⏮ Reset</button>
+        <button class="pill-btn" id="recordWebmBtn">🔴 Rekam WebM (12s)</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       Deterministic Mathematical Interpolation & Keyframe Engine
+       ========================================================================== */
+
+    function kf(frame, keys, ease = 'linear') {
+      if (frame <= keys[0][0]) return keys[0][1];
+      if (frame >= keys[keys.length - 1][0]) return keys[keys.length - 1][1];
+
+      for (let i = 0; i < keys.length - 1; i++) {
+        const [f0, v0] = keys[i];
+        const [f1, v1] = keys[i + 1];
+        if (frame >= f0 && frame <= f1) {
+          let t = (frame - f0) / (f1 - f0);
+          if (ease === 'easeOut') {
+            t = 1 - Math.pow(1 - t, 3);
+          } else if (ease === 'easeIn') {
+            t = Math.pow(t, 3);
+          } else if (ease === 'easeInOut') {
+            t = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          }
+          return v0 + (v1 - v0) * t;
+        }
+      }
+      return keys[0][1];
+    }
+
+    // High quality vector origami plane mark
+    const origamiSvg = (color = "#1E2F52", size = 72) => `
+      <svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none">
+        <path d="M15 48L85 18L52 82L42 56L15 48Z" fill="${color}" fill-opacity="0.9" />
+        <path d="M85 18L42 56L52 82L85 18Z" fill="${color}" fill-opacity="0.65" />
+        <path d="M42 56L36 74L50 63L42 56Z" fill="${color}" fill-opacity="0.4" />
+      </svg>
+    `;
+
+    // Standard macOS Cursor SVG (Black with white outline and soft drop shadow)
+    const cursorSvg = (rotation = 0, scale = 1.0) => `
+      <div style="position: absolute; pointer-events: none; transform: rotate(${rotation}deg) scale(${scale}); transform-origin: 0 0; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));">
+        <svg width="34" height="42" viewBox="0 0 34 42" fill="none">
+          <path d="M2 2L15 37L20.5 24.5L32 21L2 2Z" fill="#000000" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    `;
+
+    /* ==========================================================================
+       Web Audio API Synthesizer (124 BPM • Exact Beat Drops & Clicks)
+       ========================================================================== */
+    class StingAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playBeatHit() {
+        if (!this.ctx || this.isMuted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(140, t);
+        osc.frequency.exponentialRampToValueAtTime(42, t + 0.32);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.36);
+      }
+
+      playWhoosh() {
+        if (!this.ctx || this.isMuted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(220, t);
+        osc.frequency.exponentialRampToValueAtTime(750, t + 0.22);
+        gain.gain.setValueAtTime(0.01, t);
+        gain.gain.linearRampToValueAtTime(0.14, t + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.28);
+      }
+
+      playClick() {
+        if (!this.ctx || this.isMuted) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.frequency.setValueAtTime(950, t);
+        osc.frequency.exponentialRampToValueAtTime(200, t + 0.04);
+        gain.gain.setValueAtTime(0.12, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+    }
+
+    const audio = new StingAudioEngine();
+
+    /* ==========================================================================
+       Pure seek(frame) Rendering Engine (f0 to f359)
+       ========================================================================== */
+    const stage = document.getElementById("stage");
+    const layers = {
+      S1: document.getElementById("layerS1"),
+      S2: document.getElementById("layerS2"),
+      S3: document.getElementById("layerS3"),
+      S4: document.getElementById("layerS4"),
+      S5: document.getElementById("layerS5"),
+      S6: document.getElementById("layerS6"),
+      S7: document.getElementById("layerS7"),
+      S8: document.getElementById("layerS8"),
+    };
+
+    function seek(frame) {
+      // Clamp frame [0..359]
+      frame = Math.max(0, Math.min(359, frame));
+
+      // Hide all layers initially
+      Object.values(layers).forEach(l => l.style.opacity = "0");
+
+      let currentScene = "";
+
+      /* ------------------------------------------------------------------------
+         S1 (f0–71): Header + Window + Diving Cursor Click
+         ------------------------------------------------------------------------ */
+      if (frame >= 0 && frame <= 71) {
+        currentScene = "S1: Header & App Hub";
+        layers.S1.style.opacity = "1";
+
+        // Center line rises: y932 (f0) -> 776 (f2) -> 683 (f5) -> 608 (f10) -> 546 (f24) -> 536 (f37)
+        const headerY = kf(frame, [
+          [0, 932], [2, 776], [5, 683], [10, 608], [24, 546], [37, 536], [71, 502]
+        ]);
+
+        // Background haze fading to #FDFDFB by f28
+        const hazeOpacity = kf(frame, [[0, 1.0], [28, 0.0]]);
+        
+        // Window opacity: 0 to f14, 0.53 f15, 0.7 f19, 1.0 f24
+        const winOpacity = kf(frame, [[0, 0], [14, 0], [15, 0.53], [19, 0.7], [24, 1.0]]);
+
+        // Cursor: appears f27 at (891, 393), glides to (770, 383) at f44
+        // Rotates to point down-left f47-51, lands on disc lower-right (629, 564) f56 -> (587, 546) f59 -> (555, 531) f71
+        const cursorOpacity = frame >= 27 ? 1 : 0;
+        const curX = kf(frame, [
+          [27, 891], [44, 770], [56, 629], [59, 587], [71, 555]
+        ]);
+        const curY = kf(frame, [
+          [27, 393], [44, 383], [56, 564], [59, 546], [71, 531]
+        ]);
+        const curRot = kf(frame, [[27, 0], [44, 0], [51, -42], [71, -42]]);
+        const curScale = frame >= 56 ? (frame >= 69 ? 1.55 * 0.85 : 1.55) : 1.0;
+
+        // Ice ring around disc from f53
+        const iceRingOpacity = kf(frame, [[50, 0], [53, 0.8], [71, 0.9]]);
+
+        // Camera zoom: 1.0 f46 -> 1.2 f60, holds f61, eases out to 1.04 at f71
+        const camZoom = kf(frame, [[0, 1.0], [46, 1.0], [60, 1.2], [61, 1.2], [71, 1.04]], 'easeInOut');
+
+        // Text blur on appear
+        const nameBlur = kf(frame, [[0, 8], [2, 4], [6, 0]]);
+        const pillBlur = kf(frame, [[0, 12], [4, 8], [9, 0]]);
+        const pillSlide = kf(frame, [[0, 15], [9, 0]]);
+
+        layers.S1.innerHTML = `
+          <!-- Background Haze + Blue Floor Glow -->
+          <div style="position: absolute; inset: 0; background: #FDFDFB;"></div>
+          <div style="position: absolute; inset: 0; background: radial-gradient(circle at 50% 30%, #B7CFEB 0%, transparent 75%); opacity: ${hazeOpacity};"></div>
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 380px; background: radial-gradient(ellipse at 50% 100%, #DBEEFD 0%, transparent 70%);"></div>
+
+          <!-- Camera Zoom Container -->
+          <div style="position: absolute; inset: 0; transform: scale(${camZoom}); transform-origin: 540px 540px;">
+            
+            <!-- Hub Window (Top-Left 408, 405) -->
+            <div style="position: absolute; left: 408px; top: 405px; width: 780px; height: 750px; border-radius: 93px; background: #FCFDFF; border: 1.5px solid rgba(226, 232, 240, 0.8); box-shadow: 0 35px 80px rgba(47, 107, 255, 0.08); opacity: ${winOpacity}; overflow: hidden;">
+              <!-- Top Band -->
+              <div style="height: 120px; background: #F1F6FF; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; padding: 0 45px; gap: 20px;">
+                <div style="width: 260px; height: 46px; background: #FFF; border-radius: 23px; border: 1px solid #E2E8F0; display: flex; align-items: center; padding: 0 16px; font-size: 14px; color: #94A3B8;">
+                  🔍 Cari jadwal atau tugas...
+                </div>
+              </div>
+
+              <!-- Inside Icons & Course/Schedule Card -->
+              <div style="position: absolute; left: 45px; top: 160px; display: flex; flex-direction: column; gap: 32px;">
+                <div style="width: 52px; height: 52px; border-radius: 14px; background: #2F6BFF; display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 22px;">📅</div>
+                <div style="width: 52px; height: 52px; border-radius: 14px; background: #F1F5F9; display: flex; align-items: center; justify-content: center; color: #94A3B8; font-size: 22px; opacity: 0.5;">💬</div>
+              </div>
+
+              <!-- Course Card (from 764, 700 off-frame) -->
+              <div style="position: absolute; left: 145px; top: 155px; width: 440px; background: #FFF; border-radius: 28px; border: 1px solid #E2E8F0; padding: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.04);">
+                <div style="height: 140px; border-radius: 18px; background: linear-gradient(135deg, #2563EB, #06B6D4); display: flex; align-items: center; justify-content: center; color: #FFF; font-size: 32px;">
+                  ✈️
+                </div>
+                <div style="margin-top: 14px; font-weight: 700; font-size: 18px; color: #1E293B;">Jadwal Belajar Pekan Ini</div>
+                <div style="font-size: 13px; color: #64748B; margin-top: 4px;">Jadwal · 8 sesi teratur</div>
+              </div>
+            </div>
+
+            <!-- Soft Ice Ring around Logo Disc -->
+            <div style="position: absolute; left: 474px; top: ${headerY - 66}px; width: 174px; height: 174px; border-radius: 50%; background: radial-gradient(circle, #D5F3FF 30%, #F7FEFF 100%); transform: translate(-21px, -21px); opacity: ${iceRingOpacity}; filter: blur(4px); pointer-events: none;"></div>
+
+            <!-- Header Line (Lockup spans x474–1063) -->
+            <div style="position: absolute; left: 474px; top: ${headerY - 66}px; display: flex; align-items: center; gap: 24px;">
+              <!-- Logo Disc ⌀132 -->
+              <div style="width: 132px; height: 132px; border-radius: 50%; background: #FBFCFE; border: 1.5px solid #E8E8EA; box-shadow: 0 12px 32px rgba(30, 47, 82, 0.08); display: flex; align-items: center; justify-content: center;">
+                ${origamiSvg("#1E2F52", 72)}
+              </div>
+
+              <!-- Product Name (Inter 500) -->
+              <div style="font-size: 64px; font-weight: 500; color: #1E293B; letter-spacing: -1.5px; filter: blur(${nameBlur}px);">
+                StudyAir
+              </div>
+
+              <!-- Dark Capsule Pill "on Android" -->
+              <div style="background: #2F2E2F; color: #FFFFFF; font-size: 20px; font-weight: 600; padding: 10px 22px; border-radius: 28px; filter: blur(${pillBlur}px); transform: translateX(${pillSlide}px); white-space: nowrap;">
+                on Android
+              </div>
+            </div>
+
+            <!-- Cursor Layer -->
+            <div style="position: absolute; left: ${curX}px; top: ${curY}px; opacity: ${cursorOpacity};">
+              ${cursorSvg(curRot, curScale)}
+            </div>
+
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S2 (f72–100): Hard Cut to App Icon + Orbiting Squares Cross
+         ------------------------------------------------------------------------ */
+      else if (frame >= 72 && frame <= 100) {
+        currentScene = "S2: Orbiting Cross Icon";
+        layers.S2.style.opacity = "1";
+
+        // Icon squircle size: 276 px at f72 shrinking to 178 px by f86
+        // f88-100: Icon shrinks accelerating to ~40 px
+        const iconSize = frame <= 86 
+          ? kf(frame, [[72, 276], [86, 178]], 'easeOut')
+          : kf(frame, [[86, 178], [100, 42]], 'easeIn');
+
+        // Grey halo disc #E9E9E7 growing ⌀240 (f75) -> 326 (f86)
+        const haloSize = kf(frame, [[72, 220], [75, 240], [86, 326], [100, 160]]);
+
+        // Orbit radius locking at ~216 by f86
+        const orbitRadius = kf(frame, [[72, 380], [86, 216]], 'easeOut');
+        
+        // Counter-clockwise spin angle locking at 0 by f86
+        const orbitAngle = kf(frame, [[72, 180], [86, 0]], 'easeOut');
+
+        // Blur ramps 0.3 -> 6 px f88-100
+        const blurAmount = kf(frame, [[72, 0], [88, 0.3], [100, 6.0]]);
+
+        // Squares transition into a row on the right after f86
+        const rowSlide = kf(frame, [[86, 0], [100, 1.0]], 'easeIn');
+
+        layers.S2.innerHTML = `
+          <div style="position: absolute; inset: 0; background: #FDFDFB; display: flex; align-items: center; justify-content: center; filter: blur(${blurAmount}px);">
+            
+            <!-- Grey Halo Disc -->
+            <div style="position: absolute; width: ${haloSize}px; height: ${haloSize}px; border-radius: 50%; background: #E9E9E7; opacity: 0.7;"></div>
+
+            <!-- 4 Orbiting Squares (92px, radius 26) -->
+            <!-- Left: White with 1px border & shadow -->
+            <div style="position: absolute; width: 92px; height: 92px; border-radius: 26px; background: #FFFFFF; border: 1px solid #E3E8EF; box-shadow: 0 10px 25px rgba(0,0,0,0.06); transform: translate(${rowSlide ? (rowSlide * 70) - 216 : -orbitRadius}px, 0); z-index: 5;"></div>
+
+            <!-- Top: #2F6BFF (Blue) -->
+            <div style="position: absolute; width: 92px; height: 92px; border-radius: 26px; background: #2F6BFF; box-shadow: 0 12px 30px rgba(47, 107, 255, 0.35); transform: translate(${rowSlide ? (rowSlide * 130) : 0}px, ${rowSlide ? 0 : -orbitRadius}px); z-index: 15;"></div>
+
+            <!-- Right: #3CC8F0 (Cyan) -->
+            <div style="position: absolute; width: 92px; height: 92px; border-radius: 26px; background: #3CC8F0; box-shadow: 0 12px 30px rgba(60, 200, 240, 0.35); transform: translate(${rowSlide ? (rowSlide * 190) : orbitRadius}px, 0); z-index: 15;"></div>
+
+            <!-- Bottom: #4ED6A0 (Mint) -->
+            <div style="position: absolute; width: 92px; height: 92px; border-radius: 26px; background: #4ED6A0; box-shadow: 0 12px 30px rgba(78, 214, 160, 0.35); transform: translate(${rowSlide ? (rowSlide * 250) : 0}px, ${rowSlide ? 0 : orbitRadius}px); z-index: 15;"></div>
+
+            <!-- Navy Squircle App Icon (#294376 -> #1E2F52) -->
+            <div style="position: absolute; width: ${iconSize}px; height: ${iconSize}px; border-radius: ${iconSize * 0.28}px; background: linear-gradient(135deg, #294376, #1E2F52); box-shadow: 0 20px 50px rgba(30, 47, 82, 0.35); display: flex; align-items: center; justify-content: center; z-index: 20;">
+              ${origamiSvg("#FFFFFF", iconSize * 0.58)}
+            </div>
+
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S3 (f101–158): Menu Bar + Frosted Glass Prompt Box + Whip Tilt
+         ------------------------------------------------------------------------ */
+      else if (frame >= 101 && frame <= 158) {
+        currentScene = "S3: Menu Bar & Prompt Box";
+        layers.S3.style.opacity = "1";
+
+        // Whip-tilt drift up from f136 accelerating into f158 (vertical offset and blur)
+        const whipY = kf(frame, [[101, 0], [136, 0], [158, -320]], 'easeIn');
+        const whipBlur = kf(frame, [[101, 3], [110, 0], [148, 0], [158, 7.5]]);
+        const pageTint = kf(frame, [[101, 0], [154, 0], [158, 1]]);
+
+        // Camera pan right +125 px f115-130
+        const camPanX = kf(frame, [[101, 0], [115, 0], [130, 125], [158, 125]], 'easeInOut');
+
+        // Prompt box springs out under mark f116: width peaks 744 at f126, settles 726x228 by f138
+        const boxProgress = kf(frame, [[116, 0], [126, 1.05], [138, 1.0]]);
+        const boxWidth = 726 * boxProgress;
+        const boxHeight = 228 * Math.min(1.0, boxProgress * 1.1);
+
+        // Prompt typing from f121 to f150 (30 chars)
+        const fullPrompt = "Buat jadwal belajar minggu ini";
+        const charCount = Math.floor(kf(frame, [[121, 0], [150, fullPrompt.length]]));
+        const typedText = fullPrompt.substring(0, charCount);
+
+        // Cursor rises from below (f102), presses on mark f113-117
+        const curY = kf(frame, [[102, 600], [110, 508], [113, 508], [117, 508], [130, 620]]);
+        const curScale = (frame >= 113 && frame <= 117) ? 0.85 : 1.0;
+
+        layers.S3.innerHTML = `
+          <div style="position: absolute; inset: 0; background: ${pageTint ? '#E6F4FE' : '#FDFDFB'}; transform: translateY(${whipY}px); filter: blur(${whipBlur}px);">
+            
+            <!-- Laptop Bezel Band (y425–475) -->
+            <div style="position: absolute; left: 0; right: 0; top: 425px; height: 50px; background: #0A0A0C; border-top: 1px solid #686866;"></div>
+
+            <!-- Dark Navy Menu Bar (y477–538) -->
+            <div style="position: absolute; left: 0; right: 0; top: 477px; height: 61px; background: #1E2F52; display: flex; align-items: center; justify-content: flex-end; padding-right: 60px; gap: 24px; color: #FFF; font-size: 14px; font-weight: 500; z-index: 50; transform: translateX(${camPanX}px);">
+              <!-- Wi-Fi & Battery -->
+              <span>􀙇</span>
+              <span>􀛨</span>
+              
+              <!-- Product Mark in Menu Bar (x531–584) -->
+              <div style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                ${origamiSvg("#FFFFFF", 24)}
+              </div>
+
+              <!-- Three Dots at x612, 661, 709 -->
+              <div style="display: flex; gap: 14px;">
+                <div style="width: 14px; height: 14px; border-radius: 50%; background: #2F6BFF;"></div>
+                <div style="width: 14px; height: 14px; border-radius: 50%; background: #3CC8F0;"></div>
+                <div style="width: 14px; height: 14px; border-radius: 50%; background: #4ED6A0;"></div>
+              </div>
+
+              <span style="font-size: 14px; font-weight: 600; margin-left: 10px;">Sen 22 Jun 09:41</span>
+            </div>
+
+            <!-- Wallpaper Below: Blue Sky Gradient (#294376 -> #769CC2) -->
+            <div style="position: absolute; left: 0; right: 0; top: 538px; bottom: 0; background: linear-gradient(135deg, #294376 0%, #769CC2 100%); overflow: hidden;">
+              <!-- Line Art Artwork on Wallpaper -->
+              <svg width="1080" height="600" style="position: absolute; top: 0; left: 0; opacity: 0.35;">
+                <circle cx="540" cy="240" r="180" stroke="#FFF" stroke-width="1.5" fill="none" />
+                <line x1="0" y1="180" x2="1080" y2="180" stroke="#FFF" stroke-width="1" />
+                <line x1="0" y1="320" x2="1080" y2="320" stroke="#FFF" stroke-width="1" />
+                <line x1="540" y1="0" x2="540" y2="600" stroke="#FFF" stroke-width="1" />
+              </svg>
+            </div>
+
+            <!-- Frosted Glass Prompt Box (x196-922, y568-797) -->
+            ${frame >= 116 ? `
+              <div style="position: absolute; left: 196px; top: 568px; width: ${boxWidth}px; height: ${boxHeight}px; border-radius: 60px; background: rgba(255, 255, 255, 0.22); backdrop-filter: blur(40px) saturate(180%); border: 1.5px solid rgba(255, 255, 255, 0.45); box-shadow: 0 30px 70px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; justify-content: space-between; padding: 32px 40px; overflow: hidden; z-index: 60;">
+                
+                <!-- Prompt Text with Caret -->
+                <div style="font-size: 32px; font-weight: 600; color: #FFFFFF; display: flex; align-items: center; gap: 4px;">
+                  <span>${typedText}</span>
+                  <span style="display: inline-block; width: 3px; height: 34px; background: #3CC8F0;"></span>
+                </div>
+
+                <!-- Bottom Row: 3 Icons + Blue Send Button ⌀51 -->
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; gap: 20px; color: rgba(255, 255, 255, 0.7); font-size: 20px;">
+                    <span>📎</span>
+                    <span>📷</span>
+                    <span>⚡</span>
+                  </div>
+
+                  <div style="width: 51px; height: 51px; border-radius: 50%; background: #2F6BFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(47, 107, 255, 0.4);">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3">
+                      <path d="M12 19V5M5 12l7-7 7 7"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Cursor in S3 -->
+            <div style="position: absolute; left: 540px; top: ${curY}px; z-index: 80;">
+              ${cursorSvg(0, curScale)}
+            </div>
+
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S4 (f159–186): Hard Cut to Light Answer Page + Scroll Up
+         ------------------------------------------------------------------------ */
+      else if (frame >= 159 && frame <= 186) {
+        currentScene = "S4: Answer Page & Key Phrase";
+        layers.S4.style.opacity = "1";
+
+        // Scroll offset: arrives smeared and 420px low
+        // offsets: 420 (f159), 315, 210, 170, 140, 116, 96, 81 (f166) ... 0 (f180), then -6px by f186
+        const scrollY = kf(frame, [
+          [159, 420], [161, 315], [163, 210], [166, 81], [175, 14], [180, 0], [186, -6]
+        ]);
+
+        const blurAmount = kf(frame, [[159, 24], [165, 1.5], [172, 0]]);
+        const flashColor = kf(frame, [[159, 1.0], [165, 0.0]]);
+
+        // Cursor pointing straight up rides scroll and stops under key phrase (450, 591)
+        const curY = kf(frame, [[159, 780], [180, 591], [186, 591]]);
+        const curX = kf(frame, [[159, 450], [180, 450], [186, 480]]);
+
+        layers.S4.innerHTML = `
+          <div style="position: absolute; inset: 0; background: #FDFDFB; filter: blur(${blurAmount}px);">
+            <!-- Flash Layer -->
+            <div style="position: absolute; inset: 0; background: #E2F4FE; opacity: ${flashColor}; pointer-events: none;"></div>
+
+            <!-- Page Content (Text column at x120) -->
+            <div style="position: absolute; left: 120px; top: ${260 + scrollY}px; width: 840px;">
+              
+              <!-- Breadcrumb -->
+              <div style="font-size: 18px; font-weight: 600; color: #2F6BFF; margin-bottom: 24px; letter-spacing: 0.5px;">
+                STUDYAIR • RENCANA BELAJAR
+              </div>
+
+              <!-- Page Title -->
+              <h1 style="font-size: 68px; font-weight: 800; color: #1E293B; letter-spacing: -2px; margin-bottom: 36px; line-height: 1.1;">
+                Rencana Belajar Otomatis
+              </h1>
+
+              <!-- Body Text (47px, Inter 400, #BCBCBA, line pitch 58) -->
+              <p style="font-size: 47px; line-height: 58px; color: #BCBCBA; font-weight: 400;">
+                Jadwal belajarmu sudah siap di sela jam sekolah. Fokus 25 menit per sesi, dan ikuti rencana <span style="color: #000000; font-weight: 700;">belajar tenang, prestasi terbang</span> setiap hari.
+              </p>
+
+            </div>
+
+            <!-- Cursor riding scroll -->
+            <div style="position: absolute; left: ${curX}px; top: ${curY}px; z-index: 50;">
+              ${cursorSvg(-90, 1.2)}
+            </div>
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S5 (f187–214): White Card Overlay Rises
+         ------------------------------------------------------------------------ */
+      else if (frame >= 187 && frame <= 214) {
+        currentScene = "S5: Rising Feature Card";
+        layers.S5.style.opacity = "1";
+
+        // Cover top: y642 (f187) -> 456 (f191) -> 395 (f196) -> 369 (f200) -> 348 (f205), creeps up ~4px/f
+        const cardY = kf(frame, [
+          [187, 642], [191, 456], [196, 395], [200, 369], [205, 348], [214, 312]
+        ]);
+
+        const cardBlur = kf(frame, [[187, 3.8], [201, 0], [207, 1.0], [214, 7.0]]);
+        const cardScale = kf(frame, [[187, 1.0], [206, 1.0], [214, 0.95]]);
+
+        layers.S5.innerHTML = `
+          <div style="position: absolute; inset: 0; background: #FDFDFB;">
+            <!-- Background blurred page -->
+            <div style="position: absolute; left: 120px; top: 180px; width: 840px; filter: blur(2.5px); opacity: 0.6;">
+              <h1 style="font-size: 68px; font-weight: 800; color: #1E293B;">Rencana Belajar Otomatis</h1>
+              <p style="font-size: 47px; line-height: 58px; color: #BCBCBA;">Fokus 25 menit per sesi...</p>
+            </div>
+
+            <!-- Rising Card (x203–878, radius 64) -->
+            <div style="position: absolute; left: 203px; top: ${cardY}px; width: 675px; height: 750px; background: #FFFFFF; border-radius: 64px; box-shadow: 0 40px 100px rgba(30, 47, 82, 0.18); border: 1.5px solid rgba(226, 232, 240, 0.9); padding: 24px; transform: scale(${cardScale}); filter: blur(${cardBlur}px); display: flex; flex-direction: column; align-items: center;">
+              
+              <!-- Grabber Bar -->
+              <div style="width: 60px; height: 6px; border-radius: 3px; background: #E2E8F0; margin-bottom: 20px;"></div>
+
+              <!-- Cover Image 627x536 -->
+              <div style="width: 627px; height: 480px; border-radius: 46px; background: linear-gradient(135deg, #1E2F52 0%, #2563EB 50%, #06B6D4 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; color: #FFF; position: relative; overflow: hidden;">
+                ${origamiSvg("#FFFFFF", 120)}
+                <div style="margin-top: 18px; font-size: 32px; font-weight: 800; letter-spacing: -0.5px;">StudyAir Scheduler</div>
+              </div>
+
+              <!-- Caption -->
+              <div style="margin-top: 24px; text-align: center;">
+                <div style="font-size: 38px; font-weight: 600; color: #000;">Jadwal Belajar Bebas Stres</div>
+                <div style="font-size: 23px; color: #64748B; margin-top: 6px;">Otomatis menyesuaikan waktu luangmu</div>
+              </div>
+
+            </div>
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S6 (f215–244): Two Stacked Cards + Giant Frosted Glass Titles
+         ------------------------------------------------------------------------ */
+      else if (frame >= 215 && frame <= 244) {
+        currentScene = "S6: Two Stacked Feature Cards";
+        layers.S6.style.opacity = "1";
+
+        // Top card settles at y168 by f230, bottom at y552
+        const card1Y = kf(frame, [[215, 264], [224, 185], [230, 168], [238, 144], [244, 110]], 'easeOut');
+        const card2Y = kf(frame, [[215, 927], [226, 610], [230, 552], [238, 528], [244, 490]], 'easeOut');
+
+        const card1Scale = kf(frame, [[215, 1.08], [230, 1.0]]);
+        const blurAmount = kf(frame, [[215, 12], [224, 0], [238, 1.0], [244, 8.0]]);
+
+        layers.S6.innerHTML = `
+          <div style="position: absolute; inset: 0; background: #FDFDFB; filter: blur(${blurAmount}px);">
+            
+            <!-- Card 1 (538x348, radius 57) - "Jadwal Pintar" -->
+            <div style="position: absolute; left: calc(540px - 269px); top: ${card1Y}px; width: 538px; height: 348px; border-radius: 57px; background: linear-gradient(135deg, #1E2F52, #2563EB); box-shadow: 0 30px 70px rgba(37, 99, 235, 0.22); overflow: hidden; transform: scale(${card1Scale}); position: relative;">
+              
+              <!-- Frosted Pill Top-Left -->
+              <div style="position: absolute; left: 28px; top: 24px; padding: 8px 18px; border-radius: 20px; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(20px); font-size: 14px; font-weight: 700; color: #FFF;">
+                Modul 1
+              </div>
+
+              <!-- Frosted Circle Top-Right -->
+              <div style="position: absolute; right: 28px; top: 24px; width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 800;">
+                •••
+              </div>
+
+              <!-- Giant Frosted Glass Title Along Bottom Edge -->
+              <div style="position: absolute; left: 0; right: 0; bottom: -12px; height: 110px; background: rgba(255, 255, 255, 0.22); backdrop-filter: blur(24px) saturate(180%); border-top: 1.5px solid rgba(255, 255, 255, 0.45); display: flex; align-items: center; padding-left: 32px; font-size: 58px; font-weight: 900; color: #FFFFFF; letter-spacing: -2px;">
+                Jadwal Pintar
+              </div>
+            </div>
+
+            <!-- Card 2 (538x348, radius 57) - "Maskot Streak" -->
+            <div style="position: absolute; left: calc(540px - 269px); top: ${card2Y}px; width: 538px; height: 348px; border-radius: 57px; background: linear-gradient(135deg, #06B6D4, #10B981); box-shadow: 0 30px 70px rgba(16, 185, 129, 0.22); overflow: hidden; position: relative;">
+              
+              <!-- Frosted Pill Top-Left -->
+              <div style="position: absolute; left: 28px; top: 24px; padding: 8px 18px; border-radius: 20px; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(20px); font-size: 14px; font-weight: 700; color: #FFF;">
+                Modul 2
+              </div>
+
+              <!-- Frosted Circle Top-Right -->
+              <div style="position: absolute; right: 28px; top: 24px; width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 800;">
+                •••
+              </div>
+
+              <!-- Giant Frosted Glass Title Along Bottom Edge -->
+              <div style="position: absolute; left: 0; right: 0; bottom: -12px; height: 110px; background: rgba(255, 255, 255, 0.22); backdrop-filter: blur(24px) saturate(180%); border-top: 1.5px solid rgba(255, 255, 255, 0.45); display: flex; align-items: center; padding-left: 32px; font-size: 58px; font-weight: 900; color: #FFFFFF; letter-spacing: -2px;">
+                Maskot Streak
+              </div>
+            </div>
+
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S7 (f245–300): Logo Disc Center Rise + Hold f269–287
+         ------------------------------------------------------------------------ */
+      else if (frame >= 245 && frame <= 300) {
+        currentScene = "S7: Center Logo Hold";
+        layers.S7.style.opacity = "1";
+
+        // Disc rises: top y569 (f245) -> 491 (f250) -> 468 (f255) -> 456 (f269)
+        // Holds still f269-287, then shrinks to ⌀123 at f300
+        const discTop = kf(frame, [
+          [245, 569], [250, 491], [255, 468], [269, 456], [287, 456], [300, 456]
+        ]);
+
+        const discSize = kf(frame, [
+          [245, 168], [269, 168], [287, 168], [300, 123]
+        ]);
+
+        const smearBlur = frame === 245 ? 6.0 : (frame >= 288 ? kf(frame, [[288, 0], [300, 4.0]]) : 0);
+
+        layers.S7.innerHTML = `
+          <div style="position: absolute; inset: 0; background: #FDFDFB; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; top: ${discTop}px; width: ${discSize}px; height: ${discSize}px; border-radius: 50%; background: #F6F6F6; border: 1.5px solid #E8E8EA; box-shadow: 0 20px 60px rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: center; filter: blur(${smearBlur}px);">
+              ${origamiSvg("#1E2F52", discSize * 0.58)}
+            </div>
+          </div>
+        `;
+      }
+
+      /* ------------------------------------------------------------------------
+         S8 (f301–359): Hard Cut to Black Radial End Card + Exploding Wordmark
+         ------------------------------------------------------------------------ */
+      else if (frame >= 301 && frame <= 359) {
+        currentScene = "S8: Black End Card & Wordmark Bloom";
+        layers.S8.style.opacity = "1";
+
+        // Word width: 1650 (f301) -> 1350 (f302) -> 1110 (f303) -> 1049 (f304) -> 734 (f309) -> 678 (f311) -> 563 (f320) -> 516 (f342) -> 492 (f350)
+        // Collapses ease-in: 450 (f355) -> 267 (f359) with blur rising to 3.5 px
+        const wordWidth = kf(frame, [
+          [301, 1650], [302, 1350], [303, 1110], [304, 1049], [309, 734], [311, 678], [320, 563], [342, 516], [350, 492], [355, 450], [359, 267]
+        ]);
+
+        const wordBlur = kf(frame, [[301, 8], [308, 0], [350, 0], [359, 3.5]]);
+
+        // Zoom streaks: 24 scaled, faded copies at f301-304
+        let zoomStreaksHtml = "";
+        if (frame <= 306) {
+          for (let i = 1; i <= 16; i++) {
+            const streakScale = 1.0 + (i * 0.08);
+            const streakOpacity = (1 - (i / 16)) * 0.12;
+            zoomStreaksHtml += `
+              <div style="position: absolute; font-size: ${wordWidth * 0.22}px; font-weight: 700; color: #FFFFFF; letter-spacing: -2px; transform: scale(${streakScale}); opacity: ${streakOpacity}; pointer-events: none;">
+                StudyAir
+              </div>
+            `;
+          }
+        }
+
+        layers.S8.innerHTML = `
+          <!-- Black Radial Background (#020204 corners, #272729 center) -->
+          <div style="position: absolute; inset: 0; background: radial-gradient(circle at 540px 540px, #272729 0%, #020204 80%); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+            
+            ${zoomStreaksHtml}
+
+            <!-- Central Wordmark with Tight Glow + Soft Halo -->
+            <div style="font-size: ${wordWidth * 0.22}px; font-weight: 700; color: #F3F3F5; letter-spacing: -2px; text-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 60px rgba(47, 107, 255, 0.4); filter: blur(${wordBlur}px); z-index: 10;">
+              StudyAir
+            </div>
+
+          </div>
+        `;
+      }
+
+      // Update UI displays
+      document.getElementById("frameDisplay").textContent = `f${frame} / 359 (${(frame / 29.97).toFixed(2)}s)`;
+      document.getElementById("sceneLabel").textContent = currentScene;
+      document.getElementById("scrubberFill").style.width = (frame / 359 * 100) + "%";
+    }
+
+    /* ==========================================================================
+       Playback & Timeline Controller
+       ========================================================================== */
+    let isPlaying = false;
+    let currentFrame = 0;
+    let lastTime = 0;
+    const playToggleBtn = document.getElementById("playToggleBtn");
+    const scrubberTrack = document.getElementById("scrubberTrack");
+    const stillButtons = document.querySelectorAll(".still-btn");
+
+    function renderLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const elapsed = timestamp - lastTime;
+
+      if (isPlaying) {
+        // Step at 29.97 fps rate
+        currentFrame += (elapsed / 1000) * 29.97;
+        
+        // Sound cue triggers
+        const fInt = Math.floor(currentFrame);
+        if (fInt === 0) audio.playBeatHit();
+        if (fInt === 70) audio.playClick();
+        if (fInt === 72) audio.playBeatHit();
+        if (fInt === 101) audio.playWhoosh();
+        if (fInt === 114) audio.playClick();
+        if (fInt === 159) audio.playWhoosh();
+        if (fInt === 215) audio.playBeatHit();
+        if (fInt === 301) audio.playBeatHit();
+
+        if (currentFrame >= 359) {
+          currentFrame = 359;
+          isPlaying = false;
+          playToggleBtn.textContent = "▶ Play";
+        }
+        seek(Math.round(currentFrame));
+      }
+
+      lastTime = timestamp;
+      if (isPlaying) {
+        requestAnimationFrame(renderLoop);
+      }
+    }
+
+    playToggleBtn.addEventListener("click", () => {
+      audio.init();
+      isPlaying = !isPlaying;
+      playToggleBtn.textContent = isPlaying ? "⏸ Pause" : "▶ Play";
+      if (isPlaying) {
+        if (currentFrame >= 359) currentFrame = 0;
+        lastTime = performance.now();
+        requestAnimationFrame(renderLoop);
+      }
+    });
+
+    stillButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        audio.init();
+        isPlaying = false;
+        playToggleBtn.textContent = "▶ Play";
+        const targetFrame = parseInt(btn.getAttribute("data-frame"), 10);
+        currentFrame = targetFrame;
+        seek(targetFrame);
+      });
+    });
+
+    scrubberTrack.addEventListener("click", (e) => {
+      audio.init();
+      const rect = scrubberTrack.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      currentFrame = Math.round(pct * 359);
+      seek(currentFrame);
+    });
+
+    document.getElementById("audioToggleBtn").addEventListener("click", () => {
+      audio.init();
+      audio.isMuted = !audio.isMuted;
+      document.getElementById("audioToggleBtn").textContent = audio.isMuted ? "🔇 Muted" : "🔊 Audio";
+    });
+
+    // 1080x1080 Canvas Snapshot Exporter
+    document.getElementById("exportPngBtn").addEventListener("click", async () => {
+      audio.init();
+      const frameNum = Math.round(currentFrame);
+      
+      // Render SVG to Image and draw to 1080x1080 canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext("2d");
+
+      // Draw SVG representation
+      const htmlContent = document.getElementById("stage").innerHTML;
+      const svgData = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml" style="width: 1080px; height: 1080px; font-family: Inter, sans-serif;">
+              ${htmlContent}
+            </div>
+          </foreignObject>
+        </svg>
+      `;
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        const link = document.createElement("a");
+        link.download = `StudyAir_Sting_f${frameNum}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgData);
+    });
+
+    // 1-Click 12-Second Video Recorder (MediaRecorder WebM)
+    const recordWebmBtn = document.getElementById("recordWebmBtn");
+    let stingRecorder = null;
+    let stingChunks = [];
+
+    recordWebmBtn.addEventListener("click", async () => {
+      audio.init();
+      audio.playClick();
+
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          alert("Perekaman layar browser memerlukan izin display media di browser desktop (Chrome / Safari / Edge).");
+          return;
+        }
+
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: 60 },
+          audio: true
+        });
+
+        stingChunks = [];
+        const mimeType = MediaRecorder.isTypeSupported("video/webm; codecs=vp9")
+          ? "video/webm; codecs=vp9"
+          : "video/webm";
+
+        stingRecorder = new MediaRecorder(stream, { mimeType });
+
+        stingRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) stingChunks.push(e.data);
+        };
+
+        stingRecorder.onstop = () => {
+          const blob = new Blob(stingChunks, { type: "video/webm" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = "StudyAir_Keynote_Sting_12s.webm";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          }, 100);
+
+          recordWebmBtn.textContent = "🔴 Rekam WebM (12s)";
+          recordWebmBtn.style.color = "#E2E8F0";
+        };
+
+        recordWebmBtn.textContent = "⏺ Merekam Film...";
+        recordWebmBtn.style.color = "#EF4444";
+
+        stingRecorder.start();
+        seek(0);
+        playToggleBtn.click(); // Start animation playback
+
+        const checkEndInterval = setInterval(() => {
+          if (currentFrame >= 359 || !isPlaying) {
+            clearInterval(checkEndInterval);
+            if (stingRecorder && stingRecorder.state === "recording") {
+              stingRecorder.stop();
+              stream.getTracks().forEach(track => track.stop());
+            }
+          }
+        }, 300);
+
+      } catch (err) {
+        console.error("Recording canceled:", err);
+      }
+    });
+
+    // Export & Frame URL parameter handling for exact 1080x1080 captures
+    const urlParams = new URLSearchParams(window.location.search);
+    const isExport = urlParams.get("export") === "1" || urlParams.get("still") === "1";
+    
+    function updateStageScaling() {
+      if (isExport) {
+        document.querySelector(".top-panel").style.display = "none";
+        document.querySelector(".timeline-bar").style.display = "none";
+        document.body.style.padding = "0";
+        document.body.style.margin = "0";
+        document.body.style.background = "#FDFDFB";
+        const scaler = document.getElementById("viewportScaler");
+        scaler.style.width = "1080px";
+        scaler.style.height = "1080px";
+        scaler.style.borderRadius = "0";
+        scaler.style.boxShadow = "none";
+        stage.style.transform = "none";
+        return;
+      }
+      const scaler = document.getElementById("viewportScaler");
+      const scale = scaler.clientWidth / 1080;
+      stage.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener("resize", updateStageScaling);
+    updateStageScaling();
+
+    const paramF = urlParams.get("f");
+    const initialFrame = paramF !== null ? parseInt(paramF, 10) : 40;
+    currentFrame = initialFrame;
+    seek(initialFrame);
+  </script>
+</body>
+</html>

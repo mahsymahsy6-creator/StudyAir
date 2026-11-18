@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+.expo/
+dist/
+dist-test/
+web-build/
+
+# Phase 10 test samples
+test_samples/
+**/test_samples/
+.benchmark_cache/
+
+# native builds
+android/
+ios/
+
+# environment
+.env.local
+.env*.local
+
+# macOS
+.DS_Store
+*.pem

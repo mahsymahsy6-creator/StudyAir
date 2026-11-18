@@ -9,6 +9,7 @@ import {
   GripVertical,
   Trash2,
   Plus,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StudyUnit } from "@/types/database";
@@ -39,10 +40,10 @@ export function StudyUnitTable({
             style={{ backgroundColor: subjectColor }}
           />
           <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            {subjectTitle} Curriculum
+            {subjectTitle}
           </h3>
-          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full border-border/40 font-medium">
-            {units.length} unit{units.length !== 1 ? "s" : ""}
+          <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full border-border font-medium">
+            {units.length} topic{units.length !== 1 ? "s" : ""}
           </Badge>
         </div>
 
@@ -53,32 +54,43 @@ export function StudyUnitTable({
             className="h-8 gap-1.5 rounded-lg px-3 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add Unit
+            Add Topic
           </Button>
         )}
       </div>
 
-      <div className="rounded-xl border border-border/30 bg-card/30 overflow-hidden shadow-none">
+      <div className="rounded-xl border border-border bg-card/40 overflow-hidden shadow-none">
         {/* Header */}
-        <div className="grid grid-cols-[36px_1fr_90px_100px_48px] items-center gap-3 border-b border-border/30 bg-muted/20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 select-none">
+        <div className="grid grid-cols-[36px_1fr_90px_100px_48px] items-center gap-3 border-b border-border bg-muted/30 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground select-none">
           <span />
-          <span>Atomic Study Unit</span>
+          <span>Topic</span>
           <span className="text-center">Duration</span>
-          <span className="text-center">Cognitive Load</span>
+          <span className="text-center">Difficulty</span>
           <span />
         </div>
 
         {/* Rows */}
         {units.length === 0 ? (
-          <div className="px-6 py-12 text-center text-xs text-muted-foreground">
-            No study units created yet. Break your syllabus down into 30–90 minute atomic concepts.
+          <div className="empty-state py-12">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">No topics yet</p>
+              <p className="text-xs text-muted-foreground">Add topics or scan a syllabus to get started</p>
+            </div>
+            {onAddUnit && (
+              <Button size="sm" variant="outline" onClick={onAddUnit} className="mt-1 gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> Add Topic
+              </Button>
+            )}
           </div>
         ) : (
           units.map((unit) => (
             <div
               key={unit.id}
               className={cn(
-                "group grid grid-cols-[36px_1fr_90px_100px_48px] items-center gap-3 border-b border-border/20 px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/15",
+                "group grid grid-cols-[36px_1fr_90px_100px_48px] items-center gap-3 border-b border-border px-4 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-muted/20",
                 unit.is_completed && "opacity-60 bg-muted/[0.04]"
               )}
             >
@@ -91,7 +103,7 @@ export function StudyUnitTable({
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={() => onToggleComplete(unit.id)}
-                  className="shrink-0 transition-transform active:scale-90"
+                  className="shrink-0 transition-transform active:scale-90 min-h-[36px] min-w-[36px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                   aria-label={
                     unit.is_completed
                       ? "Mark as incomplete"
@@ -131,7 +143,7 @@ export function StudyUnitTable({
               <div className="flex justify-end">
                 <button
                   onClick={() => onDelete(unit.id)}
-                  className="p-1 rounded text-muted-foreground/40 opacity-0 transition-all hover:text-destructive hover:bg-destructive/10 group-hover:opacity-100"
+                  className="p-1 rounded text-muted-foreground/40 sm:opacity-0 transition-all hover:text-destructive hover:bg-destructive/10 group-hover:opacity-100 min-h-[36px] min-w-[36px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                   aria-label="Delete unit"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

@@ -9,6 +9,7 @@ import {
   Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { format, subDays } from "date-fns";
 import { colors, radius, spacing, typography, touchTarget } from "../../theme";
 import { useMobileStudyStore } from "../../store";
 import { STREAK_MILESTONES, StreakMilestone } from "../../lib/studyStreakEngine";
@@ -28,10 +29,17 @@ export function StreakDebugModal({ visible, onClose }: StreakDebugModalProps) {
     simulateStreakDays,
     addMockStudyToday,
     clearTodayStudySessions,
+    appSettings,
+    updateAppSettings,
+    addStreakFreeze,
   } = useMobileStudyStore();
 
   const { currentStreak, bestStreak, isAtRisk, todayStudied } = streakState;
   const isOverrideActive = streakDebugOverride !== null;
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const yesterdayStr = format(subDays(new Date(), 1), "yyyy-MM-dd");
+  const todayIsFrozen = Boolean(appSettings?.streakFrozenDates?.includes(todayStr));
+  const yesterdayIsFrozen = Boolean(appSettings?.streakFrozenDates?.includes(yesterdayStr));
 
   const handleSetQuickDays = (days: number) => {
     simulateStreakDays(days);
@@ -280,6 +288,93 @@ export function StreakDebugModal({ visible, onClose }: StreakDebugModalProps) {
                   value={isAtRisk}
                   onValueChange={handleToggleAtRisk}
                   trackColor={{ false: colors.border, true: colors.rose }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </View>
+
+            {/* ─── 3b. Streak Freeze Simulator ─── */}
+            <View style={styles.card}>
+              <Text style={styles.cardSectionLabel}>SIMULATOR STREAK FREEZE</Text>
+              <Text style={styles.cardDesc}>
+                Uji saldo pembeku streak, pembekuan manual hari ini/kemarin, dan auto-save.
+              </Text>
+
+              <View style={styles.freezeControlRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>Saldo Pembeku</Text>
+                  <Text style={styles.toggleSub}>
+                    {appSettings?.streakFreezeCount ?? 1} / 2 Slot Tersedia
+                  </Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 6 }}>
+                  <Pressable
+                    style={styles.freezeStepBtn}
+                    onPress={() => addStreakFreeze(-1)}
+                  >
+                    <Ionicons name="remove" size={16} color={colors.text} />
+                  </Pressable>
+                  <Pressable
+                    style={styles.freezeStepBtn}
+                    onPress={() => addStreakFreeze(1)}
+                  >
+                    <Ionicons name="add" size={16} color={colors.text} />
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>Bekukan Hari Ini</Text>
+                  <Text style={styles.toggleSub}>
+                    {todayIsFrozen ? "Hari ini aktif dibekukan ❄️" : "Belum dibekukan"}
+                  </Text>
+                </View>
+                <Switch
+                  value={todayIsFrozen}
+                  onValueChange={(val) => {
+                    const current = appSettings?.streakFrozenDates || [];
+                    if (val) {
+                      updateAppSettings({
+                        streakFrozenDates: Array.from(new Set([...current, todayStr])),
+                      });
+                    } else {
+                      updateAppSettings({
+                        streakFrozenDates: current.filter((d) => d !== todayStr),
+                      });
+                    }
+                  }}
+                  trackColor={{ false: colors.border, true: "#00BAF2" }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.toggleLabel}>Bekukan Hari Kemarin</Text>
+                  <Text style={styles.toggleSub}>
+                    {yesterdayIsFrozen ? "Kemarin aktif dibekukan ❄️" : "Belum dibekukan"}
+                  </Text>
+                </View>
+                <Switch
+                  value={yesterdayIsFrozen}
+                  onValueChange={(val) => {
+                    const current = appSettings?.streakFrozenDates || [];
+                    if (val) {
+                      updateAppSettings({
+                        streakFrozenDates: Array.from(new Set([...current, yesterdayStr])),
+                      });
+                    } else {
+                      updateAppSettings({
+                        streakFrozenDates: current.filter((d) => d !== yesterdayStr),
+                      });
+                    }
+                  }}
+                  trackColor={{ false: colors.border, true: "#00BAF2" }}
                   thumbColor="#ffffff"
                 />
               </View>
@@ -712,5 +807,20 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: typography.fontWeights.heavy,
     color: colors.text,
+  },
+  freezeControlRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  freezeStepBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -178,12 +178,12 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
     streakState,
   } = useMobileStudyStore();
 
-  const today = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => format(today, "yyyy-MM-dd"), [today]);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const today = useMemo(() => parseISO(todayStr), [todayStr]);
 
-  const [selectedDate, setSelectedDate] = useState<Date>(today);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => parseISO(todayStr));
   const [datePickerVisible, setDatePickerVisible] = useState(false);
-  const [pickerMonth, setPickerMonth] = useState<Date>(today);
+  const [pickerMonth, setPickerMonth] = useState<Date>(() => parseISO(todayStr));
 
   // Secondary modals
   const [daysOffModalVisible, setDaysOffModalVisible] = useState(false);
@@ -250,20 +250,16 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
       {/* ─── Screen Header ─── */}
       <ScreenHeader
         title={t("studyCalendarTitle") || "Kalender"}
-        streakText={streakState.currentStreak > 0 ? `${streakState.currentStreak} hari` : undefined}
         onBack={onBack}
         actions={[
           {
-            icon: "calendar-outline",
-            accessibilityLabel: "Pilih Tanggal",
-            onPress: () => {
-              setPickerMonth(selectedDate);
-              setDatePickerVisible(true);
-            },
+            icon: "ribbon-outline",
+            accessibilityLabel: t("settings_exams_title"),
+            onPress: () => navigation?.navigate("Exams"),
           },
           {
             icon: "ellipsis-horizontal",
-            accessibilityLabel: "Opsi Kalender",
+            accessibilityLabel: t("opsi_lainnya"),
             onPress: () => setDaysOffModalVisible(true),
           },
         ]}
@@ -330,9 +326,9 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
 
           // Header text
           const dayName = isCurrentToday
-            ? `Hari Ini • ${formatLocaleDate(dayDate, "EEEE, d MMM")}`
+            ? `${t("today")} • ${formatLocaleDate(dayDate, "EEEE, d MMM")}`
             : dateStr === format(addDays(today, 1), "yyyy-MM-dd")
-            ? `Besok • ${formatLocaleDate(dayDate, "EEEE, d MMM")}`
+            ? `${t("tomorrow")} • ${formatLocaleDate(dayDate, "EEEE, d MMM")}`
             : formatLocaleDate(dayDate, "EEEE, d MMMM");
 
           return (
@@ -466,6 +462,7 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
       </ScrollView>
 
       {/* ─── Floating Date Picker Modal ─── */}
+      {datePickerVisible && (
       <Modal
         visible={datePickerVisible}
         transparent
@@ -561,6 +558,7 @@ export function CalendarScreen({ navigation, onBack }: CalendarScreenProps) {
           </View>
         </View>
       </Modal>
+      )}
 
       {/* ─── Days Off Modal ─── */}
       <DaysOffModal

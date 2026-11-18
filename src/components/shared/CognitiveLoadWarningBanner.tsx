@@ -26,7 +26,7 @@ export function CognitiveLoadWarningBanner() {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 border-b px-4 py-2 text-xs transition-all",
+        "flex items-center justify-between gap-3 border-b px-4 py-2 text-xs transition-all duration-150",
         warning.type === "CONSECUTIVE_HIGH"
           ? "border-amber-500/20 bg-amber-500/[0.06] text-amber-300"
           : "border-purple-500/20 bg-purple-500/[0.06] text-purple-300"
@@ -62,7 +62,7 @@ export function CognitiveLoadWarningBanner() {
 
       <button
         onClick={() => dismissWarning(warning.id)}
-        className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground shrink-0"
+        className="rounded p-1 text-muted-foreground transition-colors duration-150 hover:bg-muted/40 hover:text-foreground shrink-0"
         aria-label="Dismiss warning"
       >
         <X className="h-3.5 w-3.5" />

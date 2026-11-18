@@ -1,0 +1,32 @@
+# Root Next.js / workspace files not needed for mobile APK build
+/node_modules/
+/.next/
+/out/
+/build/
+/coverage/
+/*.tsbuildinfo
+/public/
+/src/
+/docs/
+/agent/
+/test_samples/
+/.playwright-mcp/
+/*.png
+
+# Mobile build artifacts & caches (EAS runs prebuild & install on cloud)
+/mobile/node_modules/
+/mobile/.expo/
+/mobile/android/
+/mobile/ios/
+/mobile/dist/
+/mobile/dist-test/
+/mobile/web-build/
+/mobile/.benchmark_cache/
+/mobile/test_samples/
+*.apk
+
+# Local secrets, VCS & OS noise
+.git
+.env*
+.DS_Store
+*.pem

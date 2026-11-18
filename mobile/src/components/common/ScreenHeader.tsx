@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, touchTarget, tidySpacing } from "../../theme";
 import { getMascotStage } from "../../lib/studyStreakEngine";
@@ -21,6 +21,7 @@ export interface ScreenHeaderProps {
   onStreakPress?: () => void;
   actions?: HeaderAction[]; // Maximum 2 icon actions
   onBack?: () => void;
+  showLogo?: boolean;
 }
 
 export function ScreenHeader({
@@ -32,6 +33,7 @@ export function ScreenHeader({
   onStreakPress,
   actions = [],
   onBack,
+  showLogo = false,
 }: ScreenHeaderProps) {
   const visibleActions = actions.slice(0, 2);
 
@@ -70,9 +72,18 @@ export function ScreenHeader({
         </Pressable>
       )}
       <View style={styles.titleColumn}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
+        <View style={styles.titleRow}>
+          {showLogo && (
+            <Image
+              source={require("../../../assets/icon.png")}
+              style={styles.logoIcon}
+              accessibilityLabel="StudyAir"
+            />
+          )}
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+        </View>
         {subtitle && (
           onSubtitlePress ? (
             <Pressable
@@ -98,6 +109,7 @@ export function ScreenHeader({
         {streakText && (() => {
           const numericDays = parseInt(streakText.replace(/\D/g, ""), 10) || 0;
           const mascotEmoji = getMascotStage(numericDays).emoji;
+          const showMascotEmoji = numericDays > 0 && !isStreakAtRisk;
 
           return onStreakPress ? (
             <Pressable
@@ -105,9 +117,11 @@ export function ScreenHeader({
               onPress={onStreakPress}
               hitSlop={touchTarget.min / 4}
               accessibilityRole="button"
-              accessibilityLabel={`Streak ${streakText}, ${isStreakAtRisk ? "terancam" : "aktif"}, maskot ${mascotEmoji}, ketuk untuk rincian`}
+              accessibilityLabel={`Streak ${streakText}, ${isStreakAtRisk ? "terancam" : "aktif"}${showMascotEmoji ? `, maskot ${mascotEmoji}` : ""}, ketuk untuk rincian`}
             >
-              <Text style={{ fontSize: 12, marginRight: 3 }}>{mascotEmoji}</Text>
+              {showMascotEmoji && (
+                <Text style={{ fontSize: 12, marginRight: 3 }}>{mascotEmoji}</Text>
+              )}
               <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
                 <Ionicons
                   name={isStreakAtRisk ? "flame-outline" : "flame"}
@@ -122,7 +136,9 @@ export function ScreenHeader({
             </Pressable>
           ) : (
             <View style={[styles.streakBadge, isStreakAtRisk && styles.streakBadgeAtRisk]}>
-              <Text style={{ fontSize: 12, marginRight: 3 }}>{mascotEmoji}</Text>
+              {showMascotEmoji && (
+                <Text style={{ fontSize: 12, marginRight: 3 }}>{mascotEmoji}</Text>
+              )}
               <Animated.View style={{ transform: [{ scale: flamePulse }] }}>
                 <Ionicons
                   name={isStreakAtRisk ? "flame-outline" : "flame"}
@@ -177,6 +193,16 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: tidySpacing.small,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  logoIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+  },
   title: {
     fontSize: typography.fontSizes.title,
     fontWeight: typography.fontWeights.heavy,
@@ -198,18 +224,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.amberLight,
-    borderWidth: 2,
-    borderColor: "rgba(255, 150, 0, 0.4)",
-    borderBottomWidth: 3.5,
-    borderBottomColor: colors.amberBottom,
+    borderWidth: 1,
+    borderColor: "rgba(255, 150, 0, 0.35)",
     paddingHorizontal: tidySpacing.small,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 9999,
   },
   streakBadgeAtRisk: {
     borderColor: colors.amber,
-    borderBottomColor: colors.amberBottom,
-    backgroundColor: "rgba(255, 150, 0, 0.25)",
+    backgroundColor: "rgba(255, 150, 0, 0.2)",
   },
   streakText: {
     fontSize: typography.fontSizes.caption,
@@ -220,14 +243,12 @@ const styles = StyleSheet.create({
     color: colors.amber,
   },
   iconBtn: {
-    width: touchTarget.min,
-    height: touchTarget.min,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: colors.surfaceSubtle,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderBottomWidth: 3.5,
-    borderBottomColor: colors.borderBottom,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
   },

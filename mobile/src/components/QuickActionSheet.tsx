@@ -15,19 +15,28 @@ import * as Clipboard from "expo-clipboard";
 import { colors, spacing, radius, typography, touchTarget, tidySpacing } from "../theme";
 import { useMobileStudyStore } from "../store";
 import { t } from "../lib/i18n";
-import { TaskType, Subject } from "../types";
+import { Task, TaskType, Subject, DeadlineMode } from "../types";
 import { format, addDays, parseISO } from "date-fns";
 import { calculateNextClassDeadline } from "../engine/deadlineEngine";
 import { parseIndonesianDateHint } from "../engine/dateHintParser";
 import { resolveIndonesianSubject } from "../lib/subjectDictionary";
+import { formatLocaleDate } from "../lib/dateUtils";
+import { HapticFeedback } from "../lib/haptics";
+import { soundFX } from "../lib/sound";
+import { buildSchedule, extractBusyBlocksFromTimetable } from "../engine/schedulerEngine";
 import {
   extractTasksFromAI,
   createFallbackTaskFromText,
-  RawExtractedTask,
+  splitCompoundTaskClauses,
   suggestTaskDuration,
 } from "../services/aiService";
 import { AddTaskSheet } from "./tasks/AddTaskSheet";
 import { AddGradeSheet } from "./grades/AddGradeSheet";
+import {
+  DeadlinePickerStrip,
+  formatDeadlineRelativeInfo,
+} from "./tasks/DeadlinePickerStrip";
+import { PrimaryButton } from "./common/PrimaryButton";
 
 export interface QuickActionSheetProps {
   visible: boolean;
@@ -44,10 +53,17 @@ interface ParsedBatchTask {
   type: TaskType;
   deadlineDate: string;
   deadlineLabel: string;
+  deadlineMode: DeadlineMode;
   datePhrase?: string;
   notes?: string;
   estimatedMinutes?: number;
 }
+
+const TASK_TYPE_OPTIONS: { key: TaskType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "homework", label: "PR", icon: "document-text-outline" },
+  { key: "quiz", label: "Kuis", icon: "help-circle-outline" },
+  { key: "project", label: "Proyek", icon: "layers-outline" },
+];
 
 export function QuickActionSheet({
   visible,
@@ -58,12 +74,16 @@ export function QuickActionSheet({
 }: QuickActionSheetProps) {
   const {
     subjects,
+    tasks,
     timetableEntries,
+    periodTimes,
     daysOff,
     overrides,
+    schedulePrefs,
     addTask,
     addSubject,
     addGrade,
+    applySchedule,
   } = useMobileStudyStore();
 
   // Modal sub-flows
@@ -85,6 +105,9 @@ export function QuickActionSheet({
   const [extractError, setExtractError] = useState<string | null>(null);
   const [batchStep, setBatchStep] = useState<"input" | "review">("input");
   const [parsedBatchTasks, setParsedBatchTasks] = useState<ParsedBatchTask[]>([]);
+  const [expandedDeadlineId, setExpandedDeadlineId] = useState<string | null>(null);
+  const [autoScheduleBatch, setAutoScheduleBatch] = useState(true);
+  const [returnToBatchItemId, setReturnToBatchItemId] = useState<string | null>(null);
 
   const PALETTE = [
     "#3A86FF",
@@ -120,8 +143,8 @@ export function QuickActionSheet({
     }
   }, [visible, initialMode]);
 
-  // Today reference
-  const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  // Today reference (fresh on render so it updates after midnight)
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   const handleOpenAddTask = () => {
     setActiveModal("addTask");
@@ -148,7 +171,7 @@ export function QuickActionSheet({
       .map((s) => s.trim())
       .filter(Boolean);
 
-    addSubject({
+    const created = addSubject({
       name: subjectName.trim(),
       color: subjectColor,
       teacher: subjectTeacher.trim() || undefined,
@@ -156,6 +179,13 @@ export function QuickActionSheet({
       bringItems: items,
       examDate: undefined,
     });
+
+    if (returnToBatchItemId) {
+      handleUpdateBatchItemSubject(returnToBatchItemId, created.id);
+      setReturnToBatchItemId(null);
+      setActiveModal("addFromText");
+      return;
+    }
 
     setActiveModal("none");
     onClose();
@@ -179,17 +209,31 @@ export function QuickActionSheet({
         setWhatsappText(text.trim());
         setExtractError(null);
       } else {
-        Alert.alert(t("quickActionsTitle"), "Clipboard is empty.");
+        Alert.alert(t("quickActionsTitle"), "Clipboard masih kosong.");
       }
     } catch (err) {
       console.warn("[QuickAction] Clipboard paste error:", err);
     }
   };
 
+  const formatBatchDeadlineLabel = (
+    dateStr: string,
+    mode: DeadlineMode
+  ): string => {
+    if (mode === "nextClass") {
+      return `Kelas Depan (${formatLocaleDate(dateStr, "EEE, d MMM")})`;
+    }
+    if (mode === "afterNClasses") {
+      return `2 Pertemuan (${formatLocaleDate(dateStr, "EEE, d MMM")})`;
+    }
+    const rel = formatDeadlineRelativeInfo(dateStr, todayStr);
+    return `${rel.relativeLabel} (${formatLocaleDate(dateStr, "EEE, d MMM")})`;
+  };
+
   const handleExtractTasksFromAI = async () => {
     const clean = whatsappText.trim();
     if (!clean) {
-      Alert.alert(t("quickActionsTitle"), "Please enter or paste assignment text first.");
+      Alert.alert(t("quickActionsTitle"), "Tempel atau ketik catatan tugas terlebih dahulu.");
       return;
     }
 
@@ -201,7 +245,7 @@ export function QuickActionSheet({
       const rawTasks = res.tasks || [];
 
       if (rawTasks.length === 0) {
-        throw new Error("No tasks were detected in the text.");
+        throw new Error("Tidak ada tugas yang terdeteksi dari teks.");
       }
 
       const parsed: ParsedBatchTask[] = rawTasks.map((item, idx) => {
@@ -228,7 +272,14 @@ export function QuickActionSheet({
         const targetSub = matchedSubject || subjects[idx % (subjects.length || 1)] || subjects[0];
         const targetId = targetSub?.id || "general";
 
-        // Deadline = Next class of that subject
+        // Deadline = Date hint from AI datePhrase / title / notes if present, else Next class of that subject
+        const isExplicitNextClass =
+          item.datePhrase && /pertemuan|kelas\s+depan|next\s+class/i.test(item.datePhrase);
+        const dateHint = !isExplicitNextClass
+          ? (item.datePhrase ? parseIndonesianDateHint(item.datePhrase, todayStr) : null) ||
+            parseIndonesianDateHint(item.title || "", todayStr) ||
+            (item.notes ? parseIndonesianDateHint(item.notes, todayStr) : null)
+          : null;
         const nextRes = calculateNextClassDeadline(targetId, todayStr, timetableEntries, {
           daysOff,
           overrides,
@@ -237,22 +288,21 @@ export function QuickActionSheet({
 
         let deadlineDate = "";
         let deadlineLabel = "";
+        let deadlineMode: DeadlineMode = "nextClass";
 
-        if (nextRes.found && nextRes.deadlineDate) {
+        if (dateHint) {
+          deadlineDate = dateHint.suggestedDate;
+          deadlineMode = "custom";
+          deadlineLabel = formatBatchDeadlineLabel(deadlineDate, deadlineMode);
+        } else if (nextRes.found && nextRes.deadlineDate) {
           deadlineDate = nextRes.deadlineDate;
-          try {
-            deadlineLabel = `Next Class (${format(parseISO(nextRes.deadlineDate), "d MMM")})`;
-          } catch {
-            deadlineLabel = nextRes.deadlineDate;
-          }
+          deadlineMode = "nextClass";
+          deadlineLabel = formatBatchDeadlineLabel(deadlineDate, deadlineMode);
         } else {
           deadlineDate = format(addDays(new Date(), 1), "yyyy-MM-dd");
-          deadlineLabel = `Besok (${format(addDays(new Date(), 1), "d MMM")})`;
+          deadlineMode = "custom";
+          deadlineLabel = formatBatchDeadlineLabel(deadlineDate, deadlineMode);
         }
-
-        // Date phrases are shown as a note only (the date parser comes in Phase 7)
-        const dateNote = item.datePhrase ? `Date note: ${item.datePhrase}` : "";
-        const combinedNotes = [item.notes, dateNote].filter(Boolean).join("\n");
 
         const duration = suggestTaskDuration(item.title, item.type || "homework");
         return {
@@ -262,19 +312,22 @@ export function QuickActionSheet({
           type: item.type || "homework",
           deadlineDate,
           deadlineLabel,
+          deadlineMode,
           datePhrase: item.datePhrase,
-          notes: combinedNotes,
+          notes: item.notes?.trim() || undefined,
           estimatedMinutes: duration,
         };
       });
 
       setParsedBatchTasks(parsed);
+      setExpandedDeadlineId(null);
+      setAutoScheduleBatch(true);
       setBatchStep("review");
     } catch (err: any) {
       console.warn("[QuickAction] AI Task extraction failed:", err);
       // On failure show friendly message and KEEP the pasted text
       setExtractError(
-        "Could not extract tasks with AI (request timed out after 20s or server unavailable). Your text is kept intact below."
+        "Gagal mengekstrak tugas dengan AI (batas waktu 20 dtk atau server tidak terjangkau). Teks kamu tetap tersimpan di bawah."
       );
     } finally {
       setIsExtracting(false);
@@ -284,7 +337,7 @@ export function QuickActionSheet({
   const handleApplyFallback = () => {
     const clean = whatsappText.trim();
     if (!clean) {
-      Alert.alert(t("quickActionsTitle"), "Please enter or paste assignment text first.");
+      Alert.alert(t("quickActionsTitle"), "Tempel atau ketik catatan tugas terlebih dahulu.");
       return;
     }
 
@@ -294,43 +347,205 @@ export function QuickActionSheet({
       overrides,
     });
 
-    setParsedBatchTasks([fallback]);
+    setParsedBatchTasks([
+      {
+        ...fallback,
+        deadlineMode: fallback.deadlineMode || "nextClass",
+      },
+    ]);
+    setExpandedDeadlineId(null);
+    setAutoScheduleBatch(true);
     setBatchStep("review");
   };
 
   // ─── Step 2 of Batch: Commit All Reviewed Tasks ───
   const handleSaveBatchTasks = () => {
-    let count = 0;
-    for (const item of parsedBatchTasks) {
-      if (item.title.trim()) {
-        addTask({
-          title: item.title.trim(),
-          subjectId: item.subjectId,
-          type: item.type,
-          givenDate: todayStr,
-          deadlineDate: item.deadlineDate,
-          deadlineMode: "custom",
-          estimatedMinutes: item.estimatedMinutes || 30,
-          notes: item.notes?.trim() || undefined,
+    const validItems = parsedBatchTasks.filter((item) => item.title.trim().length > 0);
+    if (validItems.length === 0) {
+      Alert.alert("Tidak Ada Tugas", "Tambahkan minimal 1 judul tugas sebelum menyimpan.");
+      return;
+    }
+
+    HapticFeedback.success();
+    const createdTasks: Task[] = [];
+    for (const item of validItems) {
+      const created = addTask({
+        title: item.title.trim(),
+        subjectId: item.subjectId,
+        type: item.type,
+        givenDate: todayStr,
+        deadlineDate: item.deadlineDate,
+        deadlineMode: item.deadlineMode || "custom",
+        estimatedMinutes: item.estimatedMinutes || 30,
+        notes: item.notes?.trim() || undefined,
+      });
+      createdTasks.push(created);
+    }
+
+    let scheduledBlocksCount = 0;
+    if (autoScheduleBatch && createdTasks.length > 0) {
+      try {
+        const horizonEndStr = format(addDays(parseISO(todayStr), 14), "yyyy-MM-dd");
+        const busyBlocks = extractBusyBlocksFromTimetable({
+          timetableEntries,
+          periodTimes,
+          daysOff,
+          overrides,
+          startDate: todayStr,
+          endDate: horizonEndStr,
         });
-        count++;
+        const createdIds = new Set(createdTasks.map((tk) => tk.id));
+        const pendingAll = [
+          ...tasks.filter((tk) => tk.status === "PENDING" && !createdIds.has(tk.id)),
+          ...createdTasks,
+        ];
+        const scheduledRes = buildSchedule({
+          tasks: pendingAll,
+          busyBlocks,
+          prefs: schedulePrefs,
+          referenceDate: todayStr,
+        });
+        if (scheduledRes.blocks.length > 0) {
+          applySchedule(scheduledRes.blocks);
+          scheduledBlocksCount = scheduledRes.blocks.filter((b) => createdIds.has(b.taskId)).length;
+        }
+      } catch {
+        // Ignore auto-schedule error
       }
     }
 
     setActiveModal("none");
     setBatchStep("input");
     setParsedBatchTasks([]);
+    setExpandedDeadlineId(null);
     setIsExtracting(false);
     setExtractError(null);
     onClose();
 
     Alert.alert(
-      t("taskAddedSuccess"),
-      `${count} task${count > 1 ? "s" : ""} added to your schedule.`
+      t("taskAddedSuccess") || "Tugas Berhasil Disimpan",
+      scheduledBlocksCount > 0
+        ? `${createdTasks.length} tugas ditambahkan dengan ${scheduledBlocksCount} blok belajar terjadwal.`
+        : `${createdTasks.length} tugas berhasil ditambahkan ke daftar Tugas.`
     );
   };
 
+  const handleUpdateBatchItemDeadlineDirect = (
+    id: string,
+    dateStr: string,
+    mode: DeadlineMode
+  ) => {
+    setParsedBatchTasks((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        return {
+          ...item,
+          deadlineDate: dateStr,
+          deadlineMode: mode,
+          deadlineLabel: formatBatchDeadlineLabel(dateStr, mode),
+        };
+      })
+    );
+  };
+
+  const handleStepBatchItemDeadline = (id: string, deltaDays: number) => {
+    HapticFeedback.light();
+    setParsedBatchTasks((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        try {
+          const nextDate = format(addDays(parseISO(item.deadlineDate || todayStr), deltaDays), "yyyy-MM-dd");
+          return {
+            ...item,
+            deadlineDate: nextDate,
+            deadlineMode: "custom",
+            deadlineLabel: formatBatchDeadlineLabel(nextDate, "custom"),
+          };
+        } catch {
+          return item;
+        }
+      })
+    );
+  };
+
+  const handleUpdateBatchItemType = (id: string, type: TaskType) => {
+    HapticFeedback.light();
+    setParsedBatchTasks((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, type } : item))
+    );
+  };
+
+  const handleSplitBatchItemByClause = (id: string) => {
+    HapticFeedback.light();
+    setParsedBatchTasks((prev) => {
+      const next: ParsedBatchTask[] = [];
+      for (const item of prev) {
+        if (item.id !== id) {
+          next.push(item);
+          continue;
+        }
+        const parts = splitCompoundTaskClauses(item.title);
+        if (parts.length <= 1) {
+          const commaParts = item.title
+            .split(/[,;\n]+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 2);
+          if (commaParts.length <= 1) {
+            next.push(item);
+            continue;
+          }
+          commaParts.forEach((partTitle, idx) => {
+            next.push({
+              ...item,
+              id: `${item.id}-split-${idx}-${Date.now()}`,
+              title: partTitle,
+            });
+          });
+        } else {
+          parts.forEach((partTitle, idx) => {
+            next.push({
+              ...item,
+              id: `${item.id}-split-${idx}-${Date.now()}`,
+              title: partTitle,
+            });
+          });
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleAddEmptyBatchItem = () => {
+    HapticFeedback.light();
+    const defaultSubId = parsedBatchTasks[0]?.subjectId || subjects[0]?.id || "general";
+    const nextRes = calculateNextClassDeadline(defaultSubId, todayStr, timetableEntries, {
+      daysOff,
+      overrides,
+      afterNClasses: 1,
+    });
+    const deadlineMode: DeadlineMode = nextRes.found && nextRes.deadlineDate ? "nextClass" : "custom";
+    const deadlineDate =
+      nextRes.found && nextRes.deadlineDate
+        ? nextRes.deadlineDate
+        : format(addDays(parseISO(todayStr), 1), "yyyy-MM-dd");
+
+    setParsedBatchTasks((prev) => [
+      ...prev,
+      {
+        id: `manual-batch-${Date.now()}`,
+        title: "",
+        subjectId: defaultSubId,
+        type: "homework",
+        deadlineDate,
+        deadlineMode,
+        deadlineLabel: formatBatchDeadlineLabel(deadlineDate, deadlineMode),
+        estimatedMinutes: 30,
+      },
+    ]);
+  };
+
   const handleUpdateBatchItemDuration = (id: string, mins: number) => {
+    HapticFeedback.light();
     setParsedBatchTasks((prev) =>
       prev.map((item) => (item.id === id ? { ...item, estimatedMinutes: mins } : item))
     );
@@ -343,31 +558,36 @@ export function QuickActionSheet({
   };
 
   const handleUpdateBatchItemSubject = (id: string, newSubjectId: string) => {
+    HapticFeedback.light();
     setParsedBatchTasks((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        // Recalculate next class for new subject
-        const nextRes = calculateNextClassDeadline(newSubjectId, todayStr, timetableEntries, {
-          daysOff,
-          overrides,
-        });
-        const deadlineDate = nextRes.found && nextRes.deadlineDate
-          ? nextRes.deadlineDate
-          : item.deadlineDate;
-        const deadlineLabel = nextRes.found && nextRes.deadlineDate
-          ? `Next Class (${format(parseISO(nextRes.deadlineDate), "d MMM")})`
-          : item.deadlineLabel;
+        // Only recalculate automatic class-based deadlines when deadlineMode follows class schedule
+        if (item.deadlineMode === "nextClass" || item.deadlineMode === "afterNClasses") {
+          const nextRes = calculateNextClassDeadline(newSubjectId, todayStr, timetableEntries, {
+            daysOff,
+            overrides,
+            afterNClasses: item.deadlineMode === "afterNClasses" ? 2 : 1,
+          });
+          if (nextRes.found && nextRes.deadlineDate) {
+            return {
+              ...item,
+              subjectId: newSubjectId,
+              deadlineDate: nextRes.deadlineDate,
+              deadlineLabel: formatBatchDeadlineLabel(nextRes.deadlineDate, item.deadlineMode),
+            };
+          }
+        }
         return {
           ...item,
           subjectId: newSubjectId,
-          deadlineDate,
-          deadlineLabel,
         };
       })
     );
   };
 
   const handleDeleteBatchItem = (id: string) => {
+    HapticFeedback.light();
     setParsedBatchTasks((prev) => prev.filter((item) => item.id !== id));
   };
 
@@ -403,14 +623,14 @@ export function QuickActionSheet({
           }}
         />
 
-        {/* ─── MINIMALIST 3-CARD GRID QUICK ACTIONS ─── */}
+        {/* ─── MINIMALIST 3-CARD GRID QUICK ACTIONS (Catat Nilai Baru & onNavigateToTimetable moved to Settings/Tabs) ─── */}
         {activeModal === "none" && (
           <View style={styles.compactSheetContainer}>
             <View style={styles.handleBar} />
 
             <View style={styles.gridHeader}>
               <Text style={styles.gridHeaderTitle}>{t("quickActionsTitle") || "Buat Baru"}</Text>
-              <Text style={styles.gridHeaderSub}>Pilih cara tercepat mencatat tugasmu</Text>
+              <Text style={styles.gridHeaderSub}>{t("quick_actions_sub")}</Text>
             </View>
 
             <View style={styles.cardsGridList}>
@@ -418,13 +638,13 @@ export function QuickActionSheet({
               <Pressable
                 style={styles.gridCard}
                 onPress={handleOpenAddTask}
-                accessibilityLabel="Tambah tugas manual"
+                accessibilityLabel={t("tugas_baru")}
               >
                 <View style={[styles.gridIconCircle, { backgroundColor: colors.primaryLight }]}>
                   <Ionicons name="add-circle" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.gridCardContent}>
-                  <Text style={styles.gridCardTitle}>Tugas Baru</Text>
+                  <Text style={styles.gridCardTitle}>{t("tugas_baru") || "Tugas Baru"}</Text>
                   <Text style={styles.gridCardSub}>
                     {t("quick_action_tugas_baru_sub") || "Catat tugas atau PR manual (< 5 detik)"}
                   </Text>
@@ -432,41 +652,23 @@ export function QuickActionSheet({
                 <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
               </Pressable>
 
-              {/* Card 2: Catat Nilai Baru */}
-              <Pressable
-                style={styles.gridCard}
-                onPress={() => setActiveModal("addGrade")}
-                accessibilityLabel="Catat nilai baru"
-              >
-                <View style={[styles.gridIconCircle, { backgroundColor: "rgba(16, 185, 129, 0.15)" }]}>
-                  <Ionicons name="stats-chart" size={22} color={colors.emerald} />
-                </View>
-                <View style={styles.gridCardContent}>
-                  <Text style={styles.gridCardTitle}>Catat Nilai Baru</Text>
-                  <Text style={styles.gridCardSub}>
-                    Nilai tugas, kuis, atau ulangan untuk rapor
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-              </Pressable>
-
-              {/* Card 3: Camera Scan AI (Purple Accent) */}
+              {/* Card 2: Dari Foto (Camera Scan AI) */}
               <Pressable
                 style={[styles.gridCard, styles.aiCardBorder]}
                 onPress={() => {
                   onClose();
                   onNavigateToScan("whiteboard");
                 }}
-                accessibilityLabel="Pindai dengan kamera AI"
+                accessibilityLabel={t("dari_foto")}
               >
-                <View style={[styles.gridIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                <View style={[styles.gridIconCircle, { backgroundColor: colors.accentLight }]}>
                   <Ionicons name="camera" size={22} color={colors.accent} />
                 </View>
                 <View style={styles.gridCardContent}>
                   <View style={styles.aiTitleRow}>
-                    <Text style={styles.gridCardTitle}>Scan AI (Kamera)</Text>
+                    <Text style={styles.gridCardTitle}>{t("dari_foto") || "Dari Foto"}</Text>
                     <View style={styles.aiBadgePill}>
-                      <Ionicons name="sparkles" size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
+                      <Ionicons name="sparkles" size={10} color={colors.textInverse} style={{ marginRight: 2 }} />
                       <Text style={styles.aiBadgePillText}>AI</Text>
                     </View>
                   </View>
@@ -477,20 +679,20 @@ export function QuickActionSheet({
                 <Ionicons name="chevron-forward" size={18} color={colors.accent} />
               </Pressable>
 
-              {/* Card 4: WhatsApp Text AI (Purple Accent) */}
+              {/* Card 3: Dari Teks (WhatsApp Text AI) */}
               <Pressable
                 style={[styles.gridCard, styles.aiCardBorder]}
                 onPress={handleOpenAddFromText}
-                accessibilityLabel="Tempel pesan WhatsApp dengan AI"
+                accessibilityLabel={t("dari_teks")}
               >
-                <View style={[styles.gridIconCircle, { backgroundColor: "rgba(168, 85, 247, 0.15)" }]}>
+                <View style={[styles.gridIconCircle, { backgroundColor: colors.accentLight }]}>
                   <Ionicons name="document-text" size={22} color={colors.accent} />
                 </View>
                 <View style={styles.gridCardContent}>
                   <View style={styles.aiTitleRow}>
-                    <Text style={styles.gridCardTitle}>Tempel AI (WhatsApp)</Text>
+                    <Text style={styles.gridCardTitle}>{t("dari_teks") || "Dari Teks"}</Text>
                     <View style={styles.aiBadgePill}>
-                      <Ionicons name="sparkles" size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
+                      <Ionicons name="sparkles" size={10} color={colors.textInverse} style={{ marginRight: 2 }} />
                       <Text style={styles.aiBadgePillText}>AI</Text>
                     </View>
                   </View>
@@ -500,39 +702,7 @@ export function QuickActionSheet({
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.accent} />
               </Pressable>
-
-              {/* Card 5: Timetable / Jadwal Pelajaran */}
-              {onNavigateToTimetable && (
-                <Pressable
-                  style={styles.gridCard}
-                  onPress={() => {
-                    onClose();
-                    onNavigateToTimetable();
-                  }}
-                  accessibilityLabel="Atur jadwal pelajaran"
-                >
-                  <View style={[styles.gridIconCircle, { backgroundColor: "rgba(58, 134, 255, 0.12)" }]}>
-                    <Ionicons name="time" size={22} color={colors.primary} />
-                  </View>
-                  <View style={styles.gridCardContent}>
-                    <Text style={styles.gridCardTitle}>Jadwal Pelajaran</Text>
-                    <Text style={styles.gridCardSub}>
-                      Atur jam pelajaran & ruang kelas mingguan
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                </Pressable>
-              )}
             </View>
-
-            {/* Subtle Add Subject Action */}
-            <Pressable
-              style={styles.smallTextBtn}
-              onPress={handleOpenAddSubject}
-              hitSlop={10}
-            >
-              <Text style={styles.smallTextBtnLabel}>+ Tambah mata pelajaran</Text>
-            </Pressable>
           </View>
         )}
 
@@ -544,7 +714,14 @@ export function QuickActionSheet({
             <View style={styles.handleBar} />
             <View style={styles.sheetHeader}>
               <Pressable
-                onPress={() => setActiveModal("none")}
+                onPress={() => {
+                  if (returnToBatchItemId) {
+                    setReturnToBatchItemId(null);
+                    setActiveModal("addFromText");
+                  } else {
+                    setActiveModal("none");
+                  }
+                }}
                 hitSlop={12}
                 style={styles.headerBackBtn}
               >
@@ -659,26 +836,33 @@ export function QuickActionSheet({
                 }}
                 hitSlop={12}
                 style={styles.headerBackBtn}
+                accessibilityLabel="Kembali"
               >
                 <Ionicons name="arrow-back" size={20} color={colors.textSecondary} />
               </Pressable>
               <Text style={styles.sheetTitle}>
-                {batchStep === "input" ? "Add from text" : `Review Tasks (${parsedBatchTasks.length})`}
+                {batchStep === "input" ? "Tambah dari Teks" : `Tinjau Tugas (${parsedBatchTasks.length})`}
               </Text>
-              {batchStep === "review" && (
-                <Pressable onPress={handleSaveBatchTasks} style={styles.saveHeaderBtn}>
-                  <Text style={styles.saveHeaderBtnText}>{t("save")}</Text>
-                </Pressable>
-              )}
+              <Pressable
+                onPress={() => {
+                  setActiveModal("none");
+                  onClose();
+                }}
+                hitSlop={12}
+                style={styles.closeBtn}
+                accessibilityLabel="Tutup"
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </Pressable>
             </View>
 
             {batchStep === "input" ? (
               <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Message or Notes</Text>
+                  <Text style={styles.inputLabel}>Pesan atau Catatan</Text>
                   <TextInput
                     style={[styles.textInput, styles.textAreaLarge]}
-                    placeholder="Paste a message or assignment notes here...&#10;e.g. Besok PR Matematika hal 45 no 1-5 dikumpul hari Senin. Biologi bikin rangkuman Bab 3 ya."
+                    placeholder="Tempel pesan atau catatan tugas di sini...&#10;cth: Besok PR Matematika hal 45 no 1-5 dikumpul hari Senin. Biologi bikin rangkuman Bab 3 ya."
                     placeholderTextColor={colors.textMuted}
                     value={whatsappText}
                     onChangeText={(val) => {
@@ -699,7 +883,7 @@ export function QuickActionSheet({
                     disabled={isExtracting}
                   >
                     <Ionicons name="clipboard-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-                    <Text style={styles.clipboardBtnText}>Paste from clipboard</Text>
+                    <Text style={styles.clipboardBtnText}>{t("paste_clipboard_btn")}</Text>
                   </Pressable>
 
                   <Pressable
@@ -713,7 +897,7 @@ export function QuickActionSheet({
                       <Ionicons name="sparkles" size={18} color="#ffffff" style={{ marginRight: 6 }} />
                     )}
                     <Text style={styles.extractBtnText}>
-                      {isExtracting ? "Extracting..." : "Extract tasks"}
+                      {isExtracting ? t("extracting_tasks_btn") : t("extract_tasks_btn")}
                     </Text>
                   </Pressable>
                 </View>
@@ -722,7 +906,7 @@ export function QuickActionSheet({
                 {isExtracting && (
                   <View style={styles.loadingStateBanner}>
                     <Text style={styles.loadingStateText}>
-                      Analyzing tasks with AI (timeout 20s)...
+                      Menganalisis tugas dengan AI (batas 20 dtk)...
                     </Text>
                   </View>
                 )}
@@ -737,9 +921,9 @@ export function QuickActionSheet({
                     <Pressable style={styles.fallbackBtn} onPress={handleApplyFallback}>
                       <Ionicons name="flash" size={18} color="#ffffff" style={{ marginRight: 8 }} />
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.fallbackBtnTitle}>Use Fallback (1 Task)</Text>
+                        <Text style={styles.fallbackBtnTitle}>Simpan Tanpa AI (1 Tugas)</Text>
                         <Text style={styles.fallbackBtnSub}>
-                          Creates 1 task with your pasted text as notes, subject matched by alias, and deadline = next class.
+                          Buat 1 tugas dengan teks di atas sebagai catatan dan tenggat pertemuan berikutnya.
                         </Text>
                       </View>
                     </Pressable>
@@ -747,144 +931,359 @@ export function QuickActionSheet({
                 )}
               </ScrollView>
             ) : (
-              /* Review Step — Always show before saving */
-              <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
-                <Text style={styles.reviewSubTitle}>
-                  Review detected tasks before saving. Dates from text are preserved as notes.
-                </Text>
+              /* Review Step — Overhauled clean Indonesian card UI */
+              <>
+                <ScrollView
+                  style={styles.modalScroll}
+                  contentContainerStyle={styles.reviewScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                >
+                  <Text style={styles.reviewSubTitle}>
+                    Periksa mata pelajaran, jenis, dan tenggat sebelum disimpan ke jadwal.
+                  </Text>
 
-                {parsedBatchTasks.map((item) => {
-                  const sub = subjects.find((s) => s.id === item.subjectId);
-                  const subColor = sub?.color || sub?.color_hex || colors.primary;
+                  {parsedBatchTasks.map((item, idx) => {
+                    const sub = subjects.find((s) => s.id === item.subjectId);
+                    const subColor = sub?.color || sub?.color_hex || colors.primary;
+                    const relInfo = formatDeadlineRelativeInfo(item.deadlineDate, todayStr);
+                    const isExpanded = expandedDeadlineId === item.id;
+                    const compoundParts = splitCompoundTaskClauses(item.title);
+                    const rawCommaParts = item.title
+                      .split(/[,;\n]+/)
+                      .map((s) => s.trim())
+                      .filter((s) => s.length > 2);
+                    const splitPreviewCount =
+                      compoundParts.length > 1
+                        ? compoundParts.length
+                        : rawCommaParts.length >= 2 && item.title.length > 28
+                        ? rawCommaParts.length
+                        : 0;
 
-                  return (
-                    <View key={item.id} style={styles.batchReviewCard}>
-                      <View style={styles.batchCardHeader}>
-                        <View style={[styles.typeBadge, { backgroundColor: `${subColor}22` }]}>
-                          <Text style={[styles.typeBadgeText, { color: subColor }]}>
-                            {item.type.toUpperCase()}
-                          </Text>
-                        </View>
-                        <Text style={styles.batchDeadlineText}>
-                          📅 {item.deadlineLabel}
-                        </Text>
-                        <Pressable
-                          hitSlop={8}
-                          onPress={() => handleDeleteBatchItem(item.id)}
-                          style={styles.deleteBatchBtn}
-                        >
-                          <Ionicons name="trash-outline" size={16} color={colors.rose} />
-                        </Pressable>
-                      </View>
-
-                      {/* Title Edit */}
-                      <TextInput
-                        style={styles.batchTitleInput}
-                        value={item.title}
-                        onChangeText={(txt) => handleUpdateBatchItemTitle(item.id, txt)}
-                        placeholder="Task title..."
-                        placeholderTextColor={colors.textMuted}
-                      />
-
-                      {/* Date phrases are shown as a note only (the date parser comes in Phase 7) */}
-                      {item.datePhrase ? (
-                        <View style={styles.datePhrasePill}>
-                          <Ionicons name="calendar-outline" size={13} color={colors.accent} style={{ marginRight: 4 }} />
-                          <Text style={styles.datePhrasePillText}>
-                            Catatan tanggal: "{item.datePhrase}" (sebagai catatan)
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      {/* Subject Chips */}
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.batchChipsRow}
+                    return (
+                      <View
+                        key={item.id}
+                        style={[
+                          styles.batchReviewCard,
+                          { borderLeftWidth: 4, borderLeftColor: subColor },
+                        ]}
                       >
-                        {subjects.map((s) => {
-                          const isCur = s.id === item.subjectId;
-                          return (
-                            <Pressable
-                              key={s.id}
-                              style={[
-                                styles.batchChip,
-                                isCur && {
-                                  backgroundColor: s.color || s.color_hex || colors.primary,
-                                  borderColor: s.color || s.color_hex || colors.primary,
-                                },
-                              ]}
-                              onPress={() => handleUpdateBatchItemSubject(item.id, s.id)}
-                            >
-                              <Text
-                                style={[
-                                  styles.batchChipText,
-                                  isCur && styles.batchChipTextActive,
-                                ]}
-                              >
-                                {s.name || s.title}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </ScrollView>
+                        {/* Row 1: Editable Task Type Pills + Index + Trash */}
+                        <View style={styles.batchCardHeader}>
+                          <View style={styles.typeSelectorGroup}>
+                            {TASK_TYPE_OPTIONS.map((opt) => {
+                              const isTypeActive = item.type === opt.key;
+                              return (
+                                <Pressable
+                                  key={opt.key}
+                                  style={[
+                                    styles.typePillBtn,
+                                    isTypeActive && {
+                                      backgroundColor: colors.primaryLight,
+                                      borderColor: colors.primary,
+                                    },
+                                  ]}
+                                  onPress={() => handleUpdateBatchItemType(item.id, opt.key)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.typePillBtnText,
+                                      isTypeActive && styles.typePillBtnTextActive,
+                                    ]}
+                                  >
+                                    {opt.label}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
 
-                      {/* Duration selector */}
-                      <View style={styles.batchDurationRow}>
-                        <Text style={styles.batchDurationLabel}>Estimasi waktu:</Text>
-                        <View style={styles.batchDurationChips}>
-                          {[15, 30, 45, 60, 90].map((mins) => {
-                            const isCur = (item.estimatedMinutes || 30) === mins;
+                          <View style={styles.cardHeaderRight}>
+                            <Text style={styles.cardIndexTag}>#{idx + 1}</Text>
+                            <Pressable
+                              hitSlop={8}
+                              onPress={() => handleDeleteBatchItem(item.id)}
+                              style={styles.deleteBatchBtn}
+                              accessibilityLabel="Hapus tugas ini"
+                            >
+                              <Ionicons name="trash-outline" size={16} color={colors.rose} />
+                            </Pressable>
+                          </View>
+                        </View>
+
+                        {/* Row 2: Multiline Task Title */}
+                        <Text style={styles.fieldMiniLabel}>Judul Tugas</Text>
+                        <TextInput
+                          style={styles.batchTitleInput}
+                          value={item.title}
+                          onChangeText={(txt) => handleUpdateBatchItemTitle(item.id, txt)}
+                          placeholder="Tulis judul tugas..."
+                          placeholderTextColor={colors.textMuted}
+                          multiline
+                        />
+
+                        {/* Optional 1-Tap Split Helper for Compound Lists */}
+                        {splitPreviewCount > 1 && (
+                          <Pressable
+                            style={styles.splitHelperBtn}
+                            onPress={() => handleSplitBatchItemByClause(item.id)}
+                          >
+                            <Ionicons name="cut-outline" size={13} color={colors.accent} />
+                            <Text style={styles.splitHelperText}>
+                              Pisahkan menjadi {splitPreviewCount} tugas terpisah
+                            </Text>
+                          </Pressable>
+                        )}
+
+                        {/* Row 3: Subject Selector */}
+                        <Text style={styles.fieldMiniLabel}>Mata Pelajaran</Text>
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          contentContainerStyle={styles.batchChipsRow}
+                        >
+                          {subjects.map((s) => {
+                            const sColor = s.color || s.color_hex || colors.primary;
+                            const isCur = s.id === item.subjectId;
                             return (
                               <Pressable
-                                key={mins}
+                                key={s.id}
                                 style={[
-                                  styles.batchDurationChip,
-                                  isCur && styles.batchDurationChipActive,
+                                  styles.batchChip,
+                                  isCur && {
+                                    backgroundColor: sColor,
+                                    borderColor: sColor,
+                                  },
                                 ]}
-                                onPress={() => handleUpdateBatchItemDuration(item.id, mins)}
+                                onPress={() => handleUpdateBatchItemSubject(item.id, s.id)}
                               >
+                                <View
+                                  style={[
+                                    styles.subjectChipDot,
+                                    { backgroundColor: isCur ? "#FFFFFF" : sColor },
+                                  ]}
+                                />
                                 <Text
                                   style={[
-                                    styles.batchDurationChipText,
-                                    isCur && styles.batchDurationChipTextActive,
+                                    styles.batchChipText,
+                                    isCur && styles.batchChipTextActive,
                                   ]}
                                 >
-                                  {mins}m
+                                  {s.name || s.title}
                                 </Text>
                               </Pressable>
                             );
                           })}
+                          <Pressable
+                            style={[
+                              styles.batchChip,
+                              {
+                                backgroundColor: colors.surfaceSubtle,
+                                borderColor: colors.primary,
+                                borderWidth: 1,
+                                borderStyle: "dashed",
+                              },
+                            ]}
+                            onPress={() => {
+                              soundFX?.playClick?.();
+                              HapticFeedback?.light?.();
+                              setSubjectName("");
+                              setSubjectColor(PALETTE[0]);
+                              setSubjectBringItems("");
+                              setSubjectTeacher("");
+                              setSubjectRoom("");
+                              setSubjectNameError("");
+                              setReturnToBatchItemId(item.id);
+                              setActiveModal("addSubject");
+                            }}
+                          >
+                            <Ionicons name="add" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+                            <Text style={[styles.batchChipText, { color: colors.primary, fontWeight: typography.fontWeights.bold }]}>
+                              Tambah Mapel
+                            </Text>
+                          </Pressable>
+                        </ScrollView>
+
+                        {/* Row 4: Class-Aware Deadline Summary + Steppers + Expandable 14-Day Calendar Strip */}
+                        <View style={styles.deadlineBox}>
+                          <View style={styles.deadlineBoxHeader}>
+                            <View style={styles.deadlineSummaryLeft}>
+                              <Ionicons
+                                name={item.deadlineMode === "nextClass" ? "school-outline" : "calendar-outline"}
+                                size={15}
+                                color={colors.primary}
+                              />
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.deadlineDateHeadline} numberOfLines={1}>
+                                  {item.deadlineMode === "nextClass" ? "Kelas Depan • " : ""}
+                                  {relInfo.shortDateLabel}
+                                </Text>
+                                <Text style={styles.deadlineRelativeSub} numberOfLines={1}>
+                                  {relInfo.relativeLabel}
+                                  {item.datePhrase ? ` • Dari teks: "${item.datePhrase}"` : ""}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.deadlineActionControls}>
+                              <Pressable
+                                style={styles.stepMiniBtn}
+                                onPress={() => handleStepBatchItemDeadline(item.id, -1)}
+                                accessibilityLabel="Majukan tenggat 1 hari"
+                              >
+                                <Text style={styles.stepMiniBtnText}>-1h</Text>
+                              </Pressable>
+                              <Pressable
+                                style={styles.stepMiniBtn}
+                                onPress={() => handleStepBatchItemDeadline(item.id, 1)}
+                                accessibilityLabel="Undurkan tenggat 1 hari"
+                              >
+                                <Text style={styles.stepMiniBtnText}>+1h</Text>
+                              </Pressable>
+                              <Pressable
+                                style={[
+                                  styles.calendarToggleBtn,
+                                  isExpanded && styles.calendarToggleBtnActive,
+                                ]}
+                                onPress={() => {
+                                  HapticFeedback.light();
+                                  setExpandedDeadlineId(isExpanded ? null : item.id);
+                                }}
+                              >
+                                <Ionicons
+                                  name={isExpanded ? "chevron-up" : "calendar"}
+                                  size={12}
+                                  color={isExpanded ? colors.textInverse : colors.primary}
+                                />
+                                <Text
+                                  style={[
+                                    styles.calendarToggleBtnText,
+                                    isExpanded && { color: colors.textInverse },
+                                  ]}
+                                >
+                                  {isExpanded ? "Tutup" : "Ubah"}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+
+                          {isExpanded && (
+                            <View style={styles.expandedStripWrap}>
+                              <DeadlinePickerStrip
+                                todayStr={todayStr}
+                                subjectId={item.subjectId}
+                                subjectName={sub?.name}
+                                subjectColor={subColor}
+                                selectedDate={item.deadlineDate}
+                                deadlineMode={item.deadlineMode}
+                                timetableEntries={timetableEntries}
+                                daysOff={daysOff}
+                                overrides={overrides}
+                                compact
+                                onSelectDeadline={(dateStr, mode) =>
+                                  handleUpdateBatchItemDeadlineDirect(item.id, dateStr, mode)
+                                }
+                              />
+                            </View>
+                          )}
                         </View>
+
+                        {/* Row 5: Estimasi Waktu */}
+                        <View style={styles.batchDurationRow}>
+                          <Text style={styles.batchDurationLabel}>Estimasi:</Text>
+                          <View style={styles.batchDurationChips}>
+                            {[15, 30, 45, 60, 90].map((mins) => {
+                              const isCur = (item.estimatedMinutes || 30) === mins;
+                              return (
+                                <Pressable
+                                  key={mins}
+                                  style={[
+                                    styles.batchDurationChip,
+                                    isCur && styles.batchDurationChipActive,
+                                  ]}
+                                  onPress={() => handleUpdateBatchItemDuration(item.id, mins)}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.batchDurationChipText,
+                                      isCur && styles.batchDurationChipTextActive,
+                                    ]}
+                                  >
+                                    {mins}m
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        </View>
+
+                        {/* Row 6: Optional Notes */}
+                        {item.notes !== undefined ? (
+                          <View style={styles.notesBox}>
+                            <Text style={styles.notesLabel}>Catatan / Instruksi (opsional)</Text>
+                            <TextInput
+                              style={styles.notesInput}
+                              value={item.notes}
+                              placeholder="Tambahkan halaman atau catatan..."
+                              placeholderTextColor={colors.textMuted}
+                              onChangeText={(txt) => handleUpdateBatchItemNotes(item.id, txt)}
+                              multiline
+                            />
+                          </View>
+                        ) : (
+                          <Pressable
+                            style={styles.addNoteChipBtn}
+                            onPress={() => handleUpdateBatchItemNotes(item.id, "")}
+                          >
+                            <Ionicons name="add-outline" size={14} color={colors.textSecondary} />
+                            <Text style={styles.addNoteChipText}>Tambah Catatan</Text>
+                          </Pressable>
+                        )}
                       </View>
+                    );
+                  })}
 
-                      {/* Notes / Pasted text display if present */}
-                      {item.notes ? (
-                        <View style={styles.notesBox}>
-                          <Text style={styles.notesLabel}>Notes / Instructions</Text>
-                          <TextInput
-                            style={styles.notesInput}
-                            value={item.notes}
-                            onChangeText={(txt) => handleUpdateBatchItemNotes(item.id, txt)}
-                            multiline
-                            numberOfLines={3}
-                          />
-                        </View>
-                      ) : null}
-                    </View>
-                  );
-                })}
+                  {/* Add Another Task Row */}
+                  <Pressable
+                    style={styles.addMoreBatchBtn}
+                    onPress={handleAddEmptyBatchItem}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                    <Text style={styles.addMoreBatchBtnText}>Tambah Tugas Lain</Text>
+                  </Pressable>
+                </ScrollView>
 
-                <Pressable
-                  style={styles.primaryActionBtn}
-                  onPress={handleSaveBatchTasks}
-                >
-                  <Ionicons name="checkmark-done-circle" size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                  <Text style={styles.primaryActionBtnText}>
-                    Save All {parsedBatchTasks.length} Tasks
-                  </Text>
-                </Pressable>
-              </ScrollView>
+                {/* Sticky Footer: Auto-Schedule Toggle + Single Primary CTA */}
+                <View style={styles.reviewFooter}>
+                  <Pressable
+                    style={styles.autoScheduleToggleRow}
+                    onPress={() => {
+                      HapticFeedback.light();
+                      setAutoScheduleBatch((v) => !v);
+                    }}
+                  >
+                    <Ionicons
+                      name={autoScheduleBatch ? "checkbox" : "square-outline"}
+                      size={18}
+                      color={autoScheduleBatch ? colors.primary : colors.textSecondary}
+                    />
+                    <Text style={styles.autoScheduleToggleText}>
+                      ✨ Jadwalkan blok belajar otomatis
+                    </Text>
+                  </Pressable>
+
+                  <PrimaryButton
+                    label={
+                      autoScheduleBatch
+                        ? `Simpan & Jadwalkan ${parsedBatchTasks.length} Tugas`
+                        : `Simpan ${parsedBatchTasks.length} Tugas`
+                    }
+                    icon="checkmark-done"
+                    disabled={parsedBatchTasks.filter((it) => it.title.trim().length > 0).length === 0}
+                    onPress={handleSaveBatchTasks}
+                  />
+                </View>
+              </>
             )}
           </View>
         )}
@@ -928,6 +1327,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetContainer: {
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,
@@ -935,8 +1337,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xxl,
-    maxHeight: "88%",
+    paddingBottom: spacing.md,
+    maxHeight: "90%",
   },
   handleBar: {
     width: 36,
@@ -1178,112 +1580,296 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.bold,
     color: "#ffffff",
   },
+  reviewScrollContent: {
+    paddingBottom: spacing.md,
+  },
   reviewSubTitle: {
     fontSize: typography.fontSizes.xs,
     color: colors.textSecondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   batchReviewCard: {
     backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.card,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   batchCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.xs,
+    gap: spacing.sm,
   },
-  typeBadge: {
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+  typeSelectorGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  typeBadgeText: {
-    fontSize: 10,
+  typePillBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surface,
+  },
+  typePillBtnText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.textSecondary,
+  },
+  typePillBtnTextActive: {
+    color: colors.primary,
     fontWeight: typography.fontWeights.bold,
   },
-  batchDeadlineText: {
-    fontSize: typography.fontSizes.xs,
-    color: colors.textSecondary,
-    flex: 1,
-    marginLeft: spacing.sm,
+  cardHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  cardIndexTag: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textMuted,
   },
   deleteBatchBtn: {
     padding: spacing.xs,
   },
+  fieldMiniLabel: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   batchTitleInput: {
-    fontSize: typography.fontSizes.sm,
+    fontSize: typography.fontSizes.body,
     fontWeight: typography.fontWeights.semibold,
     color: colors.text,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    lineHeight: 20,
+    minHeight: 42,
+    textAlignVertical: "top",
+  },
+  splitHelperBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    backgroundColor: colors.accentLight,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 2,
+  },
+  splitHelperText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.accent,
   },
   batchChipsRow: {
     flexDirection: "row",
     gap: spacing.xs,
-    paddingVertical: spacing.xs,
+    paddingVertical: 2,
   },
   batchChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
     borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     backgroundColor: colors.surface,
   },
+  subjectChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   batchChipText: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: typography.fontWeights.medium,
     color: colors.textSecondary,
   },
   batchChipTextActive: {
     color: "#ffffff",
     fontWeight: typography.fontWeights.bold,
   },
+  deadlineBox: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginTop: 2,
+  },
+  deadlineBoxHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  deadlineSummaryLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  deadlineDateHeadline: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  deadlineRelativeSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  deadlineActionControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  stepMiniBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surfaceSubtle,
+  },
+  stepMiniBtnText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
+  },
+  calendarToggleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  calendarToggleBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  calendarToggleBtnText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+  },
+  expandedStripWrap: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
   batchDurationRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
+    marginTop: 2,
+    gap: spacing.sm,
   },
   batchDurationLabel: {
     fontSize: 11,
     color: colors.textSecondary,
-    marginRight: spacing.sm,
-    fontWeight: typography.fontWeights.medium,
+    fontWeight: typography.fontWeights.bold,
   },
   batchDurationChips: {
     flexDirection: "row",
-    gap: spacing.xs,
+    gap: 6,
     flexWrap: "wrap",
   },
   batchDurationChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     backgroundColor: colors.surface,
   },
   batchDurationChipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight,
     borderColor: colors.primary,
   },
   batchDurationChipText: {
     fontSize: 11,
+    fontWeight: typography.fontWeights.medium,
     color: colors.textSecondary,
   },
   batchDurationChipTextActive: {
-    color: "#ffffff",
+    color: colors.primary,
     fontWeight: typography.fontWeights.bold,
+  },
+  addNoteChipBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+  },
+  addNoteChipText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  addMoreBatchBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surfaceSubtle,
+    marginTop: 2,
+  },
+  addMoreBatchBtnText: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+  },
+  reviewFooter: {
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  autoScheduleToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  autoScheduleToggleText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text,
   },
   // Minimalist 3-Card Grid Quick Action Sheet Styles
   compactSheetContainer: {
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.cardLarge,
     borderTopRightRadius: radius.cardLarge,
@@ -1324,7 +1910,9 @@ const styles = StyleSheet.create({
   },
   aiCardBorder: {
     borderColor: colors.accent,
-    backgroundColor: "rgba(168, 85, 247, 0.06)",
+    borderBottomWidth: 3,
+    borderBottomColor: colors.accentBottom,
+    backgroundColor: colors.accentLight,
   },
   gridIconCircle: {
     width: 44,

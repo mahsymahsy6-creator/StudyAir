@@ -2,6 +2,7 @@ import React from "react";
 import { Text, StyleSheet, Pressable, StyleProp, ViewStyle, TextStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, touchTarget, radius, tidySpacing } from "../../theme";
+import { soundFX } from "../../lib/sound";
 
 export interface SecondaryButtonProps {
   label: string;
@@ -22,7 +23,10 @@ export function SecondaryButton({
 }: SecondaryButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        soundFX.playClick();
+        onPress();
+      }}
       disabled={disabled}
       style={({ pressed }) => [
         styles.button,

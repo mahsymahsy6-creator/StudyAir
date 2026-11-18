@@ -1,0 +1,12 @@
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const jiti = require("jiti")(process.cwd() + "/");
+jiti("./src/lib/__tests__/timetableGrouping.test.ts");
+jiti("./src/engine/__tests__/deadlineEngine.test.ts");
+jiti("./src/lib/__tests__/serialQueue.test.ts");
+jiti("./src/lib/__tests__/dateUtils.test.ts");
+jiti("./src/lib/__tests__/taskStats.test.ts");
+jiti("./src/lib/__tests__/updateChecker.test.ts");
+jiti("./src/lib/__tests__/developerMode.test.ts");
+jiti("./src/lib/__tests__/streakFreeze.test.ts");
+jiti("./src/lib/__tests__/periodSync.test.ts");

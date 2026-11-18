@@ -23,10 +23,15 @@ import {
   StudyBlock,
   SchedulePrefs,
   DEFAULT_SCHEDULE_PREFS,
+  Grade,
+  Teacher,
 } from "../types";
 import { INITIAL_SUBJECTS, INITIAL_STUDY_UNITS, INITIAL_BLOCKS } from "../mockData";
+import { createSerialQueue } from "./serialQueue";
+import { DEFAULT_CURRICULUM_SUBJECTS, ensureStandardSubjects } from "./subjectDictionary";
 
 const ASYNC_STORAGE_KEY = "studyfly_persistent_mirror_v2";
+const writeQueue = createSerialQueue();
 
 export interface DatabaseState {
   subjects: Subject[];
@@ -45,6 +50,8 @@ export interface DatabaseState {
   appSettings: AppSettings;
   studyBlocks?: StudyBlock[];
   schedulePrefs?: SchedulePrefs;
+  grades?: Grade[];
+  teachers?: Teacher[];
 }
 
 export interface BackupPayload {
@@ -69,86 +76,41 @@ export async function initDatabase(): Promise<boolean> {
 }
 
 export async function loadAllData(): Promise<DatabaseState> {
+  let partialAppSettings: Partial<AppSettings> | null = null;
   try {
     const raw = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.subjects && parsed.subjects.length > 0) {
+        const enrichedSubjects = ensureStandardSubjects(parsed.subjects);
         const tasks = (parsed.tasks || []).map((t: any) => ({
           ...t,
           estimatedMinutes: t.estimatedMinutes != null ? Number(t.estimatedMinutes) : 30,
         }));
         return {
           ...parsed,
+          subjects: enrichedSubjects,
           tasks,
           studyBlocks: Array.isArray(parsed.studyBlocks) ? parsed.studyBlocks : [],
           schedulePrefs: parsed.schedulePrefs || DEFAULT_SCHEDULE_PREFS,
+          grades: Array.isArray(parsed.grades) ? parsed.grades : [],
+          teachers: Array.isArray(parsed.teachers) ? parsed.teachers : [],
           appSettings: {
             ...DEFAULT_APP_SETTINGS,
             ...(parsed.appSettings || {}),
           },
         };
       }
+      if (parsed.appSettings) {
+        partialAppSettings = parsed.appSettings;
+      }
     }
   } catch (err) {
     console.warn("[StorageWeb] Error loading AsyncStorage:", err);
   }
 
-  // Initial seed with sample subjects & timetable for instant demo
-  const sampleSubjects: Subject[] = [
-    {
-      id: "sub-math",
-      title: "Matematika",
-      name: "Matematika",
-      color: "#3A86FF",
-      color_hex: "#3A86FF",
-      aliases: ["MTK", "Math"],
-      teacher: "Drs. Budi Santoso",
-      room: "R. 102",
-      bringItems: ["Buku Berpetak", "Penggaris Segitiga", "Kalkulator"],
-      exam_date: "2026-11-25",
-      examDate: "2026-11-25",
-    },
-    {
-      id: "sub-fis",
-      title: "Fisika",
-      name: "Fisika",
-      color: "#8B5CF6",
-      color_hex: "#8B5CF6",
-      aliases: ["FIS"],
-      teacher: "Siti Rahma, M.Pd",
-      room: "Lab Fisika",
-      bringItems: ["Kalkulator Ilmiah", "Buku Rumus"],
-      exam_date: "2026-11-28",
-      examDate: "2026-11-28",
-    },
-    {
-      id: "sub-kim",
-      title: "Kimia",
-      name: "Kimia",
-      color: "#10B981",
-      color_hex: "#10B981",
-      aliases: ["KIM"],
-      teacher: "Ahmad Fauzi, S.Si",
-      room: "Lab Kimia",
-      bringItems: ["Jas Lab", "Buku Praktikum"],
-      exam_date: "2026-11-30",
-      examDate: "2026-11-30",
-    },
-    {
-      id: "sub-pjok",
-      title: "PJOK",
-      name: "PJOK",
-      color: "#F59E0B",
-      color_hex: "#F59E0B",
-      aliases: ["Penjas", "Olahraga"],
-      teacher: "Pak Yanto",
-      room: "Lapangan Utama",
-      bringItems: ["Baju Olahraga", "Sepatu Kets", "Botol Minum"],
-      exam_date: "2026-12-05",
-      examDate: "2026-12-05",
-    },
-  ];
+  // Initial seed with full standard curriculum subjects & timetable for instant demo
+  const sampleSubjects: Subject[] = DEFAULT_CURRICULUM_SUBJECTS;
 
   const sampleTimetable: TimetableEntry[] = [
     { id: "tt-1", weekday: 1, periodNumber: 1, subjectId: "sub-math", weekPattern: "every", kind: "class", room: "R. 102" },
@@ -226,30 +188,107 @@ export async function loadAllData(): Promise<DatabaseState> {
     appSettings: {
       ...DEFAULT_APP_SETTINGS,
       hasCompletedOnboarding: true, // Set to true so main UI displays immediately
+      ...(partialAppSettings || {}),
     },
+    grades: [],
+    teachers: [],
   };
 
-  saveStateImmediately(initialState).catch(() => {});
+  await saveStateImmediately(initialState);
   return initialState;
 }
 
 export async function persistFullStateToSQLite(state: DatabaseState): Promise<void> {
-  await saveStateImmediately(state);
+  return saveStateImmediately(state);
 }
 
 export async function saveStateImmediately(state: DatabaseState): Promise<void> {
-  try {
-    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(state));
-  } catch (err) {
-    console.warn("[StorageWeb] Error saving to AsyncStorage:", err);
-  }
+  return writeQueue.run(async () => {
+    try {
+      await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      console.warn("[StorageWeb] Error saving to AsyncStorage:", err);
+    }
+  });
+}
+
+async function updatePatchQueued(patch: Partial<DatabaseState>): Promise<void> {
+  return writeQueue.run(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
+      const state: DatabaseState = raw ? JSON.parse(raw) : ({} as any);
+      Object.assign(state, patch);
+      await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      console.warn("[StorageWeb] Error updating AsyncStorage patch:", err);
+    }
+  });
+}
+
+export async function syncMirror(state: DatabaseState): Promise<void> {
+  return saveStateImmediately(state);
+}
+
+export async function saveSubjects(subjects: Subject[]): Promise<void> {
+  return updatePatchQueued({ subjects });
+}
+
+export async function savePeriodTimes(periodTimes: PeriodTime[]): Promise<void> {
+  return updatePatchQueued({ periodTimes });
+}
+
+export async function saveTimetableEntries(timetableEntries: TimetableEntry[]): Promise<void> {
+  return updatePatchQueued({ timetableEntries });
+}
+
+export async function saveDaysOff(daysOff: DayOff[]): Promise<void> {
+  return updatePatchQueued({ daysOff });
+}
+
+export async function saveOverrides(overrides: Override[]): Promise<void> {
+  return updatePatchQueued({ overrides });
+}
+
+export async function saveTasks(tasks: Task[]): Promise<void> {
+  return updatePatchQueued({ tasks });
+}
+
+export async function saveStudyUnits(studyUnits: StudyUnit[]): Promise<void> {
+  return updatePatchQueued({ studyUnits });
+}
+
+export async function saveScheduledBlocks(blocks: ScheduledBlock[]): Promise<void> {
+  return updatePatchQueued({ blocks });
+}
+
+export async function saveFocusLogs(focusLogs: FocusLog[]): Promise<void> {
+  return updatePatchQueued({ focusLogs });
+}
+
+export async function saveReviewHistory(reviewHistory: ReviewHistory[]): Promise<void> {
+  return updatePatchQueued({ reviewHistory });
+}
+
+export async function saveDailyStats(dailyStats: DailyStudyStats[]): Promise<void> {
+  return updatePatchQueued({ dailyStats });
+}
+
+export async function saveGrades(grades: Grade[]): Promise<void> {
+  return updatePatchQueued({ grades });
+}
+
+export async function saveTeachers(teachers: Teacher[]): Promise<void> {
+  return updatePatchQueued({ teachers });
 }
 
 export function exportBackupJSON(state: DatabaseState): BackupPayload {
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
-    data: state,
+    data: {
+      ...state,
+      geminiApiKey: "",
+    },
   };
 }
 
@@ -269,7 +308,19 @@ export async function importBackupJSON(
         estimatedMinutes: t.estimatedMinutes != null ? Number(t.estimatedMinutes) : 30,
       })),
       studyBlocks: Array.isArray(data.studyBlocks) ? data.studyBlocks : [],
-      schedulePrefs: data.schedulePrefs || DEFAULT_SCHEDULE_PREFS,
+      schedulePrefs: data.schedulePrefs
+        ? {
+            ...DEFAULT_SCHEDULE_PREFS,
+            ...data.schedulePrefs,
+            priorityWeights: {
+              ...DEFAULT_SCHEDULE_PREFS.priorityWeights,
+              ...(data.schedulePrefs.priorityWeights || {}),
+            },
+          }
+        : DEFAULT_SCHEDULE_PREFS,
+      appSettings: data.appSettings ? { ...DEFAULT_APP_SETTINGS, ...data.appSettings } : DEFAULT_APP_SETTINGS,
+      grades: Array.isArray(data.grades) ? data.grades : [],
+      teachers: Array.isArray(data.teachers) ? data.teachers : [],
     };
     await saveStateImmediately(cleanState);
     return { success: true, state: cleanState };
@@ -279,17 +330,17 @@ export async function importBackupJSON(
 }
 
 /**
+ * Saves app settings into AsyncStorage (web mirror of storage.ts saveAppSettings).
+ */
+export async function saveAppSettings(appSettings: AppSettings): Promise<void> {
+  return updatePatchQueued({ appSettings });
+}
+
+/**
  * Saves all study blocks into AsyncStorage.
  */
 export async function saveStudyBlocks(blocks: StudyBlock[]): Promise<void> {
-  try {
-    const raw = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
-    const state: DatabaseState = raw ? JSON.parse(raw) : ({} as any);
-    state.studyBlocks = blocks;
-    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(state));
-  } catch (err) {
-    console.warn("[StorageWeb] Error saving study blocks:", err);
-  }
+  return updatePatchQueued({ studyBlocks: blocks });
 }
 
 /**
@@ -314,14 +365,7 @@ export async function getStudyBlocks(): Promise<StudyBlock[]> {
  * Saves schedule preferences into AsyncStorage.
  */
 export async function saveSchedulePrefs(prefs: SchedulePrefs): Promise<void> {
-  try {
-    const raw = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
-    const state: DatabaseState = raw ? JSON.parse(raw) : ({} as any);
-    state.schedulePrefs = prefs;
-    await AsyncStorage.setItem(ASYNC_STORAGE_KEY, JSON.stringify(state));
-  } catch (err) {
-    console.warn("[StorageWeb] Error saving schedule prefs:", err);
-  }
+  return updatePatchQueued({ schedulePrefs: prefs });
 }
 
 /**

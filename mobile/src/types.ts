@@ -23,9 +23,9 @@ export interface Subject {
   creditHours?: number; // e.g. 2 (JP / SKS)
 
   // Backward compatibility fields for legacy views
-  title: string;
-  color_hex: string;
-  exam_date: string;
+  title?: string;
+  color_hex?: string;
+  exam_date?: string;
   total_estimated_minutes?: number;
 }
 
@@ -251,6 +251,8 @@ export type AppTheme =
   | "high_contrast"
   | "daylight";
 
+export type DragonElement = "auto" | "fire" | "ice" | "emerald" | "solar" | "cosmic";
+
 export interface AppSettings {
   theme: AppTheme;
   language: "en" | "id";
@@ -270,6 +272,16 @@ export interface AppSettings {
   streakMinFocusMinutes?: number;
   bestStreak?: number;
   lastCelebratedMilestone?: number;
+  streakPetName?: string;
+  streakPetElement?: DragonElement;
+  streakPetXpBonus?: number;
+  streakPetFedTodayCount?: number;
+  streakPetLastFedDate?: string;
+  developerModeEnabled?: boolean;
+  streakFreezeCount?: number;
+  streakFrozenDates?: string[];
+  last3DayStreakFreezeAwarded?: number;
+  lastDailyFreezeCheckDate?: string;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -289,6 +301,16 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   streakMinFocusMinutes: 15,
   bestStreak: 0,
   lastCelebratedMilestone: 0,
+  streakPetName: "",
+  streakPetElement: "auto",
+  streakPetXpBonus: 0,
+  streakPetFedTodayCount: 0,
+  streakPetLastFedDate: "",
+  developerModeEnabled: false,
+  streakFreezeCount: 1,
+  streakFrozenDates: [],
+  last3DayStreakFreezeAwarded: 0,
+  lastDailyFreezeCheckDate: "",
 };
 
 // ─── 8. School Planner: Grades & Teachers ───

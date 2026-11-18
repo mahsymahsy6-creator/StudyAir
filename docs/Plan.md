@@ -95,13 +95,23 @@ Cloud sync, social features, new analytics, Copilot chat, share-timetable (revis
 | - | Streak Mascot Evolution: 4-Stage Growing Dragon Companion & Procedural Animations | `done` |
 | - | School Planner Transformation: Grades & GPA Tracker, Timetable Tab, Teacher Directory, 5-Tab Bar | `done` |
 | - | Standar Nilai Rapor Indonesia & Kalkulator TKA (Kurikulum Merdeka, SNBP & UTBK) | `done` |
+| - | Calm Streak Pet Animation & Hide Pet Before Streak Accomplished | `done` |
+| - | 9:16 Vertical App Trailer (`1080×1920` Interactive Web + Rendered `.mp4` / `.webm`) | `done` |
+| - | Interactive Streak Dragon Companion Care, Custom Naming, XP/Bara Api Feeding & 5 Elemental Skins | `done` |
+| - | Mobile-Accessible Contribution Heatmap (Range Zoom, Tappable Cells, Day Inspector & Level Filter) | `done` |
+| - | StudyAir v2.0.0 Release & Download Hub (In-App APK Updater, Web Download Portal & Version Bump) | `done` |
+| - | Organic Biomechanical Streak Dragon Companion (Circadian Rhythm, 2-Joint Wings, 3-Joint Tail & Care Audio) | `done` |
+| - | Navigation History Stack (`BackHandler` + Web `popstate`), v2 Onboarding Modernization & UI Border Harmonization | `done` |
+| - | Streak Pet Improvement: Removed Redundant EXP/Level Layer in Favor of Streak Evolution & Daily Satiety (`Kenyang 0/3`) | `done` |
+| - | Simplified Stage 4 (`deity`) Streak Dragon Silhouette & Streamlined `StreakScreen` UI | `done` |
+| - | "Tinjau Tugas" AI Review UI Overhaul, Smart Compound Splitting, Localization & `DeadlinePickerStrip` Integration | `done` |
 
 ### Superseded Packets (v1)
 
 | Packet | Goal | Status |
 | :--- | :--- | :--- |
 | T-001 | Remove debug console.log | `superseded` — folded into P0 |
-| T-002 | Onboarding polish | `superseded` — onboarding will be rebuilt for v2 loop |
+| T-002 | Onboarding polish | `done` — rebuilt for v2 loop (`OnboardingModal.tsx`) |
 | T-003 | Split CalendarScreen | `superseded` — CalendarScreen rebuilt in P8 |
 
 ---
@@ -151,6 +161,6 @@ graph LR
 ```
 
 ## Status
-All 14 task packets (P0 through P13) completed and verified with 100% passing automated test suites, clean TypeScript check, and strict adherence to tidy rules and architecture.
+All 14 task packets (P0 through P13) completed and verified with 100% passing automated test suites, clean TypeScript check, and strict adherence to tidy rules and architecture. Official v2.0.0 release packages the authentic standalone Android APK (`StudyAir-v2.0.0.apk`, 86.2 MB, `versionCode: 2`) built via EAS (`4a39dc68-9a26-4735-aaff-aeffd687dbda`) with the StudyAir calendar + paper plane app launcher icon verified inside the APK (`mipmap-*`), alongside multi-screen distribution across web and mobile and the local APK download portal. Latest UI evaluation pass (2026-11-10) resolved Bugs #23 and #24, unified main-tab headers, simplified `DeadlinePickerStrip`, and decluttered `TasksScreen`, `TimetableScreen`, `StatsScreen`, and `StreakScreen`. 2026-11-15: Completely hid debug menu by default across the app and implemented Android-style 7-tap build number Easter egg to unlock Developer Mode and streak simulator tooling. 2026-11-16: Upgraded Streak Freezing system with automated 3-day consecutive milestone awards, daily completion lucky drop chance (35%), auto-protection on missed school days, proactive freezing, and remastered day medallions (solid bright orange flame circle for completed days, solid bright ice-blue freeze crystal circle for frozen days). Enhanced universal click audio engine with dual-layered low-latency Web Audio API synthesis and removed the "Akhir Pekan" feature to rely on active streak freezing. 2026-11-17: Fixed bell schedule period synchronization between Settings and Timetable Wizard ("Susun Manual"), resolved wizard "Batal" navigation button across web and native platforms, integrated direct "Jam Pelajaran" bell times configuration and modal access on the Jadwal tab (`TimetableScreen`), added dynamic day-specific period resolution, inline "+ Tambah Jam Pelajaran" support, and enabled overdue task rescheduling via `allowOverdue: true` in `schedulerEngine.ts`. All 16 regression test suites and 41 unit tests passing cleanly.
 
 

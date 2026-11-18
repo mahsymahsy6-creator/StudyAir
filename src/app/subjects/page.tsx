@@ -1,10 +1,26 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useStudyStore } from "@/stores/studyStore";
 import { SubjectList } from "@/components/subjects/SubjectList";
 import { StudyUnitTable } from "@/components/subjects/StudyUnitTable";
-import { ImportExportDialog } from "@/components/subjects/ImportExportDialog";
+
+const ImportExportDialog = dynamic(
+  () =>
+    import("@/components/subjects/ImportExportDialog").then(
+      (m) => m.ImportExportDialog
+    ),
+  { ssr: false }
+);
+
+const AIPhotoScheduleDialog = dynamic(
+  () =>
+    import("@/components/ai/AIPhotoScheduleDialog").then(
+      (m) => m.AIPhotoScheduleDialog
+    ),
+  { ssr: false }
+);
 import {
   Dialog,
   DialogContent,
@@ -34,6 +50,7 @@ import {
   Trash2,
   Brain,
   Download,
+  Camera,
 } from "lucide-react";
 import { format, differenceInDays, addDays } from "date-fns";
 import { useCurrentDate } from "@/lib/hooks/useMounted";
@@ -73,6 +90,7 @@ export default function SubjectsPage() {
 
   // Dialog states
   const [importExportOpen, setImportExportOpen] = useState(false);
+  const [aiPhotoOpen, setAiPhotoOpen] = useState(false);
   const [addSubjectOpen, setAddSubjectOpen] = useState(false);
   const [newSubjectTitle, setNewSubjectTitle] = useState("");
   const [newSubjectExamDate, setNewSubjectExamDate] = useState(
@@ -121,8 +139,8 @@ export default function SubjectsPage() {
       cognitive_load: newUnitLoad,
     });
 
-    toast.success("Atomic Study Unit added", {
-      description: `"${newUnitTitle.trim()}" (${duration}m, ${newUnitLoad} load)`,
+    toast.success("Topic added", {
+      description: `"${newUnitTitle.trim()}" (${duration}m, ${newUnitLoad.toLowerCase()} difficulty)`,
     });
 
     setNewUnitTitle("");
@@ -134,9 +152,9 @@ export default function SubjectsPage() {
   const handleAutoReschedule = () => {
     const res = rescheduleAll(240);
     if (res.count > 0) {
-      toast.success(`Rescheduled ${res.count} study units!`, {
+      toast.success(`Rescheduled ${res.count} topics!`, {
         description:
-          "Units distributed across available slots before the exam date.",
+          "Topics distributed across available slots before the exam date.",
       });
     } else if (res.overflowCount > 0) {
       toast.warning("Capacity warning", {
@@ -152,47 +170,55 @@ export default function SubjectsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-background">
       {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/30 bg-card/25 backdrop-blur-md px-4 sm:px-8 py-4 sm:py-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border bg-card/40 px-4 sm:px-8 py-4 sm:py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
             <BookOpen className="h-5 w-5" />
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-              Syllabus Deconstructor
+              Courses & Topics
             </h1>
             <p className="text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
-              Break subjects into atomic study units with cognitive load estimates and target exam dates.
+              Manage your subjects and track what to study next.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setAiPhotoOpen(true)}
+            className="h-8 gap-1.5 rounded-lg px-3 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Camera className="h-3.5 w-3.5" />
+            Scan with AI
+          </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => setImportExportOpen(true)}
-            className="h-8 gap-1.5 rounded-lg px-3 text-xs border-border/40 hover:bg-muted/30"
+            className="h-8 gap-1.5 rounded-lg px-2.5 text-xs border-border hover:bg-muted"
           >
             <Download className="h-3.5 w-3.5" />
-            Curriculum & Import
+            Import
           </Button>
           <Button
             size="sm"
             onClick={handleAutoReschedule}
-            className="h-8 gap-1.5 rounded-lg px-3 text-xs font-medium shadow-sm bg-primary text-primary-foreground hover:bg-primary/90"
+            className="h-8 gap-1.5 rounded-lg px-3 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-            Auto-Schedule to Calendar
+            Auto-Schedule
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => setAddSubjectOpen(true)}
-            className="h-8 gap-1.5 rounded-lg px-3 text-xs border-border/40 hover:bg-muted/30"
+            className="h-8 gap-1.5 rounded-lg px-2.5 text-xs border-border hover:bg-muted"
           >
             <Plus className="h-3.5 w-3.5" />
-            New Subject
+            New Course
           </Button>
         </div>
       </div>
@@ -200,7 +226,7 @@ export default function SubjectsPage() {
       {/* ─── Responsive Two-Column Layout ─── */}
       <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Left: Subjects Master List */}
-        <div className="w-full md:w-88 border-b md:border-b-0 md:border-r border-border/30 overflow-y-auto max-h-64 md:max-h-none shrink-0 p-4 sm:p-5 bg-card/[0.08]">
+        <div className="w-full md:w-80 lg:w-88 border-b md:border-b-0 md:border-r border-border overflow-y-auto max-h-48 md:max-h-none shrink-0 p-4 sm:p-5 bg-card/20">
           <SubjectList
             subjects={subjectsWithUnits}
             selectedSubjectId={selectedSubjectId}
@@ -214,8 +240,8 @@ export default function SubjectsPage() {
           {currentSubject ? (
             <div className="max-w-4xl space-y-6">
               {/* Subject Detail Card */}
-              <div className="rounded-2xl border border-border/30 bg-card/40 p-6 shadow-none backdrop-blur-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/30">
+              <div className="rounded-2xl border border-border bg-card/60 p-6 shadow-none">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
                   <div className="flex items-center gap-3">
                     <div
                       className="h-5 w-5 rounded-md shadow-sm"
@@ -251,7 +277,7 @@ export default function SubjectsPage() {
                       className="gap-1.5 text-xs"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Add Study Unit
+                      Add Topic
                     </Button>
                     <Button
                       size="sm"
@@ -259,7 +285,7 @@ export default function SubjectsPage() {
                       onClick={() => {
                         if (
                           confirm(
-                            `Delete subject "${currentSubject.title}" and its study units?`
+                            `Delete course "${currentSubject.title}" and its topics?`
                           )
                         ) {
                           deleteSubject(currentSubject.id);
@@ -267,7 +293,7 @@ export default function SubjectsPage() {
                         }
                       }}
                       className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      aria-label="Delete subject"
+                      aria-label="Delete course"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -275,24 +301,24 @@ export default function SubjectsPage() {
                 </div>
 
                 {/* Progress breakdown */}
-                <div className="grid grid-cols-3 gap-4 pt-4 text-center">
-                  <div className="rounded-lg bg-muted/20 p-2.5">
+                <div className="grid grid-cols-3 gap-3 pt-4 text-center">
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <div className="text-lg font-bold text-foreground">
                       {currentSubject.units.length}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Total Units
+                      Total Topics
                     </div>
                   </div>
-                  <div className="rounded-lg bg-muted/20 p-2.5">
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <div className="text-lg font-bold text-success">
                       {currentSubject.completed_count}
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Completed Units
+                      Completed
                     </div>
                   </div>
-                  <div className="rounded-lg bg-muted/20 p-2.5">
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <div className="text-lg font-bold text-primary">
                       {currentSubject.units.length > 0
                         ? Math.round(
@@ -304,14 +330,14 @@ export default function SubjectsPage() {
                       %
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Syllabus Mastery
+                      Progress
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Units Table */}
-              <div className="rounded-xl border border-border/40 bg-card p-5 shadow-sm">
+              <div className="rounded-2xl border border-border bg-card/60 p-5 shadow-none">
                 <StudyUnitTable
                   units={currentSubject.units}
                   subjectTitle={currentSubject.title}
@@ -323,18 +349,21 @@ export default function SubjectsPage() {
               </div>
             </div>
           ) : (
-            <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 text-center">
-              <BookOpen className="h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-sm font-medium text-muted-foreground">
-                Select a subject from the left or create a new one
-              </p>
+            <div className="empty-state rounded-2xl border border-dashed border-border h-64 p-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground">
+                <BookOpen className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">No course selected</p>
+                <p className="text-xs text-muted-foreground">Select a course from the sidebar or create a new one</p>
+              </div>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => setAddSubjectOpen(true)}
-                className="mt-3 text-xs"
+                className="mt-2 text-xs gap-1.5"
               >
-                + Create Subject
+                <Plus className="h-3.5 w-3.5 mr-1" /> Create Course
               </Button>
             </div>
           )}
@@ -343,7 +372,7 @@ export default function SubjectsPage() {
 
       {/* ─── Add Subject Dialog ─── */}
       <Dialog open={addSubjectOpen} onOpenChange={setAddSubjectOpen}>
-        <DialogContent className="max-w-md border-border/40 bg-card">
+        <DialogContent className="max-w-md border-border bg-card">
           <form onSubmit={handleCreateSubject}>
             <DialogHeader>
               <DialogTitle>Add New Subject</DialogTitle>
@@ -419,21 +448,21 @@ export default function SubjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ─── Add Atomic Study Unit Dialog ─── */}
+      {/* ─── Add Topic Dialog ─── */}
       <Dialog open={addUnitOpen} onOpenChange={setAddUnitOpen}>
-        <DialogContent className="max-w-md border-border/40 bg-card">
+        <DialogContent className="max-w-md border-border bg-card">
           <form onSubmit={handleCreateUnit}>
             <DialogHeader>
-              <DialogTitle>Add Atomic Study Unit</DialogTitle>
+              <DialogTitle>Add Study Topic</DialogTitle>
               <DialogDescription className="text-xs">
-                Break the syllabus into focused, bite-sized topics.
+                Add a topic to this course with duration and difficulty.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
               <div className="space-y-1.5">
                 <Label htmlFor="unit-title" className="text-xs">
-                  Topic / Unit Title
+                  Topic Name
                 </Label>
                 <Input
                   id="unit-title"
@@ -472,7 +501,7 @@ export default function SubjectsPage() {
                 <div className="space-y-1.5">
                   <Label htmlFor="cog-load" className="text-xs flex items-center gap-1">
                     <Brain className="h-3 w-3 text-primary" />
-                    Cognitive Load
+                    Difficulty
                   </Label>
                   <Select
                     value={newUnitLoad}
@@ -481,12 +510,12 @@ export default function SubjectsPage() {
                     }}
                   >
                     <SelectTrigger id="cog-load">
-                      <SelectValue placeholder="Cognitive Load" />
+                      <SelectValue placeholder="Difficulty" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="LOW">Low (Review / Skim)</SelectItem>
+                      <SelectItem value="LOW">Easy (Review / Light)</SelectItem>
                       <SelectItem value="MEDIUM">Medium (Standard)</SelectItem>
-                      <SelectItem value="HIGH">High (Complex Theory)</SelectItem>
+                      <SelectItem value="HIGH">Hard (Heavy / Challenging)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -503,7 +532,7 @@ export default function SubjectsPage() {
                 Cancel
               </Button>
               <Button type="submit" size="sm">
-                Add to Syllabus
+                Save Topic
               </Button>
             </DialogFooter>
           </form>
@@ -516,6 +545,11 @@ export default function SubjectsPage() {
         subjects={subjects}
         studyUnits={studyUnits}
         onImport={importSyllabus}
+      />
+
+      <AIPhotoScheduleDialog
+        open={aiPhotoOpen}
+        onClose={() => setAiPhotoOpen(false)}
       />
     </div>
   );

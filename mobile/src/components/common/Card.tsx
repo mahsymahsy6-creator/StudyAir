@@ -58,8 +58,6 @@ export function Card({
 
 const styles = StyleSheet.create({
   pressableWrapper: {
-    marginHorizontal: tidySpacing.screen,
-    marginVertical: tidySpacing.small,
     minHeight: touchTarget.min,
   },
   card: {

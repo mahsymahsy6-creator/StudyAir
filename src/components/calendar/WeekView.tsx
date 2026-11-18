@@ -53,8 +53,8 @@ export function WeekView({
   return (
     <div className="flex flex-1 overflow-auto bg-background">
       {/* Time gutter */}
-      <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border/30 bg-background/95 backdrop-blur-md select-none">
-        <div className="h-16 border-b border-border/30" /> {/* Header spacer */}
+      <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-border bg-background select-none">
+        <div className="h-16 border-b border-border" /> {/* Header spacer */}
         {hours.map((hour) => (
           <div
             key={hour}
@@ -78,26 +78,26 @@ export function WeekView({
             <div
               key={dayKey}
               className={cn(
-                "min-w-[130px] border-r border-border/20 last:border-r-0 transition-colors",
-                today_ && "bg-primary/[0.02]"
+                "min-w-[130px] border-r border-border last:border-r-0 transition-colors",
+                today_ && "bg-primary/[0.03]"
               )}
             >
               {/* Day header */}
               <div
                 className={cn(
-                  "sticky top-0 z-10 flex h-16 flex-col items-center justify-center gap-0.5 border-b border-border/30 bg-background/90 backdrop-blur-md select-none",
+                  "sticky top-0 z-10 flex h-16 flex-col items-center justify-center gap-0.5 border-b border-border bg-background select-none",
                   today_ && "bg-primary/[0.04]"
                 )}
               >
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {format(day, "EEE")}
                 </span>
                 <span
                   className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all",
+                    "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-150",
                     today_
-                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
-                      : "text-foreground hover:bg-muted/30"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
                   )}
                 >
                   {format(day, "d")}

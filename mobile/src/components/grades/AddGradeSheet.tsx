@@ -34,6 +34,7 @@ interface AddGradeSheetProps {
   visible: boolean;
   subjects: Subject[];
   initialSubjectId?: string;
+  initialCategory?: GradeCategory;
   gradeToEdit?: Grade | null;
   onClose: () => void;
   onSave: (data: Omit<Grade, "id" | "createdAt">) => Promise<void>;
@@ -73,13 +74,14 @@ export function AddGradeSheet({
   visible,
   subjects,
   initialSubjectId,
+  initialCategory,
   gradeToEdit,
   onClose,
   onSave,
 }: AddGradeSheetProps) {
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<GradeCategory>("exam");
+  const [category, setCategory] = useState<GradeCategory>(initialCategory || "exam");
   const [scoreText, setScoreText] = useState("85");
   const [maxScoreText, setMaxScoreText] = useState("100");
   const [weight, setWeight] = useState<number>(1);
@@ -102,7 +104,7 @@ export function AddGradeSheet({
           initialSubjectId || (subjects.length > 0 ? subjects[0].id : "");
         setSelectedSubjectId(defaultSubId);
         setTitle("");
-        setCategory("exam");
+        setCategory(initialCategory || "exam");
         setScoreText("85");
         setMaxScoreText("100");
         setWeight(1);
@@ -110,7 +112,7 @@ export function AddGradeSheet({
         setNotes("");
       }
     }
-  }, [visible, gradeToEdit, initialSubjectId, subjects]);
+  }, [visible, gradeToEdit, initialSubjectId, initialCategory, subjects]);
 
   const handleSave = async () => {
     if (!selectedSubjectId) {
@@ -372,7 +374,7 @@ export function AddGradeSheet({
                   styles.datePresetChip,
                   isSelected && {
                     borderColor: colors.primary,
-                    backgroundColor: `${colors.primary}18`,
+                    backgroundColor: colors.primaryLight,
                   },
                 ]}
                 onPress={() => {

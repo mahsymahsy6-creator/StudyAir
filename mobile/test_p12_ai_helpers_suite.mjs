@@ -4,6 +4,11 @@
  */
 
 import assert from "node:assert";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Pure heuristic logic matching aiService.suggestTaskDuration
 function suggestTaskDuration(title, type = "homework") {
@@ -121,6 +126,27 @@ it("supports overriding duration in review screen", () => {
   );
 
   assert.strictEqual(updated[0].estimatedMinutes, 30);
+});
+
+console.log("\n[3] QuickActionSheet & AIService Tinjau Tugas Integration");
+
+it("QuickActionSheet uses localized Tinjau Tugas copy, DeadlinePickerStrip, type pills, and responsive width", () => {
+  const quickActionContent = fs.readFileSync(
+    path.join(__dirname, "src/components/QuickActionSheet.tsx"),
+    "utf-8"
+  );
+  const aiServiceContent = fs.readFileSync(
+    path.join(__dirname, "src/services/aiService.ts"),
+    "utf-8"
+  );
+
+  assert(!quickActionContent.includes("Save All "), "QuickActionSheet must not render English 'Save All N Tasks'");
+  assert(!quickActionContent.includes("Next Class ("), "QuickActionSheet must not render English 'Next Class (...)'");
+  assert(!aiServiceContent.includes("Next Class ("), "aiService fallback must not render English 'Next Class (...)'");
+  assert(quickActionContent.includes("DeadlinePickerStrip"), "QuickActionSheet review card must integrate DeadlinePickerStrip");
+  assert(quickActionContent.includes("TASK_TYPE_OPTIONS"), "QuickActionSheet must support editable Indonesian task type pills");
+  assert(quickActionContent.includes("maxWidth: 560"), "QuickActionSheet sheetContainer must constrain desktop/web width cleanly");
+  assert(aiServiceContent.includes("export function splitCompoundTaskClauses"), "aiService must export splitCompoundTaskClauses");
 });
 
 console.log("\n==================================================");

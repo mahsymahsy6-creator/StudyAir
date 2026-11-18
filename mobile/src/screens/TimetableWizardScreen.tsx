@@ -51,6 +51,9 @@ import {
   matchSubjectCandidate,
 } from "../lib/timetableParser";
 import { BellTimesEditor } from "../components/timetable/BellTimesEditor";
+import { DEFAULT_PERIOD_TIMES } from "../lib/storage";
+import { HapticFeedback } from "../lib/haptics";
+import { soundFX } from "../lib/sound";
 
 interface TimetableWizardScreenProps {
   navigation: {
@@ -106,12 +109,51 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
   const abortControllerRef = useRef<AbortController | null>(null);
   const shimmerAnim = useRef(new Animated.Value(0.35)).current;
 
-  // Initialize period times from store if empty
+  // Initialize / sync period times from store
   useEffect(() => {
-    if (wizard.periodTimes.length === 0 && storePeriodTimes.length > 0) {
-      controller.setPeriodTimes(storePeriodTimes);
+    if (storePeriodTimes && storePeriodTimes.length > 0) {
+      const isDifferent =
+        wizard.periodTimes.length !== storePeriodTimes.length ||
+        wizard.periodTimes.some((p, idx) => {
+          const sp = storePeriodTimes[idx];
+          return (
+            !sp ||
+            sp.periodNumber !== p.periodNumber ||
+            sp.start !== p.start ||
+            sp.end !== p.end ||
+            sp.weekday !== p.weekday
+          );
+        });
+      if ((wizard.currentStep === 1 || wizard.periodTimes.length === 0) && isDifferent) {
+        controller.setPeriodTimes(storePeriodTimes);
+      }
     }
-  }, [storePeriodTimes, wizard.periodTimes, controller]);
+  }, [storePeriodTimes, wizard.currentStep, wizard.periodTimes, controller]);
+
+  // Sync existing timetableEntries into wizard.reviewItems so Susun Manual is populated with existing schedule
+  useEffect(() => {
+    if (wizard.reviewItems.length === 0 && timetableEntries.length > 0 && wizard.currentStep === 1) {
+      const existingItems: TimetableReviewItem[] = timetableEntries.map((e) => {
+        const subj = subjects.find((s) => s.id === e.subjectId);
+        return {
+          id: `rev-existing-${e.id}`,
+          day: e.weekday,
+          periodNumber: e.periodNumber,
+          subjectId: e.subjectId,
+          rawSubject: subj?.name || e.customLabel || "Pelajaran",
+          matchedSubjectName: subj?.name || e.customLabel || "Pelajaran",
+          matchedSubjectColor: subj?.color || subj?.color_hex || "#3A86FF",
+          isNewSubject: false,
+          confidence: 1.0,
+          startTime: e.startTime,
+          endTime: e.endTime,
+          room: e.room,
+          teacher: e.teacher,
+        };
+      });
+      controller.setReviewItems(existingItems);
+    }
+  }, [timetableEntries, subjects, wizard.reviewItems.length, wizard.currentStep, controller]);
 
   // Shimmer animation for Step 2
   useEffect(() => {
@@ -147,25 +189,44 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
   };
 
   const handleCancelPrompt = () => {
+    soundFX.playClick();
+    const doExit = () => {
+      controller.resetWizard(storePeriodTimes);
+      if (navigation.goBack) {
+        navigation.goBack();
+      }
+      navigation.navigate("Timetable");
+    };
+
+    if (Platform.OS === "web") {
+      if (!wizard.hasEdits || typeof window === "undefined") {
+        doExit();
+      } else {
+        const confirmed = window.confirm(
+          "Batalkan dan keluar dari pengaturan jadwal? Perubahan yang belum disimpan akan dibatalkan."
+        );
+        if (confirmed) {
+          doExit();
+        }
+      }
+      return;
+    }
+
     if (wizard.hasEdits) {
       Alert.alert(
-        t("discardAlertTitle"),
-        t("discardAlertMsg"),
+        t("discardAlertTitle") || "Batalkan Pengaturan Jadwal",
+        t("discardAlertMsg") || "Perubahan yang belum disimpan akan dibatalkan.",
         [
-          { text: t("keepEditing"), style: "cancel" },
           {
-            text: t("discardBtn"),
+            text: t("discardBtn") || "Buang Perubahan",
             style: "destructive",
-            onPress: () => {
-              controller.resetWizard();
-              navigation.goBack();
-            },
+            onPress: doExit,
           },
+          { text: t("keepEditing") || "Lanjut Mengedit", style: "cancel" },
         ]
       );
     } else {
-      controller.resetWizard();
-      navigation.goBack();
+      doExit();
     }
   };
 
@@ -364,6 +425,58 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
   const gridDayItems = useMemo(() => {
     return wizard.reviewItems.filter((i) => i.day === selectedGridDay);
   }, [wizard.reviewItems, selectedGridDay]);
+
+  // Resolve period times for the currently selected grid day (applying day-specific bell times if any)
+  const manualGridPeriods = useMemo(() => {
+    const times = wizard.periodTimes.length > 0 ? wizard.periodTimes : storePeriodTimes;
+    if (!times || times.length === 0) return DEFAULT_PERIOD_TIMES;
+
+    // Two-pass resolution:
+    // Pass 1: Default periods (where weekday is falsy or 0)
+    const defaultPeriods = times.filter((p) => !p.weekday || p.weekday === 0);
+    // Pass 2: Overrides specific to selectedGridDay
+    const daySpecific = times.filter((p) => p.weekday === selectedGridDay);
+
+    const periodMap = new Map<number, PeriodTime>();
+    for (const p of defaultPeriods) {
+      periodMap.set(p.periodNumber, p);
+    }
+    for (const p of daySpecific) {
+      periodMap.set(p.periodNumber, p);
+    }
+
+    return Array.from(periodMap.values()).sort((a, b) => a.periodNumber - b.periodNumber);
+  }, [wizard.periodTimes, storePeriodTimes, selectedGridDay]);
+
+  const handleManualAddPeriod = () => {
+    HapticFeedback.light();
+    soundFX.playClick();
+    const nextNum = manualGridPeriods.length > 0
+      ? Math.max(...manualGridPeriods.map((p) => p.periodNumber)) + 1
+      : 1;
+    const lastPeriod = manualGridPeriods[manualGridPeriods.length - 1];
+    const startTime = lastPeriod ? lastPeriod.end : "14:00";
+    const [h, m] = startTime.split(":").map(Number);
+    const endMinutes = (h * 60 + m + 45) % 1440;
+    const endH = String(Math.floor(endMinutes / 60)).padStart(2, "0");
+    const endM = String(endMinutes % 60).padStart(2, "0");
+    const endTime = `${endH}:${endM}`;
+
+    const newPeriod: PeriodTime = {
+      periodNumber: nextNum,
+      start: startTime,
+      end: endTime,
+    };
+    const currentBase =
+      wizard.periodTimes.length > 0
+        ? wizard.periodTimes
+        : storePeriodTimes.length > 0
+        ? storePeriodTimes
+        : DEFAULT_PERIOD_TIMES;
+    const updated = [...currentBase, newPeriod];
+    controller.setPeriodTimes(updated);
+    setStorePeriodTimes(updated);
+  };
 
   const handleOpenGridSlot = (periodNum: number) => {
     const existing = gridDayItems.find((i) => i.periodNumber === periodNum);
@@ -916,7 +1029,7 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
 
                     {/* Period Rows */}
                     <View style={{ gap: 8, marginBottom: 12 }}>
-                      {wizard.periodTimes.map((period) => {
+                      {manualGridPeriods.map((period) => {
                         const assigned = gridDayItems.find(
                           (i) => i.periodNumber === period.periodNumber
                         );
@@ -948,6 +1061,17 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
                         );
                       })}
                     </View>
+
+                    {/* Inline Button: Tambah Jam Pelajaran */}
+                    <Pressable
+                      style={styles.addPeriodManualBtn}
+                      onPress={handleManualAddPeriod}
+                    >
+                      <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
+                      <Text style={styles.addPeriodManualBtnText}>
+                        + Tambah Jam Pelajaran (Jam {manualGridPeriods.length + 1})
+                      </Text>
+                    </Pressable>
 
                     <Pressable
                       style={styles.actionPrimaryBtn}
@@ -1246,7 +1370,10 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
 
               <BellTimesEditor
                 periodTimes={wizard.periodTimes}
-                onChangePeriodTimes={(times) => controller.setPeriodTimes(times)}
+                onChangePeriodTimes={(times) => {
+                  controller.setPeriodTimes(times);
+                  setStorePeriodTimes(times);
+                }}
                 maxUsedPeriod={maxUsedPeriodInReview}
                 breakEntries={breakEntriesInReview}
                 mode="wizard"
@@ -1469,7 +1596,7 @@ export function TimetableWizardScreen({ navigation }: TimetableWizardScreenProps
               </View>
 
               <ScrollView style={{ maxHeight: 300 }}>
-                {wizard.periodTimes.map((period) => (
+                {(wizard.periodTimes.length > 0 ? wizard.periodTimes : storePeriodTimes).map((period) => (
                   <Pressable
                     key={period.periodNumber}
                     style={styles.simpleRow}
@@ -2014,6 +2141,25 @@ const styles = StyleSheet.create({
   gridRowEmpty: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  addPeriodManualBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    backgroundColor: colors.surfaceSubtle,
+    gap: 6,
+    marginBottom: 12,
+  },
+  addPeriodManualBtnText: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.primary,
   },
 
   // Step 2 Processing
@@ -2743,7 +2889,7 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   dayChainPreviewBox: {
-    backgroundColor: `${colors.surfaceSubtle}`,
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderBottomWidth: 1,

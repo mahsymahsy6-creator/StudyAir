@@ -298,6 +298,46 @@ assert.strictEqual(legacyTask.estimatedMinutes, 30, "Legacy task with null estim
 assert.strictEqual(typeof legacyTask.estimatedMinutes, "number", "estimatedMinutes is guaranteed to be a number");
 console.log("  ✓ Legacy task loaded with null estimated_minutes defaults to 30 without throwing");
 
+// Test exportBackupJSON strips geminiApiKey while preserving studyBlocks, schedulePrefs, grades, and teachers
+const testGrades = [
+  { id: "g-1", subjectId: "sub-math", title: "UH 1", score: 92, maxScore: 100, weight: 1, category: "exam", date: "2026-10-30" },
+];
+const testTeachers = [
+  { id: "tc-1", name: "Pak Budi", subjectIds: ["sub-math"], room: "R.101" },
+];
+const exportedBackup = storage.exportBackupJSON({
+  ...fullLoaded,
+  geminiApiKey: "AIzaSySecretKeyShouldNotBeExported",
+  studyBlocks: testBlocks,
+  schedulePrefs: customPrefs,
+  grades: testGrades,
+  teachers: testTeachers,
+});
+assert.strictEqual(exportedBackup.data.geminiApiKey, "", "exportBackupJSON must scrub geminiApiKey to empty string");
+assert.deepStrictEqual(exportedBackup.data.studyBlocks, testBlocks, "exportBackupJSON preserves studyBlocks");
+assert.deepStrictEqual(exportedBackup.data.schedulePrefs, customPrefs, "exportBackupJSON preserves schedulePrefs");
+assert.deepStrictEqual(exportedBackup.data.grades, testGrades, "exportBackupJSON preserves grades");
+assert.deepStrictEqual(exportedBackup.data.teachers, testTeachers, "exportBackupJSON preserves teachers");
+console.log("  ✓ exportBackupJSON scrubs geminiApiKey and preserves studyBlocks, schedulePrefs, grades, and teachers");
+
+// Test importBackupJSON on old backup without studyBlocks, schedulePrefs, appSettings, grades, or teachers
+const oldMinimalBackup = JSON.stringify({
+  app: "StudyAir",
+  version: "1.0.0",
+  data: {
+    subjects: [{ id: "sub-old", name: "Sejarah", color: "#f59e0b", aliases: [], bringItems: [] }],
+    tasks: [],
+  },
+});
+const oldImportRes = await storage.importBackupJSON(oldMinimalBackup);
+assert.strictEqual(oldImportRes.success, true, "importBackupJSON succeeds on old backup without new fields");
+assert.deepStrictEqual(oldImportRes.state.studyBlocks, [], "Old backup defaults studyBlocks to []");
+assert.deepStrictEqual(oldImportRes.state.schedulePrefs, DEFAULT_SCHEDULE_PREFS, "Old backup defaults schedulePrefs to DEFAULT_SCHEDULE_PREFS");
+assert.ok(oldImportRes.state.appSettings, "Old backup defaults appSettings to DEFAULT_APP_SETTINGS");
+assert.deepStrictEqual(oldImportRes.state.grades, [], "Old backup defaults grades to []");
+assert.deepStrictEqual(oldImportRes.state.teachers, [], "Old backup defaults teachers to []");
+console.log("  ✓ importBackupJSON provides safe defaults for old backups missing new fields");
+
 // ─── 3. Web Platform Storage Mirror (storage.web.ts) ───
 console.log("\n[3] Web Platform Storage Mirror (storage.web.ts)");
 

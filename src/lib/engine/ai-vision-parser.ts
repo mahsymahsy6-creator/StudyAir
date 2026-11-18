@@ -230,7 +230,7 @@ export async function parsePhotoSchedule(
 
   // Extract or synthesize smart subject title from filename/image context
   let subjectTitle = "Course Syllabus";
-  let examDate = "2026-11-20";
+  const examDate = "2026-11-20";
   let color = "#3b82f6";
   let units: ParsedStudyUnit[] = [];
 

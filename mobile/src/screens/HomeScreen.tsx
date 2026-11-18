@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { format, addDays, parseISO, differenceInCalendarDays, startOfDay } from "date-fns";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, touchTarget, tidySpacing, radius, spacing } from "../theme";
@@ -24,6 +23,8 @@ import { Snackbar } from "../components/common/Snackbar";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
 import { AddTaskSheet } from "../components/tasks/AddTaskSheet";
 import { TodayTasksSection, deriveTodayTasks, calculateTodayTasksProgress } from "../components/home/TodayTasksSection";
+import { TomorrowsBagChecklist } from "../components/home/TomorrowsBagChecklist";
+import { BottomSheet } from "../components/common/BottomSheet";
 import { formatLocaleDate } from "../lib/dateUtils";
 import { getExamState } from "../lib/examEngine";
 import { TeacherDirectoryModal } from "../components/teachers/TeacherDirectoryModal";
@@ -74,8 +75,8 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
     generateExamPlan,
   } = useMobileStudyStore();
 
-  const todayDate = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => format(todayDate, "yyyy-MM-dd"), [todayDate]);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayDate = useMemo(() => parseISO(todayStr), [todayStr]);
   const tomorrowDate = useMemo(() => addDays(todayDate, 1), [todayDate]);
   const tomorrowStr = useMemo(() => format(tomorrowDate, "yyyy-MM-dd"), [tomorrowDate]);
 
@@ -85,8 +86,15 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
   const [addTaskInitialDeadline, setAddTaskInitialDeadline] = useState<string | undefined>(undefined);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [besokExpanded, setBesokExpanded] = useState(false);
+  const [scheduleDayMode, setScheduleDayMode] = useState<"tomorrow" | "today">("tomorrow");
   const [teacherDirectoryVisible, setTeacherDirectoryVisible] = useState(false);
+  const swipeStartXRef = useRef<number | null>(null);
+
+  const toggleScheduleDayMode = (nextMode?: "tomorrow" | "today") => {
+    HapticFeedback.light();
+    soundFX.playClick();
+    setScheduleDayMode((prev) => nextMode || (prev === "tomorrow" ? "today" : "tomorrow"));
+  };
 
   // Subject dictionary map for fast lookups
   const subjectsMap = useMemo(() => {
@@ -96,6 +104,13 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
     }
     return map;
   }, [subjects]);
+
+  const [bagSheetVisible, setBagSheetVisible] = useState(false);
+  const [bagProgress, setBagProgress] = useState({ completed: 0, total: 0 });
+  // Stable + value-checked to avoid the re-render loop from Bug 14.
+  const handleBagProgress = useCallback((completed: number, total: number) => {
+    setBagProgress((prev) => (prev.completed === completed && prev.total === total ? prev : { completed, total }));
+  }, []);
 
   // Tasks dictionary map for fast lookups
   const tasksMap = useMemo(() => {
@@ -116,9 +131,11 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
     const currentTime = format(new Date(), "HH:mm");
     return studyBlocks.filter((b) => {
       if (b.status !== "SCHEDULED") return false;
+      const task = tasksMap.get(b.taskId);
+      if (!task || task.status === "COMPLETED") return false;
       return b.date < todayStr || (b.date === todayStr && b.endTime < currentTime);
     }).length;
-  }, [studyBlocks, todayStr]);
+  }, [studyBlocks, todayStr, tasksMap]);
 
   // 2. Today's Study Blocks (sorted chronologically)
   const todayBlocks = useMemo(() => {
@@ -198,7 +215,9 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
   };
 
   const nextTask = nextBlock ? tasksMap.get(nextBlock.taskId) : null;
-  const nextSubject = nextBlock ? subjectsMap.get(nextBlock.subjectId) : null;
+  const urgentTask = !nextBlock && todayPendingTasks.length > 0 ? todayPendingTasks[0] : null;
+  const heroTask = nextTask || urgentTask;
+  const nextSubject = heroTask ? subjectsMap.get(heroTask.subjectId) : null;
   const nextSubjectColor = nextSubject?.color || nextSubject?.color_hex || colors.primary;
 
   const renderDeadlineBadge = (deadlineStr: string) => {
@@ -222,26 +241,19 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+    <View style={styles.safeArea}>
       {/* ─── 1. Header: Friendly Greeting + Streak Badge + Akses Cepat Akademik (Guru & Pengaturan) ─── */}
       <ScreenHeader
+        showLogo
         title={t("tabToday") || "Hari Ini"}
         subtitle={formatLocaleDate(todayDate, "EEEE, d MMMM yyyy")}
-        streakText={`${streakState?.currentStreak || 0} hari`}
+        streakText={t("streak_days_badge", { count: streakState?.currentStreak || 0 })}
+        isStreakAtRisk={streakState?.isAtRisk}
         onStreakPress={() => navigation.navigate("Streak")}
         actions={[
           {
-            icon: "people-outline",
-            accessibilityLabel: "Daftar Guru",
-            onPress: () => {
-              HapticFeedback.light();
-              soundFX.playClick();
-              setTeacherDirectoryVisible(true);
-            },
-          },
-          {
             icon: "settings-outline",
-            accessibilityLabel: "Pengaturan",
+            accessibilityLabel: t("settings"),
             onPress: () => navigation.navigate("Settings"),
           },
         ]}
@@ -252,231 +264,55 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2. Missed Blocks Alert (Subtle & Non-Intrusive) ─── */}
-        {missedBlocksCount > 0 && (
-          <View style={styles.bannerContainer}>
-            <Banner
-              text={t("banner_blok_terlewat", { count: missedBlocksCount })}
-              buttonText={t("jadwalkan_ulang")}
-              onPress={() => setScheduleSheetVisible(true)}
-              variant="warning"
-              icon="alert-circle-outline"
-            />
-          </View>
-        )}
-
-        {/* ─── 3. O3 Space Hero Presence Widget (Mulai Fokus) ─── */}
+        {/* ─── 1. First Hero Card: Tugas (Tasks) ─── */}
         <View style={styles.heroSection}>
           <Card style={styles.heroCard}>
-            <View style={styles.heroHeaderRow}>
-              <View style={styles.heroHeaderLeft}>
-                <View style={styles.heroIconBadge}>
-                  <Ionicons name="sparkles" size={16} color={colors.accent} />
-                </View>
-                <Text style={styles.heroCardBadgeText}>
-                  {nextBlock ? "Sesi Fokus Berikutnya" : "Fokus Belajar Mandiri"}
-                </Text>
-              </View>
-              <StatusPill
-                variant="purple"
-                label={nextBlock ? `${nextBlock.durationMinutes} menit` : "25m Pomodoro"}
-              />
-            </View>
+            <TodayTasksSection
+              onStartFocus={(task, block) => {
+                if (block) {
+                  navigation.navigate("Focus", { blockId: block.id, taskId: task.id });
+                } else {
+                  navigation.navigate("Focus", { taskId: task.id });
+                }
+              }}
+              onOpenAllTasks={() => navigation.navigate("Tasks")}
+              onOpenAddTask={(initialDeadline) => {
+                setAddTaskInitialDeadline(initialDeadline || todayStr);
+                setAddTaskVisible(true);
+              }}
+            />
 
-            {nextBlock && nextTask ? (
-              <View style={styles.heroBody}>
-                <View style={styles.heroSubjectRow}>
-                  <View style={[styles.heroSubjectDot, { backgroundColor: nextSubjectColor }]} />
-                  <Text style={styles.heroSubjectText} numberOfLines={1}>
-                    {nextSubject?.name || nextSubject?.title || "Pelajaran"}
-                  </Text>
-                  <Text style={styles.heroTimeSlotText}>
-                    • {nextBlock.startTime} - {nextBlock.endTime}
-                  </Text>
-                </View>
-
-                <Text style={styles.heroTaskTitle} numberOfLines={2}>
-                  {nextTask.title}
-                </Text>
-
-                {nextTask.notes ? (
-                  <Text style={styles.heroNotes} numberOfLines={1}>
-                    {nextTask.notes}
-                  </Text>
-                ) : null}
-
-                <View style={styles.heroActionRow}>
-                  <View style={{ flex: 1 }}>
-                    <PrimaryButton
-                      label={t("mulai_fokus") || "Mulai Fokus"}
-                      icon="play"
-                      onPress={() => handleStartFocus(nextBlock)}
-                    />
-                  </View>
-                  <Pressable
-                    style={styles.heroCheckBtn}
-                    onPress={() => {
-                      HapticFeedback.taskToggle();
-                      toggleBlockCompletion(nextBlock.id);
-                    }}
-                    hitSlop={touchTarget.min / 4}
-                    accessibilityLabel="Tandai blok selesai"
-                  >
-                    <Ionicons name="checkmark-circle-outline" size={32} color={colors.textSecondary} />
-                  </Pressable>
-                </View>
-              </View>
-            ) : todayBlocks.length > 0 && todayBlocks.every((b) => b.status === "COMPLETED") ? (
-              <View style={styles.heroBody}>
-                <View style={styles.heroDoneRow}>
-                  <Ionicons name="checkmark-done-circle" size={32} color={colors.emerald} />
-                  <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-                    <Text style={styles.heroPromptTitle}>Semua Sesi Selesai!</Text>
-                    <Text style={styles.heroPromptSub}>
-                      Kamu telah menuntaskan seluruh {todayBlocks.length} blok belajar hari ini.
-                    </Text>
-                  </View>
-                </View>
-                <View style={{ marginTop: spacing.md }}>
-                  <PrimaryButton
-                    label="Tambah Sesi Tambahan"
-                    icon="play"
-                    onPress={() => handleStartFocus(null)}
-                  />
-                </View>
-              </View>
-            ) : (
-              <View style={styles.heroBody}>
-                <Text style={styles.heroPromptTitle}>Siap Belajar Hari Ini?</Text>
-                <Text style={styles.heroPromptSub}>
-                  Mulai sesi fokus 25 menit Pomodoro untuk menyelesaikan tugasmu dengan tenang dan teratur.
-                </Text>
-                <View style={{ marginTop: spacing.md }}>
-                  <PrimaryButton
-                    label={t("mulai_fokus") || "Mulai Fokus Sekarang"}
-                    icon="play"
-                    onPress={() => handleStartFocus(null)}
-                  />
-                </View>
+            {unscheduledTasksCount > 0 && (
+              <View style={{ marginTop: spacing.md }}>
+                <Banner
+                  icon="sparkles"
+                  text={t("banner_tugas_belum_dijadwalkan", { count: unscheduledTasksCount })}
+                  buttonText={t("buat_jadwal") || "Buat Jadwal"}
+                  variant="ai"
+                  onPress={() => setScheduleSheetVisible(true)}
+                />
               </View>
             )}
           </Card>
         </View>
 
-        {/* ─── 4. Jadwal Kelas Hari Ini (School Classes Strip) ─── */}
-        <View style={styles.sectionContainer}>
-          <SectionHeader
-            title="Jadwal Kelas Hari Ini"
-            badge={todaySchedule.items?.length || 0}
-            actionText="Buka Jadwal"
-            onActionPress={() => navigation.navigate("Timetable")}
-          />
-
-          {todaySchedule.isDayOff ? (
-            <Card style={styles.dayOffCard}>
-              <View style={styles.dayOffRow}>
-                <Ionicons name="sunny" size={24} color={colors.amber} style={{ marginRight: spacing.sm }} />
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                    <Text style={styles.dayOffTitle}>Hari Bebas Kelas</Text>
-                    <View style={styles.streakSafePill}>
-                      <Ionicons name="shield-checkmark" size={12} color={colors.emerald} style={{ marginRight: 3 }} />
-                      <Text style={styles.streakSafeText}>Streak Aman</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.dayOffSub}>
-                    {todaySchedule.dayOffReason || "Tidak ada kelas sekolah terjadwal hari ini. Nikmati istirahatmu tanpa khawatir streak berkurang!"}
-                  </Text>
-                </View>
-              </View>
-            </Card>
-          ) : todaySchedule.items && todaySchedule.items.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.classChipsScroll}
-            >
-              {todaySchedule.items.map((item, idx) => {
-                const subColor = item.subject?.color || item.subject?.color_hex || colors.primary;
-                return (
-                  <Pressable
-                    key={item.entryId || idx}
-                    style={styles.classChip}
-                    onPress={() => navigation.navigate("Timetable")}
-                  >
-                    <View style={[styles.classChipStripe, { backgroundColor: subColor }]} />
-                    <View style={styles.classChipContent}>
-                      <Text style={styles.classChipTime}>
-                        {item.startTime ? `${item.startTime} - ${item.endTime}` : `Jam ${item.periodNumber}`}
-                      </Text>
-                      <Text style={styles.classChipTitle} numberOfLines={1}>
-                        {item.subject?.title || item.subject?.name || item.customLabel || "Pelajaran"}
-                      </Text>
-                      {item.room ? (
-                        <Text style={styles.classChipRoom} numberOfLines={1}>
-                          Ruang {item.room}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          ) : (
-            <Card style={styles.quietDayCard}>
-              <Ionicons name="calendar-outline" size={22} color={colors.textMuted} style={{ marginRight: spacing.sm }} />
-              <Text style={styles.quietDayText}>
-                Tidak ada kelas sekolah hari ini. Waktu luang atau belajar mandiri!
-              </Text>
-            </Card>
-          )}
-        </View>
-
-        {/* ─── 5. Tugas & PR Hari Ini (Remastered O3 Space Component) ─── */}
-        <View style={styles.sectionContainer}>
-          <TodayTasksSection
-            onStartFocus={(task, block) => {
-              if (block) {
-                navigation.navigate("Focus", { blockId: block.id, taskId: task.id });
-              } else {
-                navigation.navigate("Focus", { taskId: task.id });
-              }
-            }}
-            onOpenAllTasks={() => navigation.navigate("Tasks")}
-            onOpenAddTask={(initialDeadline) => {
-              setAddTaskInitialDeadline(initialDeadline || todayStr);
-              setAddTaskVisible(true);
-            }}
-          />
-        </View>
-
-        {/* ─── 6. AI Smart Scheduling Assistant (Purple Accent) ─── */}
-        {unscheduledTasksCount > 0 && (
-          <View style={styles.sectionContainer}>
-            <Card style={styles.aiScheduleCard}>
-              <View style={styles.aiCardHeaderRow}>
-                <View style={styles.aiIconBadge}>
-                  <Ionicons name="sparkles" size={18} color={colors.accent} />
-                </View>
-                <View style={{ flex: 1, marginLeft: spacing.sm }}>
-                  <Text style={styles.aiCardTitle}>Susun Jadwal Otomatis (AI)</Text>
-                  <Text style={styles.aiCardSub}>
-                    Ada {unscheduledTasksCount} tugas belum dialokasikan ke kalender belajarmu.
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.aiCardActionRow}>
-                <PrimaryButton
-                  label="✨ Susun Jadwal Otomatis"
-                  variant="ai"
-                  onPress={() => setScheduleSheetVisible(true)}
-                />
-              </View>
-            </Card>
-          </View>
+        {/* ─── Missed Blocks: one quiet line, tap to reschedule ─── */}
+        {missedBlocksCount > 0 && (
+          <Pressable
+            style={styles.missedRow}
+            onPress={() => setScheduleSheetVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`${t("banner_blok_terlewat", { count: missedBlocksCount })}. ${t("jadwalkan_ulang")}`}
+          >
+            <Ionicons name="time-outline" size={14} color={colors.textMuted} />
+            <Text style={styles.missedText} numberOfLines={1}>
+              {t("banner_blok_terlewat", { count: missedBlocksCount })}
+            </Text>
+            <Text style={styles.missedAction}>{t("jadwalkan_ulang")} ›</Text>
+          </Pressable>
         )}
 
-        {/* ─── 7. Compact 48-Hour Exam Pill (If Imminent) ─── */}
+        {/* ─── Compact 48-Hour Exam Pill (If Imminent) ─── */}
         {nextExam && !nextExam.isPassed && nextExam.daysLeft <= 2 ? (
           <View style={styles.sectionContainer}>
             <Pressable
@@ -494,7 +330,7 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
                     : `Ulangan ${nextExam.subject?.name || nextExam.title}`}
                 </Text>
                 <Text style={styles.compactExamSub}>
-                  {nextExam.daysLeft === 0 ? "Hari ini!" : nextExam.daysLeft === 1 ? "Besok!" : "2 hari lagi"} • Buka tab Ulangan
+                  {nextExam.daysLeft === 0 ? "Hari ini!" : nextExam.daysLeft === 1 ? "Besok!" : "2 hari lagi"} • Buka Ulangan
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.accent} />
@@ -502,76 +338,171 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
           </View>
         ) : null}
 
-        {/* ─── 8. Collapsed "Besok" Section (Tomorrow's Preview) ─── */}
+        {/* ─── 2. Second Card: Jadwal Pelajaran Besok / Hari Ini ─── */}
+        {(() => {
+          const activeSchedule = scheduleDayMode === "tomorrow" ? tomorrowSchedule : todaySchedule;
+          const activeDate = scheduleDayMode === "tomorrow" ? tomorrowDate : todayDate;
+          const scheduleItems = (activeSchedule?.items || []).filter((item: any) => item.kind !== "break");
+
+          return (
+            <View style={styles.sectionContainer}>
+              <Card style={styles.besokCard}>
+                {/* Card Header + Day Switcher */}
+                <View style={styles.besokHeaderRow}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.besokTitle} numberOfLines={1}>
+                      {t("home_schedule_title")}
+                    </Text>
+                    <Text style={styles.unifiedCardSubtitle} numberOfLines={1}>
+                      {formatLocaleDate(activeDate, "EEEE, d MMMM")}
+                    </Text>
+                  </View>
+
+                  {/* Segmented Pill Toggle (Hari Ini | Besok) */}
+                  <View style={styles.segmentedTogglePill}>
+                    <Pressable
+                      onPress={() => toggleScheduleDayMode("today")}
+                      style={[
+                        styles.segmentedToggleOption,
+                        scheduleDayMode === "today" && styles.segmentedToggleOptionActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentedToggleText,
+                          scheduleDayMode === "today" && styles.segmentedToggleTextActive,
+                        ]}
+                      >
+                        {t("today")}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => toggleScheduleDayMode("tomorrow")}
+                      style={[
+                        styles.segmentedToggleOption,
+                        scheduleDayMode === "tomorrow" && styles.segmentedToggleOptionActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.segmentedToggleText,
+                          scheduleDayMode === "tomorrow" && styles.segmentedToggleTextActive,
+                        ]}
+                      >
+                        {t("tomorrow")}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Classes List */}
+                <View style={{ marginTop: spacing.sm }}>
+                  {activeSchedule?.isDayOff || scheduleItems.length === 0 ? (
+                    <Pressable
+                      style={styles.quietDaySingleLine}
+                      onPress={() => navigation.navigate("Timetable")}
+                    >
+                      <Ionicons name="sunny-outline" size={16} color={colors.textMuted} style={{ marginRight: 8 }} />
+                      <Text style={styles.quietDayText} numberOfLines={1}>
+                        {scheduleDayMode === "tomorrow"
+                          ? t("no_school_tomorrow")
+                          : t("no_school_today")}
+                      </Text>
+                      <Text style={styles.quietDayLink}>{t("open_timetable_short")}</Text>
+                    </Pressable>
+                  ) : (
+                    <>
+                      {scheduleItems.map((item, idx) => {
+                        const subColor = item.subject?.color || item.subject?.color_hex || colors.primary;
+                        return (
+                          <Pressable
+                            key={item.entryId || idx}
+                            style={styles.besokItemRow}
+                            onPress={() => navigation.navigate("Timetable")}
+                          >
+                            <View style={[styles.besokStripe, { backgroundColor: subColor }]} />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.besokItemTitle} numberOfLines={1}>
+                                {item.subject?.title || item.subject?.name || item.customLabel || t("subject")}
+                              </Text>
+                              {item.room ? (
+                                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }} numberOfLines={1}>
+                                  {t("roomLabel")} {item.room}
+                                </Text>
+                              ) : null}
+                            </View>
+                            <View style={styles.besokTimePill}>
+                              <Text style={styles.besokItemTime}>
+                                {item.startTime ? `${item.startTime} - ${item.endTime}` : t("periodLabel", { period: item.periodNumber })}
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                      <Pressable
+                        onPress={() => navigation.navigate("Timetable")}
+                        style={{ alignSelf: "flex-end", paddingTop: spacing.xs }}
+                      >
+                        <Text style={styles.quietDayLink}>{t("open_full_timetable")}</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </View>
+              </Card>
+            </View>
+          );
+        })()}
+
+        {/* ─── 3. Third Card: Perlengkapan Sekolah (Collapsed to 1 Row) ─── */}
         <View style={styles.sectionContainer}>
-          <Card
-            style={styles.besokCard}
-            onPress={() => setBesokExpanded((prev) => !prev)}
-          >
-            <View style={styles.besokHeaderRow}>
-              <View style={styles.besokHeaderLeft}>
-                <Ionicons name="calendar-outline" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.besokTitle}>
-                  {t("besok_summary", {
-                    classes: tomorrowSchedule?.items?.length || 0,
-                    blocks: tomorrowBlocks.length,
-                  })}
+          <Card style={styles.besokCard}>
+            <Pressable
+              style={styles.besokHeaderRow}
+              onPress={() => setBagSheetVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t("school_equipment_title")}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.besokTitle} numberOfLines={1}>{t("school_equipment_title")}</Text>
+                <Text style={styles.unifiedCardSubtitle} numberOfLines={1}>
+                  {scheduleDayMode === "tomorrow"
+                    ? `${t("prep_tomorrow")} • ${formatLocaleDate(tomorrowDate, "EEEE, d MMM")}`
+                    : `${t("prep_today")} • ${formatLocaleDate(todayDate, "EEEE, d MMM")}`}
                 </Text>
               </View>
-              <Ionicons
-                name={besokExpanded ? "chevron-up" : "chevron-down"}
-                size={18}
-                color={colors.textSecondary}
+              <View style={styles.bagProgressRow}>
+                <Text
+                  style={[
+                    styles.bagProgressText,
+                    {
+                      color:
+                        bagProgress.total > 0 && bagProgress.completed === bagProgress.total
+                          ? colors.emerald
+                          : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {bagProgress.completed}/{bagProgress.total} siap
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+              </View>
+            </Pressable>
+
+            {/* Kept mounted while collapsed so the progress counter stays current */}
+            <View style={styles.hidden}>
+              <TomorrowsBagChecklist
+                onProgressChange={handleBagProgress}
+                scheduleItems={
+                  (scheduleDayMode === "tomorrow" ? tomorrowSchedule?.items : todaySchedule?.items) || []
+                }
+                targetDateStr={formatLocaleDate(
+                  scheduleDayMode === "tomorrow" ? tomorrowDate : todayDate,
+                  "EEEE, d MMM"
+                )}
+                isTomorrow={scheduleDayMode === "tomorrow"}
+                onOpenSubjectDetail={() => navigation.navigate("Timetable")}
               />
             </View>
-
-            {besokExpanded && (
-              <View style={styles.besokExpandedContent}>
-                {/* Tomorrow's School Classes */}
-                <Text style={styles.besokSubHeader}>{t("jadwal_sekolah")}</Text>
-                {tomorrowSchedule.items.length === 0 ? (
-                  <Text style={styles.besokEmptyText}>Tidak ada kelas sekolah besok.</Text>
-                ) : (
-                  tomorrowSchedule.items.map((item, idx) => (
-                    <View key={item.entryId || idx} style={styles.besokItemRow}>
-                      <View
-                        style={[
-                          styles.besokDot,
-                          { backgroundColor: item.subject?.color || item.subject?.color_hex || colors.primary },
-                        ]}
-                      />
-                      <Text style={styles.besokItemTitle} numberOfLines={1}>
-                        {item.subject?.title || item.customLabel || "Pelajaran"}
-                      </Text>
-                      <Text style={styles.besokItemTime}>
-                        {item.startTime ? `${item.startTime} - ${item.endTime}` : `Jam ${item.periodNumber}`}
-                      </Text>
-                    </View>
-                  ))
-                )}
-
-                {/* Tomorrow's Study Blocks */}
-                <Text style={[styles.besokSubHeader, { marginTop: spacing.md }]}>Blok Belajar Besok</Text>
-                {tomorrowBlocks.length === 0 ? (
-                  <Text style={styles.besokEmptyText}>Belum ada blok belajar yang dijadwalkan besok.</Text>
-                ) : (
-                  tomorrowBlocks.map((b) => {
-                    const task = tasksMap.get(b.taskId);
-                    return (
-                      <View key={b.id} style={styles.besokItemRow}>
-                        <View style={[styles.besokDot, { backgroundColor: colors.accent }]} />
-                        <Text style={styles.besokItemTitle} numberOfLines={1}>
-                          {task?.title || "Tugas Belajar"}
-                        </Text>
-                        <Text style={styles.besokItemTime}>
-                          {b.startTime} - {b.endTime}
-                        </Text>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-            )}
           </Card>
         </View>
       </ScrollView>
@@ -598,11 +529,33 @@ export function HomeScreen({ navigation, onOpenAddTask }: HomeScreenProps) {
         duration={8000}
       />
 
+      <BottomSheet
+        visible={bagSheetVisible}
+        onClose={() => setBagSheetVisible(false)}
+        title={t("school_equipment_title")}
+      >
+        <TomorrowsBagChecklist
+          onProgressChange={handleBagProgress}
+          scheduleItems={
+            (scheduleDayMode === "tomorrow" ? tomorrowSchedule?.items : todaySchedule?.items) || []
+          }
+          targetDateStr={formatLocaleDate(
+            scheduleDayMode === "tomorrow" ? tomorrowDate : todayDate,
+            "EEEE, d MMM"
+          )}
+          isTomorrow={scheduleDayMode === "tomorrow"}
+          onOpenSubjectDetail={() => {
+            setBagSheetVisible(false);
+            navigation.navigate("Timetable");
+          }}
+        />
+      </BottomSheet>
+
       <TeacherDirectoryModal
         visible={teacherDirectoryVisible}
         onClose={() => setTeacherDirectoryVisible(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -617,9 +570,26 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: tidySpacing.large * 2,
   },
-  bannerContainer: {
-    paddingHorizontal: tidySpacing.screen,
+  hidden: {
+    display: "none",
+  },
+  missedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    marginHorizontal: tidySpacing.screen,
     marginTop: spacing.sm,
+    minHeight: touchTarget.min,
+  },
+  missedText: {
+    flex: 1,
+    fontSize: typography.fontSizes.caption,
+    color: colors.textMuted,
+  },
+  missedAction: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.primary,
   },
   heroSection: {
     paddingHorizontal: tidySpacing.screen,
@@ -629,274 +599,29 @@ const styles = StyleSheet.create({
     padding: spacing.md + 2,
     borderRadius: radius.cardLarge,
   },
-  heroHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.sm,
-  },
-  heroHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  heroIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.xs + 2,
-  },
-  heroCardBadgeText: {
-    fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.textSecondary,
-  },
-  heroBody: {
-    marginTop: spacing.xs,
-  },
-  heroSubjectRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  heroSubjectDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  heroSubjectText: {
-    fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  heroTimeSlotText: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textMuted,
-    marginLeft: 4,
-  },
-  heroTaskTitle: {
-    fontSize: typography.fontSizes.title,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  heroNotes: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textMuted,
-    marginBottom: spacing.sm,
-  },
-  heroActionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: spacing.sm,
-    gap: spacing.sm,
-  },
-  heroCheckBtn: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: touchTarget.min,
-    height: touchTarget.min,
-  },
-  heroPromptTitle: {
-    fontSize: 18,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  heroPromptSub: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  heroDoneRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   sectionContainer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md + 4,
     paddingHorizontal: tidySpacing.screen,
   },
-  classChipsScroll: {
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  classChip: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    overflow: "hidden",
-    minWidth: 160,
-    maxWidth: 220,
-  },
-  classChipStripe: {
-    width: 5,
-  },
-  classChipContent: {
-    padding: spacing.sm,
-    flex: 1,
-  },
-  classChipTime: {
-    fontSize: 11,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  classChipTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-  },
-  classChipRoom: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  quietDayCard: {
+  quietDaySingleLine: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
   quietDayText: {
     fontSize: typography.fontSizes.caption,
     color: colors.textMuted,
     flex: 1,
   },
-  dayOffCard: {
-    padding: spacing.md,
-  },
-  dayOffRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  dayOffTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-  },
-  streakSafePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: `${colors.emerald}18`,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: `${colors.emerald}40`,
-  },
-  streakSafeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.emerald,
-  },
-  dayOffSub: {
+  quietDayLink: {
     fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  todayTaskCard: {
-    padding: spacing.sm + 2,
-    marginBottom: spacing.xs + 2,
-  },
-  todayTaskRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  taskCheckTouch: {
-    marginRight: spacing.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  taskCheckbox: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  todayTaskInfo: {
-    flex: 1,
-  },
-  taskSubMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  taskSubDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 4,
-  },
-  taskSubName: {
-    fontSize: 11,
     fontWeight: typography.fontWeights.semibold,
-    color: colors.textMuted,
-    textTransform: "uppercase",
-  },
-  todayTaskTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  taskMetaBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  taskDurationText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  allTasksDoneCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.md,
-  },
-  allTasksDoneTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-  },
-  allTasksDoneSub: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  aiScheduleCard: {
-    padding: spacing.md,
-    borderColor: colors.accent,
-    borderWidth: 1,
-  },
-  aiCardHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  aiIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.accentLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  aiCardTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.accent,
-  },
-  aiCardSub: {
-    fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  aiCardActionRow: {
-    marginTop: spacing.sm + 4,
+    color: colors.primary,
   },
   compactExamPillRow: {
     flexDirection: "row",
@@ -928,60 +653,85 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   besokCard: {
-    padding: spacing.md,
+    padding: spacing.md + 2,
+    borderRadius: radius.cardLarge,
   },
   besokHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: spacing.sm,
   },
-  besokHeaderLeft: {
+  unifiedCardSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  segmentedTogglePill: {
     flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.full,
+    padding: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  segmentedToggleOption: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  segmentedToggleOptionActive: {
+    backgroundColor: colors.primary,
+  },
+  segmentedToggleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  segmentedToggleTextActive: {
+    color: colors.textInverse,
   },
   besokTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.text,
-  },
-  besokExpandedContent: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-  },
-  besokSubHeader: {
-    fontSize: typography.fontSizes.caption,
+    fontSize: typography.fontSizes.section,
     fontWeight: typography.fontWeights.bold,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    color: colors.text,
   },
   besokItemRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm + 2,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+    gap: spacing.sm + 2,
   },
-  besokDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: spacing.sm,
+  besokStripe: {
+    width: 4,
+    height: 26,
+    borderRadius: 2,
   },
   besokItemTitle: {
     flex: 1,
-    fontSize: typography.fontSizes.caption,
+    fontSize: typography.fontSizes.body,
     color: colors.text,
-    fontWeight: typography.fontWeights.medium,
+    fontWeight: typography.fontWeights.semibold,
+  },
+  besokTimePill: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   besokItemTime: {
     fontSize: 11,
-    color: colors.textMuted,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.textSecondary,
   },
-  besokEmptyText: {
+  bagProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  bagProgressText: {
     fontSize: typography.fontSizes.caption,
-    color: colors.textMuted,
-    fontStyle: "italic",
-    paddingVertical: 2,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.emerald,
   },
 });

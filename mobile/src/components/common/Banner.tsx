@@ -8,7 +8,7 @@ export interface BannerProps {
   text: string;
   buttonText: string;
   onPress: () => void;
-  variant?: "info" | "warning" | "action";
+  variant?: "info" | "warning" | "action" | "ai";
   style?: StyleProp<ViewStyle>;
 }
 
@@ -39,6 +39,15 @@ export function Banner({
           btnBg: colors.surfaceHover,
           btnBottom: colors.borderBottom,
           btnTextColor: colors.text,
+        };
+      case "ai":
+        return {
+          bg: colors.accentLight,
+          border: colors.accent,
+          iconColor: colors.accent,
+          btnBg: colors.accent,
+          btnBottom: colors.accentBottom,
+          btnTextColor: colors.textInverse,
         };
       case "action":
       default:
@@ -104,12 +113,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: tidySpacing.screen,
+    paddingHorizontal: tidySpacing.medium,
     paddingVertical: tidySpacing.small,
     borderWidth: 1.5,
     borderRadius: radius.card,
-    marginHorizontal: tidySpacing.screen,
-    marginVertical: tidySpacing.small,
     minHeight: touchTarget.min,
   },
   left: {

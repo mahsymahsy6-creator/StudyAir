@@ -234,8 +234,8 @@ export function TKACalculatorModal({ visible, onClose }: TKACalculatorModalProps
                         styles.statusPill,
                         {
                           backgroundColor: result.isPassed
-                            ? `${colors.emerald}20`
-                            : `${colors.amber}20`,
+                            ? colors.emeraldLight
+                            : colors.amberLight,
                         },
                       ]}
                     >
@@ -295,7 +295,7 @@ export function TKACalculatorModal({ visible, onClose }: TKACalculatorModalProps
                   </View>
                 )}
                 {result.weakestSubtest && (
-                  <View style={[styles.highlightPill, { backgroundColor: `${colors.danger}15` }]}>
+                  <View style={[styles.highlightPill, { backgroundColor: colors.roseLight }]}>
                     <Ionicons name="barbell-outline" size={12} color={colors.danger} style={{ marginRight: 4 }} />
                     <Text
                       style={[styles.highlightPillText, { color: colors.danger }]}
@@ -507,8 +507,7 @@ const styles = StyleSheet.create({
   headerSub: {
     fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
-    marginTop: 2,
-    marginLeft: 36,
+    marginTop: 4,
   },
   headerActions: {
     flexDirection: "row",
@@ -653,7 +652,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${colors.emerald}15`,
+    backgroundColor: colors.emeraldLight,
     borderRadius: radius.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -771,7 +770,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 6,
-    backgroundColor: `${colors.danger}15`,
+    backgroundColor: colors.roseLight,
     alignItems: "center",
     justifyContent: "center",
   },

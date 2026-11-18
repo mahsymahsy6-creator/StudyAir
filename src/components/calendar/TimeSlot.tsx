@@ -41,12 +41,12 @@ export function TimeSlot({
       ref={setNodeRef}
       onClick={() => onSlotClick?.(dayDate, hour)}
       className={cn(
-        "group relative h-[72px] min-h-[72px] border-b border-border/25 transition-colors cursor-pointer hover:bg-muted/15",
+        "group relative h-[72px] min-h-[72px] border-b border-border/30 transition-colors duration-150 cursor-pointer hover:bg-muted/10",
         isOver && "bg-primary/10"
       )}
     >
       {/* Subtle half-hour guideline for neat visual precision */}
-      <div className="pointer-events-none absolute left-0 right-0 top-[36px] border-b border-border/10 border-dashed" />
+      <div className="pointer-events-none absolute left-0 right-0 top-[36px] border-b border-border/15 border-dashed" />
 
       {slotBlocks.map((block, index) => {
         const startMin = new Date(block.start_time).getMinutes();

@@ -9,12 +9,14 @@
  */
 
 import { Vibration, Platform } from "react-native";
+import { soundFX } from "./sound";
 
 export const HapticFeedback = {
   /**
    * Subtle micro-tap for buttons, tabs, chips
    */
   light: () => {
+    soundFX.playClick();
     if (Platform.OS === "android" || Platform.OS === "ios") {
       try {
         Vibration.vibrate(15);
@@ -25,9 +27,24 @@ export const HapticFeedback = {
   },
 
   /**
+   * Medium tap for long-press / hold shortcuts and swipe actions
+   */
+  medium: () => {
+    soundFX.playClick();
+    if (Platform.OS === "android" || Platform.OS === "ios") {
+      try {
+        Vibration.vibrate(32);
+      } catch {
+        // Safe fallback
+      }
+    }
+  },
+
+  /**
    * Crisp feedback for task checkboxes and checklist toggles
    */
   taskToggle: () => {
+    soundFX.playToggle(true);
     if (Platform.OS === "android" || Platform.OS === "ios") {
       try {
         Vibration.vibrate(25);
@@ -41,6 +58,7 @@ export const HapticFeedback = {
    * Success fanfare vibration for completing study sessions or all milestones
    */
   success: () => {
+    soundFX.playSuccess();
     if (Platform.OS === "android" || Platform.OS === "ios") {
       try {
         Vibration.vibrate([0, 30, 60, 40]);
@@ -54,6 +72,7 @@ export const HapticFeedback = {
    * Heavy tap for deletions or resets
    */
   heavy: () => {
+    soundFX.playWarning();
     if (Platform.OS === "android" || Platform.OS === "ios") {
       try {
         Vibration.vibrate(50);
@@ -67,6 +86,7 @@ export const HapticFeedback = {
    * Double warning tap for errors or quota limits
    */
   warning: () => {
+    soundFX.playWarning();
     if (Platform.OS === "android" || Platform.OS === "ios") {
       try {
         Vibration.vibrate([0, 35, 70, 35]);

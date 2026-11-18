@@ -44,9 +44,9 @@ export function CalendarSidebar({
       : 0;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border/30 bg-card/15 p-5">
+    <aside className="flex w-80 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-card/20 p-5">
       {/* Daily Progress Card */}
-      <Card className="border-border/30 bg-card/50 backdrop-blur-sm shadow-none">
+      <Card className="border-border bg-card/60 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle suppressHydrationWarning className="flex items-center gap-2 text-sm font-semibold tracking-tight">
             <Target className="h-4 w-4 text-primary" />
@@ -63,10 +63,10 @@ export function CalendarSidebar({
               </span>
               <span>{progressPct}%</span>
             </div>
-            <Progress value={progressPct} className="h-1.5 bg-muted/50" />
+            <Progress value={progressPct} className="h-1.5 bg-muted" />
           </div>
 
-          <div className="flex items-center justify-between pt-1 border-t border-border/20 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between pt-1 border-t border-border text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 text-primary" />
               <span>{Math.round(totalMinutes / 60 * 10) / 10}h planned</span>
@@ -80,21 +80,27 @@ export function CalendarSidebar({
       </Card>
 
       {/* Upcoming Sessions List */}
-      <Card className="flex-1 border-border/30 bg-card/50 backdrop-blur-sm shadow-none flex flex-col">
+      <Card className="flex-1 border-border bg-card/60 shadow-none flex flex-col">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold tracking-tight">
               Day Schedule
             </CardTitle>
-            <Badge variant="outline" className="text-[10px] font-medium border-border/40">
+            <Badge variant="outline" className="text-[10px] font-medium border-border">
               {todayBlocks.length} Total
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-2.5 flex-1 overflow-y-auto">
           {todayBlocks.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              No sessions scheduled for this day. Click any empty calendar slot to schedule.
+            <div className="empty-state py-8 text-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-foreground">No sessions scheduled</p>
+                <p className="text-[11px] text-muted-foreground">Click any calendar slot to add a session</p>
+              </div>
             </div>
           ) : (
             todayBlocks.map((block) => {
@@ -108,7 +114,7 @@ export function CalendarSidebar({
               return (
                 <div
                   key={block.id}
-                  className="rounded-lg border border-border/25 bg-background/50 p-2.5 transition-all hover:border-border/50"
+                  className="rounded-lg border border-border bg-background/60 p-2.5 transition-all duration-150 hover:border-primary/40"
                   style={{
                     borderLeftWidth: "3px",
                     borderLeftColor: block.subject.color_hex,

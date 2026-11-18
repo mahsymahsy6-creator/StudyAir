@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { useCurrentDate } from "@/lib/hooks/useMounted";
+import { calculateStudyStreak } from "@/lib/engine/streak";
 
 export default function DashboardPage() {
   const today = useCurrentDate();
@@ -68,7 +69,21 @@ export default function DashboardPage() {
     };
   }, [studyUnits]);
 
-  // Heatmap data generated from focus logs + completed blocks
+  // Dynamic study streak
+  const studyStreak = useMemo(() => {
+    const timestamps: (string | Date)[] = [];
+    for (const b of blocks) {
+      if (b.status === "COMPLETED") {
+        timestamps.push(b.start_time);
+      }
+    }
+    for (const fl of focusLogs) {
+      timestamps.push(fl.started_at);
+    }
+    return calculateStudyStreak(timestamps, today);
+  }, [blocks, focusLogs, today]);
+
+  // Heatmap data generated from real focus logs + completed blocks only
   const heatmapData = useMemo(() => {
     const map = new Map<string, number>();
     for (const b of blocks) {
@@ -82,19 +97,21 @@ export default function DashboardPage() {
         map.set(key, (map.get(key) ?? 0) + dur);
       }
     }
-    // Also include daily stats
+    for (const fl of focusLogs) {
+      const key = format(new Date(fl.started_at), "yyyy-MM-dd");
+      map.set(key, (map.get(key) ?? 0) + fl.actual_minutes);
+    }
+
     const result: { date: string; minutes: number }[] = [];
     for (let i = 83; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const key = format(d, "yyyy-MM-dd");
-      // Add random base activity for demo vibrancy
-      const baseline = (i * 7) % 11 > 3 ? (i * 19) % 150 : 0;
-      const actual = (map.get(key) ?? 0) + baseline;
+      const actual = map.get(key) ?? 0;
       result.push({ date: key, minutes: actual });
     }
     return result;
-  }, [blocks, today]);
+  }, [blocks, focusLogs, today]);
 
   // Spaced repetition review queue
   const reviewQueue = useMemo(() => {
@@ -116,29 +133,29 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-            Analytics & Spaced Repetition
+            Study Stats
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Monitor cognitive strain, study consistency, and SM-2 memory retention intervals.
+            Track study hours, consistency, and upcoming topic reviews.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
-            className="gap-1.5 border-primary/30 bg-primary/10 px-3.5 py-1 text-primary text-xs font-semibold rounded-full shadow-sm shadow-primary/10"
+            className="gap-1.5 border-primary/30 bg-primary/10 px-3.5 py-1 text-primary text-xs font-semibold rounded-full"
           >
             <Flame className="h-4 w-4 fill-primary" />
-            7 Day Streak
+            {studyStreak} {studyStreak === 1 ? "Day" : "Days"} Streak
           </Badge>
         </div>
       </div>
 
       {/* ─── Top 4 Metric Cards ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <Card className="rounded-2xl border-border/30 bg-card/40 backdrop-blur-md shadow-none p-5 transition-all hover:bg-card/60">
+        <Card className="rounded-2xl border border-border bg-card/60 shadow-none p-6 transition-all duration-150 hover:border-primary/40">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Total Focus Time
+              Study Time
             </span>
             <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
               <Clock className="h-4 w-4" />
@@ -147,15 +164,15 @@ export default function DashboardPage() {
           <div className="mt-4">
             <div className="text-3xl font-bold tracking-tight text-foreground">{totalHours}h</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {focusLogs.length} completed focus sessions
+              {focusLogs.length} completed sessions
             </p>
           </div>
         </Card>
 
-        <Card className="rounded-2xl border-border/30 bg-card/40 backdrop-blur-md shadow-none p-5 transition-all hover:bg-card/60">
+        <Card className="rounded-2xl border border-border bg-card/60 shadow-none p-6 transition-all duration-150 hover:border-primary/40">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Syllabus Mastery
+              Topics Finished
             </span>
             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
               <Target className="h-4 w-4" />
@@ -164,18 +181,18 @@ export default function DashboardPage() {
           <div className="mt-4">
             <div className="text-3xl font-bold tracking-tight text-foreground">{masteryPct}%</div>
             <div className="mt-2.5">
-              <Progress value={masteryPct} className="h-1.5 bg-muted/40" />
+              <Progress value={masteryPct} className="h-1.5 bg-muted" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {completedUnits} of {totalUnits} units mastered
+              {completedUnits} of {totalUnits} topics done
             </p>
           </div>
         </Card>
 
-        <Card className="rounded-2xl border-border/30 bg-card/40 backdrop-blur-md shadow-none p-5 transition-all hover:bg-card/60">
+        <Card className="rounded-2xl border border-border bg-card/60 shadow-none p-6 transition-all duration-150 hover:border-primary/40">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Cognitive Strain
+              Hard Topics
             </span>
             <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
               <Brain className="h-4 w-4" />
@@ -184,15 +201,15 @@ export default function DashboardPage() {
           <div className="mt-4">
             <div className="text-3xl font-bold tracking-tight text-foreground">{cognitiveStats.highPct}%</div>
             <p className="text-xs text-muted-foreground mt-1">
-              High cognitive load ({cognitiveStats.highMin} mins)
+              {cognitiveStats.highMin} mins of difficult material
             </p>
           </div>
         </Card>
 
-        <Card className="rounded-2xl border-border/30 bg-card/40 backdrop-blur-md shadow-none p-5 transition-all hover:bg-card/60">
+        <Card className="rounded-2xl border border-border bg-card/60 shadow-none p-6 transition-all duration-150 hover:border-primary/40">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Review Queue
+              Due for Review
             </span>
             <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
               <RotateCcw className="h-4 w-4" />
@@ -201,7 +218,7 @@ export default function DashboardPage() {
           <div className="mt-4">
             <div className="text-3xl font-bold tracking-tight text-foreground">{reviewQueue.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Active SM-2 review cycles
+              Topics ready to review
             </p>
           </div>
         </Card>
@@ -210,39 +227,39 @@ export default function DashboardPage() {
       {/* ─── Middle Row: Heatmap & Cognitive Load Distribution ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Heatmap (2 cols) */}
-        <Card className="lg:col-span-2 rounded-2xl border-border/30 bg-card/40 p-6 shadow-none">
-          <CardHeader>
+        <Card className="lg:col-span-2 rounded-2xl border border-border bg-card/60 p-6 shadow-none">
+          <CardHeader className="p-0 pb-4">
             <CardTitle className="flex items-center gap-2 text-base">
               <Calendar className="h-4 w-4 text-primary" />
-              12-Week Study Heatmap
+              Study Activity
             </CardTitle>
             <CardDescription className="text-xs">
-              Daily study volume in minutes over the past 84 days.
+              Daily study minutes over the past 12 weeks.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <StudyHeatmap data={heatmapData} />
           </CardContent>
         </Card>
 
         {/* Cognitive Load Breakdown */}
-        <Card className="border-border/40 bg-card">
-          <CardHeader>
+        <Card className="rounded-2xl border border-border bg-card/60 p-6 shadow-none">
+          <CardHeader className="p-0 pb-4">
             <CardTitle className="flex items-center gap-2 text-base">
               <Brain className="h-4 w-4 text-purple-400" />
-              Cognitive Load Balance
+              Difficulty Balance
             </CardTitle>
             <CardDescription className="text-xs">
-              Curriculum load ratio to prevent mental burnout.
+              Balance of hard, medium, and easy topics.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="p-0 space-y-4">
             {/* Visual ratio bar */}
             <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/40">
               <div
                 style={{ width: `${cognitiveStats.highPct}%` }}
                 className="bg-destructive transition-all"
-                title={`High: ${cognitiveStats.highPct}%`}
+                title={`Hard: ${cognitiveStats.highPct}%`}
               />
               <div
                 style={{ width: `${cognitiveStats.mediumPct}%` }}
@@ -252,7 +269,7 @@ export default function DashboardPage() {
               <div
                 style={{ width: `${cognitiveStats.lowPct}%` }}
                 className="bg-emerald-500 transition-all"
-                title={`Low: ${cognitiveStats.lowPct}%`}
+                title={`Easy: ${cognitiveStats.lowPct}%`}
               />
             </div>
 
@@ -260,31 +277,31 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-destructive" />
-                  High Cognitive Load
+                  Hard Topics
                 </span>
                 <span className="font-semibold">{cognitiveStats.highPct}%</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  Medium Cognitive Load
+                  Medium Topics
                 </span>
                 <span className="font-semibold">{cognitiveStats.mediumPct}%</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  Low Cognitive Load
+                  Easy Topics
                 </span>
                 <span className="font-semibold">{cognitiveStats.lowPct}%</span>
               </div>
             </div>
 
-            <div className="rounded-lg bg-muted/30 p-3 text-[11px] text-muted-foreground">
-              💡 <strong>Smart Advisory:</strong>{" "}
+            <div className="rounded-xl bg-muted/30 p-3 text-[11px] text-muted-foreground leading-relaxed">
+              💡 <strong>Tip:</strong>{" "}
               {cognitiveStats.highPct > 50
-                ? "Your curriculum has a heavy concentration of High Load topics. The auto-rescheduler will interleave them with rest windows."
-                : "Your cognitive load is balanced! Spacing high-load problem sets with conceptual low-load reviews maximizes retention."}
+                ? "You have many hard topics. StudyAir will mix in breaks and lighter reviews to keep your mind fresh."
+                : "Your study workload is well balanced between hard and easy topics."}
             </div>
           </CardContent>
         </Card>
@@ -293,21 +310,29 @@ export default function DashboardPage() {
       {/* ─── Bottom Row: Spaced Repetition Queue & Focus Session History ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Spaced Repetition Reviews */}
-        <Card className="border-border/40 bg-card">
-          <CardHeader>
+        <Card className="rounded-2xl border border-border bg-card/60 p-6 shadow-none">
+          <CardHeader className="p-0 pb-4">
             <CardTitle className="flex items-center gap-2 text-base">
               <RotateCcw className="h-4 w-4 text-info" />
-              SM-2 Spaced Repetition Schedule
+              Upcoming Reviews
             </CardTitle>
             <CardDescription className="text-xs">
-              Review cycles calculated from your post-session confidence ratings.
+              Topics scheduled for review based on your session ratings.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {reviewQueue.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-6 text-center">
-                Complete your first focus session to kick off SM-2 spaced repetition reviews!
-              </p>
+              <div className="empty-state py-10">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
+                  <RotateCcw className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">No reviews yet</p>
+                  <p className="text-xs text-muted-foreground max-w-[240px]">
+                    Complete your first study session to start your spaced repetition schedule
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="space-y-2.5">
                 {reviewQueue.map((item) => {
@@ -318,7 +343,7 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 p-3 text-xs"
+                      className="flex items-center justify-between rounded-xl border border-border bg-muted/20 p-3 text-xs"
                     >
                       <div className="flex items-center gap-2.5">
                         <div
@@ -330,14 +355,14 @@ export default function DashboardPage() {
                             {item.unitTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground">
-                            {item.subjectTitle} • Repetition #{item.repetition_number}
+                            {item.subjectTitle} • Review #{item.repetition_number}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-[10px]">
-                          Interval: {item.interval_days}d
+                        <Badge variant="outline" className="text-[10px] border-border">
+                          Every {item.interval_days}d
                         </Badge>
                         <Badge
                           suppressHydrationWarning
@@ -361,27 +386,35 @@ export default function DashboardPage() {
         </Card>
 
         {/* Recent Focus Session Logs */}
-        <Card className="border-border/40 bg-card">
-          <CardHeader>
+        <Card className="rounded-2xl border border-border bg-card/60 p-6 shadow-none">
+          <CardHeader className="p-0 pb-4">
             <CardTitle className="flex items-center gap-2 text-base">
               <Zap className="h-4 w-4 text-amber-400" />
-              Recent Focus Logs
+              Recent Sessions
             </CardTitle>
             <CardDescription className="text-xs">
-              Pomodoro and Flowmodoro session history.
+              History of your latest study sessions.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {focusLogs.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-6 text-center">
-                No focus sessions logged yet.
-              </p>
+              <div className="empty-state py-10">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground">
+                  <Zap className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">No sessions logged</p>
+                  <p className="text-xs text-muted-foreground max-w-[240px]">
+                    Start a focus session from the calendar to begin tracking
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="space-y-2.5">
                 {focusLogs.slice(0, 5).map((log) => (
                   <div
                     key={log.id}
-                    className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 p-3 text-xs"
+                    className="flex items-center justify-between rounded-xl border border-border bg-muted/20 p-3 text-xs"
                   >
                     <div>
                       <div className="font-semibold text-foreground">
@@ -398,7 +431,7 @@ export default function DashboardPage() {
                       </span>
                       {log.pomodoro_count > 0 && (
                         <Badge variant="secondary" className="text-[10px]">
-                          {log.pomodoro_count} pomodoros
+                          {log.pomodoro_count} rounds
                         </Badge>
                       )}
                     </div>

@@ -1,14 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import {
-  mockSubjects,
-  mockStudyUnits,
-  mockBlocks,
-  mockDailyStats,
-  mockFocusLogs,
-  mockReviewHistory,
-  SUBJECT_COLORS,
-} from "@/data/mockData";
+import { SUBJECT_COLORS } from "@/data/mockData";
 import type {
   Subject,
   SubjectWithUnits,
@@ -79,13 +71,13 @@ interface StudyState {
 export const useStudyStore = create<StudyState>()(
   persist(
     (set, get) => ({
-      subjects: mockSubjects,
-      studyUnits: mockStudyUnits,
-      blocks: mockBlocks,
-      dailyStats: mockDailyStats,
-      focusLogs: mockFocusLogs,
-  reviewHistory: mockReviewHistory,
-  dismissedWarningIds: [],
+      subjects: [],
+      studyUnits: [],
+      blocks: [],
+      dailyStats: [],
+      focusLogs: [],
+      reviewHistory: [],
+      dismissedWarningIds: [],
 
   getSubjectWithUnits: () => {
     const { subjects, studyUnits } = get();
@@ -114,7 +106,7 @@ export const useStudyStore = create<StudyState>()(
       data.color_hex ||
       SUBJECT_COLORS[subjects.length % SUBJECT_COLORS.length];
     const newSubject: Subject = {
-      id: `subj-${Date.now()}`,
+      id: `subj-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       user_id: "user-1",
       title: data.title,
       exam_date: data.exam_date,
@@ -143,7 +135,7 @@ export const useStudyStore = create<StudyState>()(
     const { studyUnits, subjects } = get();
     const existing = studyUnits.filter((u) => u.subject_id === data.subject_id);
     const newUnit: StudyUnit = {
-      id: `su-${Date.now()}`,
+      id: `su-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       subject_id: data.subject_id,
       title: data.title,
       estimated_minutes: data.estimated_minutes,
@@ -237,7 +229,7 @@ export const useStudyStore = create<StudyState>()(
     if (!subject) return null;
 
     const newBlock: ScheduledBlockWithDetails = {
-      id: `blk-${Date.now()}`,
+      id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       user_id: "user-1",
       study_unit_id: data.study_unit_id,
       start_time: data.start_time,
@@ -383,7 +375,7 @@ export const useStudyStore = create<StudyState>()(
 
     // 3. Create Focus Log
     const newFocusLog: FocusLog = {
-      id: `fl-${Date.now()}`,
+      id: `fl-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       scheduled_block_id: blockId,
       user_id: "user-1",
       planned_minutes: Math.round(
@@ -412,7 +404,7 @@ export const useStudyStore = create<StudyState>()(
     );
 
     const newReviewEntry: ReviewHistory = {
-      id: `rh-${Date.now()}`,
+      id: `rh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       study_unit_id: block.study_unit_id,
       user_id: "user-1",
       confidence_rating: rating,
@@ -428,7 +420,7 @@ export const useStudyStore = create<StudyState>()(
     const reviewEnd = setMinutes(setHours(nextReview, 10), 30);
 
     const newReviewBlock: ScheduledBlockWithDetails = {
-      id: `review-${Date.now()}`,
+      id: `review-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       user_id: "user-1",
       study_unit_id: block.study_unit_id,
       start_time: reviewStart.toISOString(),
@@ -478,7 +470,7 @@ export const useStudyStore = create<StudyState>()(
 
   resetSchedules: () => {
     set({
-      blocks: mockBlocks,
+      blocks: [],
       dismissedWarningIds: [],
     });
   },
@@ -492,18 +484,49 @@ export const useStudyStore = create<StudyState>()(
 
   resetAll: () => {
     set({
-      subjects: mockSubjects,
-      studyUnits: mockStudyUnits,
-      blocks: mockBlocks,
-      dailyStats: mockDailyStats,
-      focusLogs: mockFocusLogs,
-      reviewHistory: mockReviewHistory,
+      subjects: [],
+      studyUnits: [],
+      blocks: [],
+      dailyStats: [],
+      focusLogs: [],
+      reviewHistory: [],
       dismissedWarningIds: [],
     });
   },
 }),
     {
       name: "studyair-study-storage",
+      version: 4,
+      migrate: () => {
+        return {
+          subjects: [],
+          studyUnits: [],
+          blocks: [],
+          dailyStats: [],
+          focusLogs: [],
+          reviewHistory: [],
+          dismissedWarningIds: [],
+        };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Purge any old pre-loaded mock subjects or duplicate IDs
+        const hasMockSubjects = state.subjects.some(
+          (s) => s.id === "subj-1" || s.id === "subj-2" || s.id === "subj-3"
+        );
+        const seen = new Set<string>();
+        let hasDuplicates = false;
+        for (const u of state.studyUnits) {
+          if (seen.has(u.id)) {
+            hasDuplicates = true;
+            break;
+          }
+          seen.add(u.id);
+        }
+        if (hasMockSubjects || hasDuplicates) {
+          state.resetAll();
+        }
+      },
     }
   )
 );

@@ -29,9 +29,11 @@ import { ScreenHeader } from "../components/common/ScreenHeader";
 import { Card } from "../components/common/Card";
 import { TimetableDayView } from "../components/timetable/TimetableDayView";
 import { TeacherDirectoryModal } from "../components/teachers/TeacherDirectoryModal";
+import { BellTimesEditor } from "../components/timetable/BellTimesEditor";
 import { WEEKDAYS, getTodayWeekday } from "../lib/timetableGrouping";
 import { HapticFeedback } from "../lib/haptics";
 import { soundFX } from "../lib/sound";
+import { t, getLanguage } from "../lib/i18n";
 
 interface TimetableScreenProps {
   navigation: {
@@ -44,22 +46,28 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
   const {
     subjects,
     periodTimes,
+    setPeriodTimes,
     timetableEntries,
     addTimetableEntry,
     updateTimetableEntry,
     deleteTimetableEntry,
     rapikanDuplicates,
+    streakState,
   } = useMobileStudyStore();
 
-  const todayWeekday = useMemo(() => getTodayWeekday(), []);
+  const todayWeekday = getTodayWeekday();
 
   // View mode: "perHari" (default) or "mingguan"
   const [viewMode, setViewMode] = useState<"perHari" | "mingguan">("perHari");
-  const [selectedDay, setSelectedDay] = useState<number>(initialDay || todayWeekday || 1);
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    if (initialDay && initialDay >= 1 && initialDay <= 6) return initialDay;
+    return todayWeekday >= 1 && todayWeekday <= 6 ? todayWeekday : 1;
+  });
 
   // Modals state
   const [teacherModalVisible, setTeacherModalVisible] = useState(false);
   const [editClassModalVisible, setEditClassModalVisible] = useState(false);
+  const [bellScheduleModalVisible, setBellScheduleModalVisible] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimetableEntry | null>(null);
 
   // Form states for Add/Edit class
@@ -76,6 +84,11 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
     subjects.forEach((s) => map.set(s.id, s));
     return map;
   }, [subjects]);
+
+  const availablePeriods = useMemo(() => {
+    const maxPeriod = Math.max(10, ...periodTimes.map((p) => p.periodNumber));
+    return Array.from({ length: maxPeriod }, (_, i) => i + 1);
+  }, [periodTimes]);
 
   const handleOpenAddClass = (day?: number) => {
     HapticFeedback.light();
@@ -165,12 +178,24 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
     <View style={styles.container}>
       {/* ─── Screen Header ─── */}
       <ScreenHeader
-        title="Jadwal Pelajaran"
-        subtitle={`${timetableEntries.length} Sesi Terjadwal • ${subjects.length} Mapel`}
+        title={t("timetable_title")}
+        subtitle={t("timetable_subtitle", { entries: timetableEntries.length, subjects: subjects.length })}
+        streakText={t("streak_days_badge", { count: streakState?.currentStreak || 0 })}
+        isStreakAtRisk={streakState?.isAtRisk}
+        onStreakPress={() => navigation.navigate("Streak")}
         actions={[
           {
+            icon: "time-outline",
+            accessibilityLabel: "Jam Pelajaran",
+            onPress: () => {
+              HapticFeedback.light();
+              soundFX.playClick();
+              setBellScheduleModalVisible(true);
+            },
+          },
+          {
             icon: "people-outline",
-            accessibilityLabel: "Daftar Guru",
+            accessibilityLabel: t("settings_teachers_title"),
             onPress: () => {
               HapticFeedback.light();
               soundFX.playClick();
@@ -178,66 +203,105 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
             },
           },
           {
-            icon: "add",
-            accessibilityLabel: "Tambah Kelas",
-            onPress: () => handleOpenAddClass(),
+            icon: "settings-outline",
+            accessibilityLabel: t("settings"),
+            onPress: () => {
+              HapticFeedback.light();
+              navigation.navigate("Settings");
+            },
           },
         ]}
       />
 
-      {/* ─── Top Segmented Control: Per Hari vs Mingguan ─── */}
-      <View style={styles.segmentedContainer}>
-        <Pressable
-          style={[
-            styles.segmentBtn,
-            viewMode === "perHari" && styles.segmentBtnActive,
-          ]}
-          onPress={() => {
-            HapticFeedback.light();
-            setViewMode("perHari");
-          }}
-        >
-          <Ionicons
-            name="calendar"
-            size={16}
-            color={viewMode === "perHari" ? colors.primary : colors.textSecondary}
-            style={{ marginRight: 6 }}
-          />
-          <Text
+      {/* ─── Top Segmented Control + Visible Kalender Link ─── */}
+      <View style={styles.topControlsRow}>
+        <View style={styles.segmentedContainer}>
+          <Pressable
             style={[
-              styles.segmentText,
-              viewMode === "perHari" && styles.segmentTextActive,
+              styles.segmentBtn,
+              viewMode === "perHari" && styles.segmentBtnActive,
             ]}
+            onPress={() => {
+              HapticFeedback.light();
+              setViewMode("perHari");
+            }}
           >
-            Per Hari
-          </Text>
-        </Pressable>
+            <Ionicons
+              name="calendar"
+              size={16}
+              color={viewMode === "perHari" ? colors.primary : colors.textSecondary}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.segmentText,
+                viewMode === "perHari" && styles.segmentTextActive,
+              ]}
+            >
+              {t("timetable_seg_daily") || "Harian"}
+            </Text>
+          </Pressable>
 
-        <Pressable
-          style={[
-            styles.segmentBtn,
-            viewMode === "mingguan" && styles.segmentBtnActive,
-          ]}
-          onPress={() => {
-            HapticFeedback.light();
-            setViewMode("mingguan");
-          }}
-        >
-          <Ionicons
-            name="grid-outline"
-            size={16}
-            color={viewMode === "mingguan" ? colors.primary : colors.textSecondary}
-            style={{ marginRight: 6 }}
-          />
-          <Text
+          <Pressable
             style={[
-              styles.segmentText,
-              viewMode === "mingguan" && styles.segmentTextActive,
+              styles.segmentBtn,
+              viewMode === "mingguan" && styles.segmentBtnActive,
             ]}
+            onPress={() => {
+              HapticFeedback.light();
+              setViewMode("mingguan");
+            }}
+            accessibilityLabel={t("timetable_weekly") || "Ikhtisar Mingguan"}
           >
-            Ikhtisar Mingguan
-          </Text>
-        </Pressable>
+            <Ionicons
+              name="grid-outline"
+              size={16}
+              color={viewMode === "mingguan" ? colors.primary : colors.textSecondary}
+              style={{ marginRight: 6 }}
+            />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.segmentText,
+                viewMode === "mingguan" && styles.segmentTextActive,
+              ]}
+            >
+              {t("timetable_seg_weekly") || "Mingguan"}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Pressable
+            style={styles.calendarLinkBtn}
+            onPress={() => {
+              HapticFeedback.light();
+              soundFX.playClick();
+              setBellScheduleModalVisible(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Atur Jam Pelajaran"
+          >
+            <Ionicons name="time-outline" size={14} color={colors.primary} />
+            <Text style={styles.calendarLinkText}>{periodTimes.length} JP</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.calendarLinkBtn}
+            onPress={() => {
+              HapticFeedback.light();
+              soundFX.playClick();
+              navigation.navigate("Calendar");
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("studyCalendarTitle") || "Kalender"}
+          >
+            <Ionicons name="calendar-outline" size={14} color={colors.primary} />
+            <Text style={styles.calendarLinkText}>Kalender</Text>
+            <Ionicons name="chevron-forward" size={13} color={colors.primary} />
+          </Pressable>
+        </View>
       </View>
 
       {/* ─── View 1: Per Hari (Daily Timetable View) ─── */}
@@ -261,13 +325,6 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
           contentContainerStyle={styles.weeklyContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.weeklyIntroRow}>
-            <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
-            <Text style={styles.weeklyIntroText}>
-              Ikhtisar seluruh jadwal pelajaran sekolah dari Senin sampai Sabtu. Ketuk kelas untuk mengedit.
-            </Text>
-          </View>
-
           {WEEKDAYS.slice(0, 6).map((wd) => {
             const dayEntries = timetableEntries
               .filter((e) => e.weekday === wd.day)
@@ -278,15 +335,15 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
               <Card key={wd.day} style={styles.weekDayCard}>
                 <View style={styles.weekDayHeaderRow}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={styles.weekDayTitle}>{wd.nameId}</Text>
+                    <Text style={styles.weekDayTitle}>{getLanguage() === "en" ? wd.nameEn : wd.nameId}</Text>
                     {isToday && (
                       <View style={styles.todayPill}>
-                        <Text style={styles.todayPillText}>Hari Ini</Text>
+                        <Text style={styles.todayPillText}>{t("today")}</Text>
                       </View>
                     )}
                   </View>
                   <Text style={styles.weekDayCountText}>
-                    {dayEntries.length} Pelajaran
+                    {t("timetable_classes_count", { count: dayEntries.length })}
                   </Text>
                 </View>
 
@@ -387,7 +444,7 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
               {/* Period Number */}
               <Text style={styles.formLabel}>Jam Ke-</Text>
               <View style={styles.periodPillRow}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((pNum) => {
+                {availablePeriods.map((pNum) => {
                   const isSel = formPeriod === pNum;
                   return (
                     <Pressable
@@ -444,7 +501,7 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
                   <View style={styles.subjectsSelectWrap}>
                     {subjects.map((sub) => {
                       const isSel = sub.id === formSubjectId;
-                      const subCol = sub.color || sub.color_hex || colors.primary;
+                      const subCol = sub.color || sub.color_hex || "#1CB0F6";
                       return (
                         <Pressable
                           key={sub.id}
@@ -534,6 +591,47 @@ export function TimetableScreen({ navigation, initialDay }: TimetableScreenProps
         visible={teacherModalVisible}
         onClose={() => setTeacherModalVisible(false)}
       />
+
+      {/* ─── Jam Pelajaran (Bell Times) Modal ─── */}
+      <Modal
+        visible={bellScheduleModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setBellScheduleModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 420, maxHeight: "88%", padding: 0, overflow: "hidden" }]}>
+            <View style={[styles.modalHeaderRow, { paddingHorizontal: spacing.md, paddingTop: spacing.md, marginBottom: 0 }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="time-outline" size={20} color={colors.primary} />
+                <View>
+                  <Text style={styles.modalTitle}>Jam Pelajaran (Bell Times)</Text>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                    {periodTimes.length} JP terkonfigurasi
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setBellScheduleModalVisible(false)}
+                hitSlop={touchTarget.min / 4}
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={{ flex: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <BellTimesEditor
+                periodTimes={periodTimes}
+                onChangePeriodTimes={(times) => setPeriodTimes(times)}
+                mode="settings"
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -543,16 +641,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  segmentedContainer: {
+  topControlsRow: {
     flexDirection: "row",
-    backgroundColor: colors.surfaceSubtle,
+    alignItems: "center",
     marginHorizontal: spacing.md,
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  segmentedContainer: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: colors.surfaceSubtle,
     padding: 4,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
+  },
+  calendarLinkBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 8,
+  },
+  calendarLinkText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
   },
   segmentBtn: {
     flex: 1,
@@ -587,27 +704,12 @@ const styles = StyleSheet.create({
     paddingBottom: 90,
     gap: spacing.md,
   },
-  weeklyIntroRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-  },
-  weeklyIntroText: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.textSecondary,
-    lineHeight: 16,
-  },
   weekDayCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.cardLarge,
     borderWidth: 1,
     borderColor: colors.borderLight,
     padding: spacing.md,
-    borderBottomWidth: 3,
-    borderBottomColor: colors.borderLight,
   },
   weekDayHeaderRow: {
     flexDirection: "row",
@@ -633,7 +735,7 @@ const styles = StyleSheet.create({
   todayPillText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: colors.textInverse,
   },
   weekDayCountText: {
     fontSize: 11,
@@ -786,7 +888,7 @@ const styles = StyleSheet.create({
   },
   kindChipSelected: {
     borderColor: colors.primary,
-    backgroundColor: `${colors.primary}20`,
+    backgroundColor: colors.primaryLight,
   },
   kindChipText: {
     fontSize: 10,
@@ -843,7 +945,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.md,
-    backgroundColor: `${colors.danger}15`,
+    backgroundColor: colors.roseLight,
     alignItems: "center",
     justifyContent: "center",
   },

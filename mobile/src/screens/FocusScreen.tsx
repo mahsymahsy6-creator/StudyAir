@@ -16,6 +16,7 @@ import { useMobileStudyStore } from "../store";
 import { ConfidenceRating, Subject } from "../types";
 import { HapticFeedback } from "../lib/haptics";
 import { t } from "../lib/i18n";
+import { toLocalDateStr } from "../lib/dateUtils";
 import { activateKeepAwake, deactivateKeepAwake } from "../lib/keepAwake";
 
 interface FocusScreenProps {
@@ -48,7 +49,7 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
 
   const passedBlockId = route?.params?.blockId;
   const passedTaskId = route?.params?.taskId;
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = useMemo(() => toLocalDateStr(), []);
 
   const currentStudyBlock = useMemo(() => {
     if (passedBlockId) {
@@ -483,7 +484,7 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
                 style={[styles.ratingItem, { borderColor: colors.emerald }]}
                 onPress={() => handleRating(4)}
               >
-                <View style={[styles.ratingIconCircle, { backgroundColor: `${colors.emerald}20` }]}>
+                <View style={[styles.ratingIconCircle, { backgroundColor: colors.emeraldLight }]}>
                   <Ionicons name="sparkles" size={18} color={colors.emerald} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -496,7 +497,7 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
                 style={[styles.ratingItem, { borderColor: colors.primary }]}
                 onPress={() => handleRating(3)}
               >
-                <View style={[styles.ratingIconCircle, { backgroundColor: `${colors.primary}20` }]}>
+                <View style={[styles.ratingIconCircle, { backgroundColor: colors.primaryLight }]}>
                   <Ionicons name="book-outline" size={18} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -509,7 +510,7 @@ export function FocusScreen({ navigation, route }: FocusScreenProps) {
                 style={[styles.ratingItem, { borderColor: colors.rose }]}
                 onPress={() => handleRating(1)}
               >
-                <View style={[styles.ratingIconCircle, { backgroundColor: `${colors.rose}20` }]}>
+                <View style={[styles.ratingIconCircle, { backgroundColor: colors.roseLight }]}>
                   <Ionicons name="alert-circle-outline" size={18} color={colors.rose} />
                 </View>
                 <View style={{ flex: 1 }}>

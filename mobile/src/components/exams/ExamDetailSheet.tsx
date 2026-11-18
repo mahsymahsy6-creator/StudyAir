@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
   },
   badgeToday: {
-    backgroundColor: `${colors.amber}22`,
+    backgroundColor: colors.amberLight,
   },
   badgePassed: {
     backgroundColor: colors.surfaceHover,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   successBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${colors.emerald}18`,
+    backgroundColor: colors.emeraldLight,
     borderWidth: 1,
     borderColor: colors.emerald,
     borderRadius: radius.md,

@@ -47,9 +47,9 @@ export function BlockCard({
         onClick?.();
       }}
       className={cn(
-        "group cursor-grab rounded-lg border border-border/30 px-2.5 py-1.5 transition-all overflow-hidden flex flex-col justify-between",
-        "hover:shadow-lg hover:shadow-black/20 hover:brightness-105 active:cursor-grabbing",
-        isDragging && "opacity-50 shadow-2xl ring-2 ring-primary scale-[1.02]",
+        "group cursor-grab rounded-lg border border-border px-2.5 py-1.5 transition-all duration-150 overflow-hidden flex flex-col justify-between",
+        "hover:border-primary/40 active:scale-[0.98] active:cursor-grabbing",
+        isDragging && "opacity-50 ring-2 ring-primary scale-[1.02]",
         isCompleted && "opacity-60",
         isMissed && "opacity-50 border-dashed"
       )}

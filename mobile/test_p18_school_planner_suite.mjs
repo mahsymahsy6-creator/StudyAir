@@ -215,8 +215,9 @@ assert(appContent.includes("GradesScreen"), "App.tsx must import GradesScreen");
 assert(appContent.includes('norm === "timetable" || norm === "jadwal"'), "App.tsx must route jadwal to Timetable");
 assert(appContent.includes('norm === "grades" || norm === "nilai"'), "App.tsx must route nilai to Grades");
 assert(appContent.includes("onNavigateToTimetable"), "App.tsx must pass onNavigateToTimetable to QuickActionSheet");
-assert(appContent.includes('name={activeTab === "Timetable" ? "time" : "time-outline"}'), "App.tsx Tab 2 must be Timetable");
-assert(appContent.includes('name={activeTab === "Grades" ? "stats-chart" : "stats-chart-outline"}'), "App.tsx Tab 4 must be Grades");
+assert(appContent.includes('name={activeTab === "Timetable" ? "time" : "time-outline"}'), "App.tsx must have a Timetable tab");
+assert(appContent.includes('name={activeTab === "Stats" ? "stats-chart" : "stats-chart-outline"}'), "App.tsx Tab 4 must be Stats");
+assert(appContent.indexOf('{/* Tab 2: Tugas (Tasks) */}') < appContent.indexOf('{/* Tab 3: Jadwal Pelajaran (Timetable) */}'), "App.tsx Tugas tab must come before Jadwal");
 console.log("✓ App.tsx 5-Tab Bar & navigation aliases verified");
 
 // 9. Verify HomeScreen Akses Cepat Akademik

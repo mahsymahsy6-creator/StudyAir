@@ -38,7 +38,7 @@ export function CognitiveLoadBadge({
     <Badge
       variant="outline"
       className={cn(
-        "font-medium",
+        "font-medium transition-colors duration-150",
         className,
         size === "sm" && "px-1.5 py-0 text-[10px]"
       )}

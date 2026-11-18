@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,19 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Sparkles,
   Upload,
   Camera,
-  FileImage,
-  CheckCircle2,
+  FileText,
   Calendar,
   Clock,
-  Brain,
   RotateCcw,
-  Trash2,
-  Plus,
-  ArrowRight,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,11 +29,11 @@ import { soundFX } from "@/lib/sound";
 import { useStudyStore } from "@/stores/studyStore";
 import {
   SAMPLE_PHOTO_PRESETS,
-  parsePhotoSchedule,
   type ParsedSyllabusResult,
   type ParsedStudyUnit,
 } from "@/lib/engine/ai-vision-parser";
 import { CognitiveLoadBadge } from "@/components/shared/CognitiveLoadBadge";
+import { GeminiApiKeyModal } from "@/components/ai/GeminiApiKeyModal";
 import { cn } from "@/lib/utils";
 
 interface AIPhotoScheduleDialogProps {
@@ -47,6 +43,7 @@ interface AIPhotoScheduleDialogProps {
 }
 
 type ScanStep = "idle" | "scanning" | "completed";
+type IngestTab = "photo" | "text";
 
 export function AIPhotoScheduleDialog({
   open,
@@ -58,33 +55,156 @@ export function AIPhotoScheduleDialog({
   const addBlock = useStudyStore((state) => state.addBlock);
 
   const [scanStep, setScanStep] = useState<ScanStep>("idle");
+  const [ingestTab, setIngestTab] = useState<IngestTab>("photo");
+  const [syllabusText, setSyllabusText] = useState("");
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
-  const [selectedFileName, setSelectedFileName] = useState<string>("");
   const [parsedData, setParsedData] = useState<ParsedSyllabusResult | null>(null);
   const [editableUnits, setEditableUnits] = useState<
     (ParsedStudyUnit & { enabled: boolean })[]
   >([]);
   const [subjectTitle, setSubjectTitle] = useState("");
   const [examDate, setExamDate] = useState("");
+  const [modelName, setModelName] = useState("Gemini Flash (Live)");
+  const [geminiKeyOpen, setGeminiKeyOpen] = useState(false);
+  const [quickKeyInput, setQuickKeyInput] = useState("");
+  const [hasGeminiKey, setHasGeminiKey] = useState(() => {
+    if (Boolean(process.env.NEXT_PUBLIC_GEMINI_API_KEY)) return true;
+    if (typeof window !== "undefined") {
+      return Boolean(localStorage.getItem("studyair-gemini-key"));
+    }
+    return false;
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset state on open/close
-  useEffect(() => {
-    if (!open) {
-      setScanStep("idle");
-      setSelectedImageSrc(null);
-      setParsedData(null);
-      setEditableUnits([]);
-    }
-  }, [open]);
+  const handleClose = useCallback(() => {
+    setScanStep("idle");
+    setSelectedImageSrc(null);
+    setParsedData(null);
+    setEditableUnits([]);
+    setSyllabusText("");
+    onClose();
+  }, [onClose]);
 
-  // Handle parsing execution
-  const processImage = useCallback(async (fileOrPreset: File | string, fileName?: string) => {
+  const handleSaveQuickKey = () => {
+    if (!quickKeyInput.trim()) return;
+    localStorage.setItem("studyair-gemini-key", quickKeyInput.trim());
+    setHasGeminiKey(true);
+    setQuickKeyInput("");
+    toast.success("Google Gemini API Key Activated!", {
+      description: "Ready to analyze your real documents and syllabi with Gemini 3.8 Flash.",
+    });
+  };
+
+  // Execute Gemini Multimodal Analysis on Real Image
+  const processImage = useCallback(
+    async (file: File) => {
+      setScanStep("scanning");
+      try {
+        soundFX.playClick();
+
+        const storedKey =
+          typeof window !== "undefined"
+            ? localStorage.getItem("studyair-gemini-key")
+            : null;
+
+        const mimeType = file.type || "image/jpeg";
+        const imageBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve((reader.result as string) || "");
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const response = await fetch("/api/gemini/parse-schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageBase64,
+            mimeType,
+            apiKey: storedKey || undefined,
+          }),
+        });
+
+        const resJson = await response.json();
+
+        if (!resJson.success) {
+          if (resJson.error === "MISSING_GEMINI_API_KEY") {
+            toast.error("Gemini API Key Required", {
+              description:
+                "Enter your Gemini API key below to process real photos with live Gemini 3.8 Flash.",
+            });
+            setScanStep("idle");
+            return;
+          }
+          throw new Error(resJson.message || "Failed to analyze image with Gemini");
+        }
+
+        const result: ParsedSyllabusResult = resJson.data;
+        setModelName(resJson.model || "Gemini 3.8 Flash");
+        setParsedData(result);
+        setSubjectTitle(result.subject_title);
+        setExamDate(result.exam_date);
+        setEditableUnits(
+          result.units.map((u) => ({
+            ...u,
+            enabled: true,
+          }))
+        );
+        setScanStep("completed");
+        soundFX.playSessionSuccess();
+      } catch (err: unknown) {
+        toast.error("Gemini Vision AI Analysis Failed", {
+          description:
+            err instanceof Error ? err.message : "Could not parse document structure.",
+        });
+        setScanStep("idle");
+      }
+    },
+    []
+  );
+
+  // Execute Gemini Analysis on Real Syllabus Text
+  const processSyllabusText = useCallback(async () => {
+    if (!syllabusText.trim()) {
+      toast.error("Please enter or paste your syllabus text.");
+      return;
+    }
+
     setScanStep("scanning");
     try {
       soundFX.playClick();
-      const result = await parsePhotoSchedule(fileOrPreset, fileName);
+
+      const storedKey =
+        typeof window !== "undefined"
+          ? localStorage.getItem("studyair-gemini-key")
+          : null;
+
+      const response = await fetch("/api/gemini/parse-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          syllabusText: syllabusText.trim(),
+          apiKey: storedKey || undefined,
+        }),
+      });
+
+      const resJson = await response.json();
+
+      if (!resJson.success) {
+        if (resJson.error === "MISSING_GEMINI_API_KEY") {
+          toast.error("Gemini API Key Required", {
+            description:
+              "Enter your Gemini API key below to process text with live Gemini 3.8 Flash.",
+          });
+          setScanStep("idle");
+          return;
+        }
+        throw new Error(resJson.message || "Failed to analyze text with Gemini");
+      }
+
+      const result: ParsedSyllabusResult = resJson.data;
+      setModelName(resJson.model || "Gemini 3.8 Flash");
       setParsedData(result);
       setSubjectTitle(result.subject_title);
       setExamDate(result.exam_date);
@@ -96,39 +216,41 @@ export function AIPhotoScheduleDialog({
       );
       setScanStep("completed");
       soundFX.playSessionSuccess();
-    } catch {
-      toast.error("Vision AI extraction failed", {
-        description: "Could not parse document structure. Please try another image.",
+    } catch (err: unknown) {
+      toast.error("Gemini Text Analysis Failed", {
+        description:
+          err instanceof Error ? err.message : "Could not parse syllabus text.",
       });
       setScanStep("idle");
     }
-  }, []);
+  }, [syllabusText]);
 
-  // Handle file input
+  // Handle Preset Quick Click
+  const handlePresetClick = (preset: (typeof SAMPLE_PHOTO_PRESETS)[0]) => {
+    setSyllabusText(
+      `${preset.name}\n\nTopics:\n` +
+        preset.extracted_result.units
+          .map(
+            (u) =>
+              `- ${u.title} (${u.estimated_minutes} min, ${u.cognitive_load} strain)`
+          )
+          .join("\n")
+    );
+    setIngestTab("text");
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setSelectedFileName(file.name);
     const reader = new FileReader();
     reader.onload = (event) => {
       setSelectedImageSrc(event.target?.result as string);
-      processImage(file, file.name);
+      processImage(file);
     };
     reader.readAsDataURL(file);
   };
 
-  // Handle sample preset click
-  const handlePresetClick = (presetId: string) => {
-    const preset = SAMPLE_PHOTO_PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
-
-    setSelectedFileName(preset.name);
-    setSelectedImageSrc(preset.thumbnail_data_uri);
-    processImage(presetId, preset.name);
-  };
-
-  // Toggle unit on/off
   const toggleUnit = (unitId: string) => {
     setEditableUnits((prev) =>
       prev.map((u) => (u.id === unitId ? { ...u, enabled: !u.enabled } : u))
@@ -150,17 +272,14 @@ export function AIPhotoScheduleDialog({
       title: subjectTitle || parsedData.subject_title,
       exam_date: examDate || parsedData.exam_date,
       color_hex: parsedData.color_hex,
-      total_estimated_minutes: enabledUnits.reduce(
-        (sum, u) => sum + u.estimated_minutes,
-        0
-      ),
     });
 
     let scheduledCount = 0;
 
     // 2. Add units and schedule blocks
     for (const unit of enabledUnits) {
-      const createdUnit = addStudyUnit(createdSubject.id, {
+      const createdUnit = addStudyUnit({
+        subject_id: createdSubject.id,
         title: unit.title,
         estimated_minutes: unit.estimated_minutes,
         cognitive_load: unit.cognitive_load,
@@ -182,152 +301,248 @@ export function AIPhotoScheduleDialog({
       }
     }
 
-    toast.success("AI Ingestion Complete!", {
+    toast.success("Gemini Ingestion Complete!", {
       description: `Added "${createdSubject.title}" with ${enabledUnits.length} units (${scheduledCount} blocks placed on calendar).`,
     });
 
     onScheduleCompleted?.();
-    onClose();
+    handleClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-border/40 bg-card/95 backdrop-blur-2xl p-6 sm:p-7 shadow-2xl">
-        <DialogHeader className="pb-3 border-b border-border/30">
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto border-border bg-card p-6 sm:p-7 shadow-none">
+        <DialogHeader className="pb-3 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-blue-500 to-indigo-600 shadow-md shadow-primary/20 text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-                AI Photo-to-Schedule Ingestion
-                <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                  Vision AI
+                Scan Syllabus with AI
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-primary/10 text-primary border-primary/30 font-medium"
+                >
+                  ⚡ {modelName || "Gemini AI"}
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                Scan or photograph any syllabus, timetable, or notes to automatically extract study units and calendar slots.
+                Upload a photo or paste text to create your study schedule.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        {/* ─── State 1: Upload / Choose Preset ─── */}
+        {/* ─── State 1: Upload / Input ─── */}
         {scanStep === "idle" && (
-          <div className="space-y-6 pt-4">
-            {/* Dropzone */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="group cursor-pointer rounded-2xl border-2 border-dashed border-border/50 bg-muted/10 p-8 text-center transition-all hover:border-primary/60 hover:bg-primary/[0.03]"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary transition-transform group-hover:scale-110">
-                <Upload className="h-6 w-6" />
+          <div className="space-y-5 pt-3">
+            {/* Inline Gemini Activation Banner if no key */}
+            {!hasGeminiKey && (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-bold text-foreground">
+                      Connect Live Google Gemini 3.8 Flash
+                    </span>
+                  </div>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                  >
+                    Get Free Key (10 sec) ↗
+                  </a>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Enter your free Gemini API key to activate real cloud multimodal vision on your photos:
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Paste AIzaSy... API key"
+                    value={quickKeyInput}
+                    onChange={(e) => setQuickKeyInput(e.target.value)}
+                    className="h-8 text-xs font-mono bg-background/50 border-primary/30"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveQuickKey}
+                    disabled={!quickKeyInput.trim()}
+                    className="h-8 px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium shrink-0"
+                  >
+                    Activate
+                  </Button>
+                </div>
               </div>
-              <h3 className="mt-3 text-sm font-semibold text-foreground">
-                Click to upload syllabus or drag & drop photo
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Supports photos of course schedules, exam dates, handwritten notes (PNG, JPG, WEBP)
-              </p>
+            )}
+
+            {/* Ingestion Mode Switcher */}
+            <div className="flex items-center rounded-xl bg-muted/20 border border-border p-1">
+              <button
+                type="button"
+                onClick={() => setIngestTab("photo")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 min-h-[36px]",
+                  ingestTab === "photo"
+                    ? "bg-background text-foreground border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Camera className="h-3.5 w-3.5" />
+                Upload Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => setIngestTab("text")}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 min-h-[36px]",
+                  ingestTab === "text"
+                    ? "bg-background text-foreground border border-border"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Paste Text
+              </button>
             </div>
 
-            {/* Quick Presets */}
-            <div>
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Or Test With Sample Documents
-                </span>
-                <span className="text-[11px] text-muted-foreground">1-Click Instant Demo</span>
+            {/* Tab 1: Real Photo Ingestion */}
+            {ingestTab === "photo" && (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="group cursor-pointer rounded-2xl border border-dashed border-border bg-muted/10 p-8 text-center transition-all duration-150 hover:border-primary/60 hover:bg-primary/[0.02]"
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary transition-transform group-hover:scale-105">
+                  <Upload className="h-6 w-6" />
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-foreground">
+                  Click or drop a syllabus photo here
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Supports PNG, JPG, or photos of your timetable.
+                </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            )}
+
+            {/* Tab 2: Real Text Ingestion */}
+            {ingestTab === "text" && (
+              <div className="space-y-3">
+                <Textarea
+                  placeholder={`Paste course syllabus, lecture schedule, or exam topics here...\n\nExample:\nCS 101 Computer Systems\nExam: November 20\n- Topic 1: Memory & Caches (60m)\n- Topic 2: Virtual Memory (90m)`}
+                  value={syllabusText}
+                  onChange={(e) => setSyllabusText(e.target.value)}
+                  rows={5}
+                  className="text-xs font-mono leading-relaxed bg-muted/15 border-border"
+                />
+                <Button
+                  onClick={processSyllabusText}
+                  disabled={!syllabusText.trim()}
+                  className="w-full gap-2 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Analyze Syllabus
+                </Button>
+              </div>
+            )}
+
+            {/* Quick Demo Inspiration (Collapsible) */}
+            <details className="rounded-xl border border-border bg-muted/10 p-3">
+              <summary className="text-xs text-muted-foreground cursor-pointer font-medium hover:text-foreground">
+                Try a sample template (optional)
+              </summary>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3">
                 {SAMPLE_PHOTO_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
-                    onClick={() => handlePresetClick(preset.id)}
-                    className="flex flex-col text-left p-3.5 rounded-xl border border-border/30 bg-card/40 transition-all hover:bg-card hover:border-primary/50 hover:shadow-md"
+                    type="button"
+                    onClick={() => handlePresetClick(preset)}
+                    className="flex flex-col text-left p-2.5 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors duration-150 min-h-[44px]"
                   >
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                      <FileImage className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="truncate">{preset.name}</span>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                      {preset.description}
-                    </p>
-                    <div className="mt-3 flex items-center justify-between text-[10px] text-primary font-medium">
-                      <span>{preset.category}</span>
-                      <ArrowRight className="h-3 w-3" />
-                    </div>
+                    <span className="text-xs font-semibold text-foreground truncate">
+                      {preset.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                      {preset.category}
+                    </span>
+                    <span className="mt-2 text-[10px] text-primary font-medium">
+                      Load Text →
+                    </span>
                   </button>
                 ))}
               </div>
-            </div>
+            </details>
           </div>
         )}
 
-        {/* ─── State 2: Scanning Laser Animation ─── */}
+        {/* ─── State 2: Live Scanning Animation ─── */}
         {scanStep === "scanning" && (
           <div className="py-12 text-center space-y-6">
-            <div className="relative mx-auto w-48 h-32 rounded-xl border border-primary/40 bg-muted/20 overflow-hidden flex items-center justify-center shadow-lg shadow-primary/10">
+            <div className="relative mx-auto w-48 h-32 rounded-xl border border-primary/30 bg-muted/20 overflow-hidden flex items-center justify-center">
               {selectedImageSrc ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={selectedImageSrc}
-                  alt="Scanned Syllabus"
+                  alt="Document"
                   className="w-full h-full object-cover opacity-60"
                 />
               ) : (
-                <Camera className="h-10 w-10 text-primary/40 animate-pulse" />
+                <FileText className="h-10 w-10 text-primary/40 animate-pulse" />
               )}
               {/* Laser beam */}
-              <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_15px_#38bdf8] animate-bounce" />
+              <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_15px_rgba(var(--primary),0.5)] animate-bounce" />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-center gap-2 text-sm font-semibold text-foreground">
-                <Sparkles className="h-4 w-4 text-cyan-400 animate-spin" />
-                <span>Analyzing document with Multimodal Vision AI...</span>
+                <Sparkles className="h-4 w-4 text-primary animate-spin" />
+                <span>Google Gemini 3.8 Flash is analyzing your document...</span>
               </div>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Deconstructing syllabus hierarchy, extracting lecture modules, evaluating cognitive load, and calculating time slots.
+                Deconstructing lecture modules, calculating cognitive strain ratings, and structuring non-overlapping calendar blocks.
               </p>
             </div>
           </div>
         )}
 
-        {/* ─── State 3: Completed Extraction & Review ─── */}
+        {/* ─── State 3: Extracted Units Review ─── */}
         {scanStep === "completed" && parsedData && (
           <div className="space-y-5 pt-3">
-            {/* Top Insight Card */}
-            <div className="p-4 rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm space-y-3">
+            {/* Subject Overview Card */}
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-semibold">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    {Math.round(parsedData.confidence_score * 100)}% AI Confidence
-                  </Badge>
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-                    from {selectedFileName}
+                  <div
+                    className="h-3.5 w-3.5 rounded-full"
+                    style={{ backgroundColor: parsedData.color_hex }}
+                  />
+                  <span className="text-xs font-semibold text-foreground">
+                    Course Details
                   </span>
                 </div>
                 <Button
-                  variant="ghost"
                   size="sm"
+                  variant="ghost"
                   onClick={() => setScanStep("idle")}
-                  className="h-7 text-xs text-muted-foreground"
+                  className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
                 >
-                  <RotateCcw className="h-3 w-3 mr-1" /> Scan Another
+                  <RotateCcw className="h-3 w-3" />
+                  Scan Another
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Subject Title</Label>
+                  <Label className="text-[11px] text-muted-foreground">Course Name</Label>
                   <Input
                     value={subjectTitle}
                     onChange={(e) => setSubjectTitle(e.target.value)}
@@ -335,7 +550,7 @@ export function AIPhotoScheduleDialog({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Target Exam Date</Label>
+                  <Label className="text-[11px] text-muted-foreground">Exam Date</Label>
                   <Input
                     type="date"
                     value={examDate}
@@ -345,7 +560,7 @@ export function AIPhotoScheduleDialog({
                 </div>
               </div>
 
-              <p className="text-[11px] text-muted-foreground/90 italic pt-1 border-t border-border/20">
+              <p className="text-[11px] text-muted-foreground italic pt-2 border-t border-border">
                 &ldquo;{parsedData.summary}&rdquo;
               </p>
             </div>
@@ -354,18 +569,18 @@ export function AIPhotoScheduleDialog({
             <div>
               <div className="flex items-center justify-between pb-2">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Extracted Study Units ({editableUnits.filter((u) => u.enabled).length}/{editableUnits.length} active)
+                  Topics ({editableUnits.filter((u) => u.enabled).length}/{editableUnits.length} selected)
                 </span>
-                <span className="text-[11px] text-muted-foreground">Toggle or adjust before import</span>
+                <span className="text-[11px] text-muted-foreground">Choose topics to schedule</span>
               </div>
 
-              <div className="rounded-xl border border-border/30 bg-card/30 overflow-hidden divide-y divide-border/20">
+              <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
                 {editableUnits.map((unit) => (
                   <div
                     key={unit.id}
                     className={cn(
-                      "flex items-center justify-between p-3 transition-colors",
-                      unit.enabled ? "hover:bg-muted/15" : "opacity-40 bg-muted/5"
+                      "flex items-center justify-between p-3 transition-colors duration-150",
+                      unit.enabled ? "hover:bg-muted/30" : "opacity-40 bg-muted/10"
                     )}
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -396,7 +611,7 @@ export function AIPhotoScheduleDialog({
                       <CognitiveLoadBadge load={unit.cognitive_load} size="sm" />
                       <Badge
                         variant="outline"
-                        className="text-[9px] uppercase tracking-wider border-border/40"
+                        className="text-[9px] uppercase tracking-wider border-border"
                       >
                         {unit.block_type}
                       </Badge>
@@ -408,22 +623,27 @@ export function AIPhotoScheduleDialog({
           </div>
         )}
 
-        <DialogFooter className="pt-3 border-t border-border/30">
-          <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
+        <DialogFooter className="pt-3 border-t border-border">
+          <Button variant="outline" size="sm" onClick={handleClose} className="text-xs">
             Cancel
           </Button>
           {scanStep === "completed" && (
             <Button
               size="sm"
               onClick={handleCommitSchedule}
-              className="gap-1.5 text-xs font-medium shadow-md bg-gradient-to-r from-primary to-blue-600 text-white hover:opacity-95"
+              className="gap-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <Zap className="h-3.5 w-3.5 fill-current" />
-              Import & Auto-Schedule ({editableUnits.filter((u) => u.enabled).length} Units)
+              Add to Calendar ({editableUnits.filter((u) => u.enabled).length} Topics)
             </Button>
           )}
         </DialogFooter>
       </DialogContent>
+
+      <GeminiApiKeyModal
+        open={geminiKeyOpen}
+        onClose={() => setGeminiKeyOpen(false)}
+      />
     </Dialog>
   );
 }

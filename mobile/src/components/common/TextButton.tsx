@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, StyleSheet, Pressable, StyleProp, ViewStyle, TextStyle } from "react-native";
 import { colors, typography, touchTarget, tidySpacing } from "../../theme";
+import { soundFX } from "../../lib/sound";
 
 export interface TextButtonProps {
   label: string;
@@ -21,7 +22,10 @@ export function TextButton({
 }: TextButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        soundFX.playClick();
+        onPress();
+      }}
       disabled={disabled}
       hitSlop={touchTarget.min / 4}
       style={({ pressed }) => [

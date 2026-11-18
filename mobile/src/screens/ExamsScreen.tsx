@@ -28,9 +28,10 @@ interface ExamsScreenProps {
     navigate: (screen: string, params?: any) => void;
     goBack?: () => void;
   };
+  onBack?: () => void;
 }
 
-export function ExamsScreen({ navigation }: ExamsScreenProps) {
+export function ExamsScreen({ navigation, onBack }: ExamsScreenProps) {
   const { subjects, studyUnits, examEvents, generateExamPlan } = useMobileStudyStore();
 
   const [activeFilter, setActiveFilter] = useState<"upcoming" | "past">("upcoming");
@@ -81,15 +82,34 @@ export function ExamsScreen({ navigation }: ExamsScreenProps) {
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       {/* ─── Top Header ─── */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>
-            {t("ulangan_selanjutnya") || "Ulangan Selanjutnya"}
-          </Text>
-          <Text style={styles.headerSub}>
-            {upcomingExams.length > 0
-              ? `${upcomingExams.length} ulangan menunggumu`
-              : "Siap hadapi ujian dengan tenang"}
-          </Text>
+        <View style={[styles.headerLeft, { flexDirection: "row", alignItems: "center", gap: 10 }]}>
+          {onBack && (
+            <Pressable
+              onPress={onBack}
+              hitSlop={8}
+              accessibilityLabel="Kembali"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                backgroundColor: colors.surfaceSubtle,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="arrow-back" size={20} color={colors.text} />
+            </Pressable>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>
+              {t("ulangan_selanjutnya") || "Ulangan Selanjutnya"}
+            </Text>
+            <Text style={styles.headerSub}>
+              {upcomingExams.length > 0
+                ? `${upcomingExams.length} ulangan menunggumu`
+                : "Siap hadapi ujian dengan tenang"}
+            </Text>
+          </View>
         </View>
 
         <Pressable
@@ -453,7 +473,7 @@ const styles = StyleSheet.create({
   toast: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${colors.emerald}18`,
+    backgroundColor: colors.emeraldLight,
     borderWidth: 1,
     borderColor: colors.emerald,
     borderRadius: radius.md,
@@ -508,7 +528,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   badgeToday: {
-    backgroundColor: `${colors.amber}24`,
+    backgroundColor: colors.amberLight,
   },
   badgeTodayText: {
     color: colors.amber,

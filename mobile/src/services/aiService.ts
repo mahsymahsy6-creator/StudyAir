@@ -16,9 +16,11 @@ import type {
   TaskType,
   CognitiveLoad,
 } from "../types";
-import { resolveIndonesianSubject } from "../lib/subjectDictionary";
+import { resolveIndonesianSubject, INDONESIAN_SUBJECT_CATALOG } from "../lib/subjectDictionary";
 import { format, addDays, getDay, parseISO } from "date-fns";
 import { calculateNextClassDeadline } from "../engine/deadlineEngine";
+import { parseIndonesianDateHint } from "../engine/dateHintParser";
+import { formatLocaleDate } from "../lib/dateUtils";
 
 export interface RawTimetableEntry {
   rawDay: string | number;
@@ -400,7 +402,7 @@ export async function extractTasksFromAI(
             notes: t.notes || undefined,
           }));
           if (tasks.length > 0) {
-            return { tasks, model: json.model || "Gemini Proxy" };
+            return { tasks: expandExtractedTasks(tasks), model: json.model || "Gemini Proxy" };
           }
         }
       }
@@ -409,19 +411,123 @@ export async function extractTasksFromAI(
     }
 
     if (!apiKey) {
+      const localTasks = extractTasksLocal(cleanText);
+      if (localTasks.length > 0) {
+        return { tasks: expandExtractedTasks(localTasks), model: "Local Task Parser" };
+      }
       throw new Error("No Gemini API key configured for AI task extraction.");
     }
 
-    // 2. Direct Gemini Call with timeout signal
-    return await directGeminiTaskExtractCall(cleanText, apiKey, controller.signal);
+    // 2. Direct Gemini Call with timeout signal (fallback to local task parser if network/API fails)
+    try {
+      const directRes = await directGeminiTaskExtractCall(cleanText, apiKey, controller.signal);
+      return { ...directRes, tasks: expandExtractedTasks(directRes.tasks) };
+    } catch (directErr: any) {
+      const localTasks = extractTasksLocal(cleanText);
+      if (localTasks.length > 0) {
+        return { tasks: expandExtractedTasks(localTasks), model: "Local Task Parser" };
+      }
+      throw directErr;
+    }
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
 /**
- * ─── 2. Deterministic Code Decisions (AI extracts, Code decides) ───
+ * Splits text into distinct task clauses on sentence boundaries, newlines, semicolons,
+ * and commas only when the segment after the comma starts with an assignment keyword
+ * (e.g. "Halaman ...", "Bab ...", "Kegiatan ...", "Latihan ...") or a subject name.
+ * Keeps number lists inside a single assignment (e.g. "hal 45 no 1, 2, dan 3") intact.
  */
+export function splitCompoundTaskClauses(text: string): string[] {
+  const baseParts = (text || "")
+    .split(/(?<=[.!?])\s+|\n+|;+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 3);
+
+  const subjectTokens = INDONESIAN_SUBJECT_CATALOG.flatMap((entry) => [
+    entry.canonicalName.toLowerCase(),
+    ...entry.aliases.map((a) => a.toLowerCase()),
+  ]).map((tok) => tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+  const clauseLeadKeywords = [
+    "halaman",
+    "hal\\.?",
+    "hlm\\.?",
+    "bab",
+    "kegiatan",
+    "latihan",
+    "soal",
+    "tugas",
+    "pr",
+    "kuis",
+    "quiz",
+    "ulangan",
+    "proyek",
+    "project",
+    "makalah",
+    "laporan",
+    "presentasi",
+    "rangkum(?:an)?",
+    "ringkas(?:an)?",
+    "baca",
+    "kerjakan",
+    "buat",
+    "bikin",
+    "catat",
+    "hafal(?:kan)?",
+    ...subjectTokens,
+  ].join("|");
+
+  const commaSplitRegex = new RegExp(
+    `,\\s+(?=(?:[-*•\\d.)]+\\s+)?(?:${clauseLeadKeywords})\\b)`,
+    "i"
+  );
+
+  const result: string[] = [];
+  for (const part of baseParts) {
+    // Preserve leading subject header if present, e.g. "Matematika: Halaman 58..., Halaman 63..."
+    const colonSubjectMatch = part.match(/^([^:]{2,32}):\s+(.+)$/);
+    if (colonSubjectMatch && commaSplitRegex.test(colonSubjectMatch[2])) {
+      const header = colonSubjectMatch[1].trim();
+      const subParts = colonSubjectMatch[2]
+        .split(commaSplitRegex)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 3);
+      for (const subPart of subParts) {
+        result.push(`${header}: ${subPart}`);
+      }
+      continue;
+    }
+
+    const subParts = part
+      .split(commaSplitRegex)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 3);
+    result.push(...(subParts.length > 0 ? subParts : [part]));
+  }
+
+  return result;
+}
+
+function expandExtractedTasks(tasks: RawExtractedTask[]): RawExtractedTask[] {
+  const expanded: RawExtractedTask[] = [];
+  for (const item of tasks) {
+    const clauses = splitCompoundTaskClauses(item.title || "");
+    if (clauses.length <= 1) {
+      expanded.push(item);
+      continue;
+    }
+    for (const clause of clauses) {
+      expanded.push({
+        ...item,
+        title: clause,
+      });
+    }
+  }
+  return expanded;
+}
 
 /**
  * Maps Indonesian/English raw day strings or indices to 1..7 (1=Monday, 7=Sunday)
@@ -519,43 +625,15 @@ export function resolveTimetableEntries(
  */
 export function resolveDeadlineDate(rawDeadline?: string, referenceDate: Date = new Date()): string {
   if (!rawDeadline || !rawDeadline.trim()) {
-    // Default deadline: tomorrow
     return format(addDays(referenceDate, 1), "yyyy-MM-dd");
   }
 
-  const s = rawDeadline.trim().toLowerCase();
-
-  // 1. Check for standard YYYY-MM-DD format
-  const dateMatch = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (dateMatch) {
-    const y = dateMatch[1];
-    const m = dateMatch[2].padStart(2, "0");
-    const d = dateMatch[3].padStart(2, "0");
-    return `${y}-${m}-${d}`;
+  const hint = parseIndonesianDateHint(rawDeadline, referenceDate);
+  if (hint && hint.suggestedDate) {
+    return hint.suggestedDate;
   }
 
-  // 2. Indonesian colloquial terms
-  if (s.includes("hari ini") || s.includes("today")) {
-    return format(referenceDate, "yyyy-MM-dd");
-  }
-  if (s.includes("besok") || s.includes("tomorrow")) {
-    return format(addDays(referenceDate, 1), "yyyy-MM-dd");
-  }
-  if (s.includes("lusa")) {
-    return format(addDays(referenceDate, 2), "yyyy-MM-dd");
-  }
-
-  // 3. Day of week resolution (e.g. "selasa", "jumat depan")
-  const targetDay = normalizeWeekday(s); // 1..7 (Monday=1)
-  const currentDay = getDay(referenceDate) === 0 ? 7 : getDay(referenceDate); // 1..7
-
-  let diff = targetDay - currentDay;
-  if (diff <= 0) diff += 7; // Next occurrence
-  if (s.includes("depan") && diff < 7) {
-    diff += 7;
-  }
-
-  return format(addDays(referenceDate, diff), "yyyy-MM-dd");
+  return format(addDays(referenceDate, 1), "yyyy-MM-dd");
 }
 
 /**
@@ -632,6 +710,7 @@ export function createFallbackTaskFromText(
   type: TaskType;
   deadlineDate: string;
   deadlineLabel: string;
+  deadlineMode: "nextClass" | "custom";
   notes: string;
   estimatedMinutes: number;
 } {
@@ -675,17 +754,16 @@ export function createFallbackTaskFromText(
 
   let deadlineDate = "";
   let deadlineLabel = "";
+  let deadlineMode: "nextClass" | "custom" = "custom";
 
   if (nextRes.found && nextRes.deadlineDate) {
     deadlineDate = nextRes.deadlineDate;
-    try {
-      deadlineLabel = `Next Class (${format(parseISO(nextRes.deadlineDate), "d MMM")})`;
-    } catch {
-      deadlineLabel = nextRes.deadlineDate;
-    }
+    deadlineMode = "nextClass";
+    deadlineLabel = `Kelas Depan (${formatLocaleDate(nextRes.deadlineDate, "EEE, d MMM")})`;
   } else {
-    deadlineDate = format(addDays(new Date(), 1), "yyyy-MM-dd");
-    deadlineLabel = `Besok (${format(addDays(new Date(), 1), "d MMM")})`;
+    const tomorrow = addDays(new Date(), 1);
+    deadlineDate = format(tomorrow, "yyyy-MM-dd");
+    deadlineLabel = `Besok (${formatLocaleDate(tomorrow, "EEE, d MMM")})`;
   }
 
   // 3. Title: first line or concise summary, notes = pasted text
@@ -711,61 +789,98 @@ export function createFallbackTaskFromText(
     type,
     deadlineDate,
     deadlineLabel,
+    deadlineMode,
     estimatedMinutes: suggestTaskDuration(title, type),
     notes: clean, // Pasted text as notes
   };
 }
 
+function extractSingleClauseMeta(part: string): {
+  subject?: string;
+  title: string;
+  type: "homework" | "quiz" | "project";
+  datePhrase?: string;
+} {
+  const lower = part.toLowerCase();
+  const resolved = resolveIndonesianSubject(part);
+  const hasKnownSubject = resolved.canonicalName !== "Mata Pelajaran";
+
+  let datePhrase = "";
+  const specificDeadline = part.match(
+    /(?:dikumpul(?:kan)?|kumpul|tenggat|deadline|batas(?:\s+waktu)?|paling\s+lambat)\s*(?:pada\s+)?(?:hari\s+|tgl\s+|tanggal\s+)?(?:(?:senin|selasa|rabu|rabo|kamis|jumat|jum'at|sabtu|minggu|ahad)(?:\s+depan)?|hari\s+ini|malam\s+ini|sore\s+ini|besok|bsk|lusa|minggu\s+depan|pekan\s+depan|pertemuan\s+depan|kelas\s+depan|\d{1,2}\s*hari\s+lagi|\d{1,2}\s+[a-z]+(?:\s+\d{4})?|\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?|\d{4}-\d{2}-\d{2})/i
+  );
+  const generalDate = part.match(
+    /(?:(?:hari\s+)?(?:senin|selasa|rabu|rabo|kamis|jumat|jum'at|sabtu|minggu|ahad)(?:\s+depan)?|hari\s+ini|malam\s+ini|sore\s+ini|besok|bsk|lusa|minggu\s+depan|pekan\s+depan|pertemuan\s+depan|kelas\s+depan|\d{1,2}\s*hari\s+lagi|(?:tgl|tanggal)\s+\d{1,2}(?:\s+[a-z]+)?(?:\s+\d{4})?)/i
+  );
+  const dateMatch = specificDeadline || generalDate;
+  if (dateMatch) {
+    datePhrase = dateMatch[0].trim();
+  } else {
+    const hint = parseIndonesianDateHint(part);
+    if (hint) {
+      datePhrase = hint.matchedPhrase;
+    }
+  }
+
+  let type: "homework" | "quiz" | "project" = "homework";
+  if (lower.includes("kuis") || lower.includes("quiz") || lower.includes("ulangan")) {
+    type = "quiz";
+  } else if (lower.includes("proyek") || lower.includes("project")) {
+    type = "project";
+  }
+
+  let title = part;
+  if (dateMatch) {
+    title = title.replace(dateMatch[0], "").replace(/\s{2,}/g, " ").trim();
+  }
+  title = title.replace(/^(?:besok|lusa)\s+/i, "").trim();
+  title = title.replace(/^[.,\-*•\s]+|[.,\-*•\s]+$/g, "").trim();
+
+  return {
+    subject: hasKnownSubject ? resolved.canonicalName : undefined,
+    title: title || part,
+    type,
+    datePhrase: datePhrase || undefined,
+  };
+}
+
 /**
- * Deterministic sentence/line task extractor used as fallback or offline testing.
- * Splits text into individual tasks and maps subjects + date phrases.
+ * Deterministic sentence/line/compound-clause task extractor used as fallback or offline testing.
+ * Splits text into individual tasks and maps subjects + date phrases without cross-sentence leakage.
  */
 export function extractTasksLocal(text: string): RawExtractedTask[] {
-  const parts = text
-    .split(/(?<=[.!?])\s+|\n+/)
+  const sentences = (text || "")
+    .split(/(?<=[.!?])\s+|\n+|;+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 3);
 
   const tasks: RawExtractedTask[] = [];
 
-  for (const part of parts) {
-    const lower = part.toLowerCase();
-    const resolved = resolveIndonesianSubject(part);
-    const hasKnownSubject = resolved.canonicalName !== "Mata Pelajaran";
+  for (const sentence of sentences) {
+    const sentenceMeta = extractSingleClauseMeta(sentence);
+    const clauses = splitCompoundTaskClauses(sentence);
 
-    let datePhrase = "";
-    const specificDeadline = part.match(
-      /(?:dikumpul|kumpul|tenggat|deadline)\s*(?:hari\s+)?(?:senin|selasa|rabu|kamis|jumat|sabtu|minggu|besok|lusa)/i
-    );
-    const generalDate = part.match(
-      /(?:hari\s+)?(?:senin|selasa|rabu|kamis|jumat|sabtu|minggu|besok|lusa)/i
-    );
-    const dateMatch = specificDeadline || generalDate;
-    if (dateMatch) {
-      datePhrase = dateMatch[0].trim();
+    if (clauses.length <= 1) {
+      tasks.push({
+        subject: sentenceMeta.subject,
+        title: sentenceMeta.title,
+        type: sentenceMeta.type,
+        datePhrase: sentenceMeta.datePhrase,
+        notes: undefined,
+      });
+      continue;
     }
 
-    let type: "homework" | "quiz" | "project" = "homework";
-    if (lower.includes("kuis") || lower.includes("quiz") || lower.includes("ulangan")) {
-      type = "quiz";
-    } else if (lower.includes("proyek") || lower.includes("project")) {
-      type = "project";
+    for (const clause of clauses) {
+      const clauseMeta = extractSingleClauseMeta(clause);
+      tasks.push({
+        subject: clauseMeta.subject || sentenceMeta.subject,
+        title: clauseMeta.title,
+        type: clauseMeta.type,
+        datePhrase: clauseMeta.datePhrase || sentenceMeta.datePhrase,
+        notes: undefined,
+      });
     }
-
-    let title = part;
-    if (dateMatch) {
-      title = title.replace(dateMatch[0], "").replace(/\s{2,}/g, " ").trim();
-    }
-    title = title.replace(/^(?:besok|lusa)\s+/i, "").trim();
-    title = title.replace(/^[.,\-*•\s]+|[.,\-*•\s]+$/g, "").trim();
-
-    tasks.push({
-      subject: hasKnownSubject ? resolved.canonicalName : undefined,
-      title: title || part,
-      type,
-      datePhrase: datePhrase || undefined,
-      notes: undefined,
-    });
   }
 
   return tasks;
@@ -976,7 +1091,7 @@ Analyze this message, homework chat, or notes.
 Extract all distinct tasks, homework (PR), quizzes (kuis/ulangan), or projects mentioned in the text.
 
 Strict extraction rules:
-- Separate distinct assignments into individual tasks.
+- Separate distinct assignments AND separate page/exercise clauses (e.g. "Halaman 58-59 kegiatan 2, Halaman 63 kegiatan 2 dan 3" -> split into individual tasks, one per exercise/page block) into individual items in "tasks". Keep comma-separated question numbers of one exercise together (e.g. "Hal 45 no 1, 2, dan 5" stays 1 task).
 - For each task:
   - "subject": subject name or alias if mentioned (e.g. "Matematika", "Biologi", "Fisika") or null.
   - "title": concise actionable task description (e.g. "PR hal 45 no 1-5", "Bikin rangkuman Bab 3").

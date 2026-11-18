@@ -39,3 +39,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Phase 10 test samples
+test_samples
+test_samples/
+**/test_samples
+**/test_samples/
+
+# Obsidian vault
+docs/.obsidian/workspace.json
+
+# Large Android APK binaries
+*.apk
+
+# Playwright MCP logs
+.playwright-mcp/
+docs/.obsidian/workspace-mobile.json
+docs/.obsidian/cache
+docs/.obsidian/cache/

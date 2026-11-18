@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, StyleSheet, Pressable, StyleProp, ViewStyle } from "react-native";
 import { colors, typography, touchTarget, radius, tidySpacing } from "../../theme";
+import { soundFX } from "../../lib/sound";
 
 export interface ChipProps {
   label: string;
@@ -21,7 +22,10 @@ export function Chip({
 }: ChipProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        soundFX.playClick();
+        onPress();
+      }}
       hitSlop={touchTarget.min / 4}
       style={({ pressed }) => [
         styles.chip,

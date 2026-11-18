@@ -63,9 +63,9 @@ export function analyzeCognitiveLoad(
             formattedDate,
             type: "CONSECUTIVE_HIGH",
             blockTitles: [current.study_unit.title, next.study_unit.title],
-            message: `Consecutive High Cognitive Load blocks scheduled back-to-back: "${current.study_unit.title}" and "${next.study_unit.title}".`,
+            message: `Two difficult topics back-to-back: "${current.study_unit.title}" and "${next.study_unit.title}".`,
             recommendation:
-              "Insert a 20-30 min break or reschedule a Low-load review block between them to avoid cognitive fatigue.",
+              "Add a short break or an easier review between them.",
           });
         }
       }
@@ -87,6 +87,7 @@ export function analyzeCognitiveLoad(
     }
 
     if (totalMinutes >= 120 && highMinutes / totalMinutes > 0.65) {
+      const pct = Math.round((highMinutes / totalMinutes) * 100);
       warnings.push({
         id: `overload-${dateKey}`,
         date: dateKey,
@@ -95,11 +96,9 @@ export function analyzeCognitiveLoad(
         blockTitles: sorted
           .filter((b) => b.study_unit.cognitive_load === "HIGH")
           .map((b) => b.study_unit.title),
-        message: `High cognitive load makes up ${Math.round(
-          (highMinutes / totalMinutes) * 100
-        )}% of study time on ${formattedDate}.`,
+        message: `Heavy study day (${pct}% difficult topics) on ${formattedDate}.`,
         recommendation:
-          "Balance the schedule with medium or low cognitive load units to sustain focus.",
+          "Spread difficult topics across other days to avoid burnout.",
       });
     }
   }

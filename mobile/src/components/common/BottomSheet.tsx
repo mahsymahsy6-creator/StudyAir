@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Animated,
+  PanResponder,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, typography, radius, touchTarget, tidySpacing } from "../../theme";
 import { PrimaryButton } from "./PrimaryButton";
+import { HapticFeedback } from "../../lib/haptics";
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -38,6 +41,51 @@ export function BottomSheet({
   primaryButtonLoading = false,
   primaryButtonVariant = "primary",
 }: BottomSheetProps) {
+  const translateY = useRef(new Animated.Value(0)).current;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (visible) {
+      translateY.setValue(0);
+    }
+  }, [visible, translateY]);
+
+  // Swipe-down gesture on handle and header to dismiss the sheet
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.dy > 6 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 72 || gestureState.vy > 0.65) {
+          HapticFeedback.light();
+          Animated.timing(translateY, {
+            toValue: 420,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => {
+            translateY.setValue(0);
+            onCloseRef.current();
+          });
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            friction: 7,
+            tension: 160,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
   return (
     <Modal
       visible={visible}
@@ -51,33 +99,40 @@ export function BottomSheet({
       >
         <Pressable style={styles.backdrop} onPress={onClose} />
 
-        <View style={styles.sheetContainer}>
-          {/* Drag Handle */}
-          <View style={styles.handleContainer}>
-            <View style={styles.dragHandle} />
-          </View>
-
-          {/* Header Row */}
-          <View style={styles.headerRow}>
-            <View style={{ width: 24 }} />
-            <View style={styles.titleColumn}>
-              <Text style={styles.title} numberOfLines={1}>
-                {title}
-              </Text>
-              {subtitle && (
-                <Text style={styles.subtitle} numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              )}
+        <Animated.View
+          style={[
+            styles.sheetContainer,
+            { transform: [{ translateY }] },
+          ]}
+        >
+          {/* Swipeable Drag Handle & Header */}
+          <View {...panResponder.panHandlers}>
+            <View style={styles.handleContainer}>
+              <View style={styles.dragHandle} />
             </View>
-            <Pressable
-              onPress={onClose}
-              hitSlop={touchTarget.min / 4}
-              style={styles.closeBtn}
-              accessibilityLabel="Tutup"
-            >
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
-            </Pressable>
+
+            {/* Header Row */}
+            <View style={styles.headerRow}>
+              <View style={{ width: 24 }} />
+              <View style={styles.titleColumn}>
+                <Text style={styles.title} numberOfLines={1}>
+                  {title}
+                </Text>
+                {subtitle && (
+                  <Text style={styles.subtitle} numberOfLines={1}>
+                    {subtitle}
+                  </Text>
+                )}
+              </View>
+              <Pressable
+                onPress={onClose}
+                hitSlop={touchTarget.min / 4}
+                style={styles.closeBtn}
+                accessibilityLabel="Tutup"
+              >
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Sheet Body */}
@@ -102,7 +157,7 @@ export function BottomSheet({
               />
             </View>
           )}
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -118,6 +173,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   sheetContainer: {
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,

@@ -1,0 +1,19 @@
+# Large APK binaries (hosted on GitHub Releases/External CDN)
+*.apk
+public/*.apk
+mobile/*.apk
+
+# Mobile source directory (Next.js is the web root)
+mobile/
+
+# Documentation and tests
+docs/
+test_samples/
+dist-test/
+coverage/
+*.test.*
+test_*.mjs
+
+# Raw uncompressed trailer audio assets
+public/trailer/*.wav
+public/trailer/assets/*.pcm

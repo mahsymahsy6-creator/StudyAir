@@ -88,6 +88,7 @@ assert(engineContent.includes("isAtRisk"), "studyStreakEngine must track streak 
 assert(engineContent.includes("MASCOT_STAGES"), "studyStreakEngine must export MASCOT_STAGES");
 assert(engineContent.includes("getMascotStage"), "studyStreakEngine must export getMascotStage");
 assert(engineContent.includes("getNextMascotStage"), "studyStreakEngine must export getNextMascotStage");
+assert(engineContent.includes("getMascotGrowthState"), "studyStreakEngine must export getMascotGrowthState for progressive streak variance");
 console.log("✓ Study streak engine calculation invariants and mascot evolution stages verified");
 
 // 7. Test Sound FX Synthesizer
@@ -121,6 +122,23 @@ assert(mascotContent.includes('currentStage.id === "winged"') || mascotContent.i
 assert(mascotContent.includes('currentStage.id === "deity"') || mascotContent.includes("deityBody"), "StreakEvolutionMascot must render Cosmic Deity Dragon stage (100+ days)");
 assert(mascotContent.includes("playMascotInteraction"), "StreakEvolutionMascot must trigger stage-specific sound on tap");
 assert(mascotContent.includes("HapticFeedback.streakSparkle"), "StreakEvolutionMascot must trigger haptics on tap");
-console.log("✓ StreakEvolutionMascot 4-stage procedural animations and sound feedback verified");
+assert(mascotContent.includes("days < 1"), "StreakEvolutionMascot must return null when streak is not accomplished (days < 1)");
+assert(mascotContent.includes("tailFlameFlickerAnim"), "StreakEvolutionMascot must animate flickering tail flame");
+assert(mascotContent.includes("reactionFloatingBadge"), "StreakEvolutionMascot must render floating reaction badges on feed/pet/tap");
+assert(screenContent.includes("hasAccomplishedStreak"), "StreakScreen must hide streak pet and locked stages before streak is accomplished");
+assert(screenContent.includes("handleFeedDragon"), "StreakScreen must allow feeding the dragon with earned Bara Api");
+assert(screenContent.includes("DRAGON_ELEMENTS"), "StreakScreen must allow switching dragon elemental aura skins");
+assert(engineContent.includes("deriveDragonPetStats"), "studyStreakEngine must export deriveDragonPetStats for satiety, mood, and Bara Api");
+assert(!screenContent.includes("xpIntoLevel") && !screenContent.includes("Ikatan Naga Lv."), "StreakScreen must not display redundant EXP or Companion Level bars");
+assert(screenContent.includes("satietyLabel"), "StreakScreen must display daily satiety fullness status");
+assert(engineContent.includes("deriveDragonOrganicBehavior"), "studyStreakEngine must export deriveDragonOrganicBehavior for circadian rhythm & biomechanical timings");
+assert(soundContent.includes("playDragonEat") && soundContent.includes("playDragonPurr"), "sound.ts must export organic eating & purring synthesizers");
+assert(mascotContent.includes("wingTipAnim"), "StreakEvolutionMascot must animate 2-joint articulated wingtips");
+assert(mascotContent.includes("nostrilPuffAnim"), "StreakEvolutionMascot must animate respiratory nostril breath wisps");
+assert(mascotContent.includes("snackArcAnim") && mascotContent.includes("jawChompAnim"), "StreakEvolutionMascot must animate physical feeding snack arc and jaw chomping");
+assert(mascotContent.includes("happySquintAnim") && mascotContent.includes("cheekBlushAnim"), "StreakEvolutionMascot must animate happy crescent squints and rosy cheek blushes");
+assert(mascotContent.includes("heartbeatAnim"), "StreakEvolutionMascot must animate lub-dub heartbeat pulses in the egg stage");
+assert(screenContent.includes("circadianLabel") && screenContent.includes("heartbeatBpm"), "StreakScreen must surface organic circadian rhythm and heartbeat BPM");
+console.log("✓ StreakEvolutionMascot 4-stage organic anatomy, biomechanical wing/tail physics, circadian rhythm, and care feedback verified");
 
 console.log("🎉 P17 Duolingo Streak Remaster & Mascot Evolution test suite passed 100%!");

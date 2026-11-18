@@ -246,3 +246,187 @@ export const mockReviewHistory: ReviewHistory[] = [
     created_at: subDays(today, 1).toISOString(),
   },
 ];
+
+export function getFreshMockData() {
+  const currentToday = new Date();
+
+  const subjects: Subject[] = [
+    {
+      id: "subj-1",
+      user_id: "user-1",
+      title: "Linear Algebra",
+      color_hex: "#3b82f6",
+      exam_date: format(addDays(currentToday, 14), "yyyy-MM-dd"),
+      total_estimated_minutes: 720,
+      created_at: subDays(currentToday, 30).toISOString(),
+    },
+    {
+      id: "subj-2",
+      user_id: "user-1",
+      title: "Organic Chemistry",
+      color_hex: "#8b5cf6",
+      exam_date: format(addDays(currentToday, 21), "yyyy-MM-dd"),
+      total_estimated_minutes: 960,
+      created_at: subDays(currentToday, 28).toISOString(),
+    },
+    {
+      id: "subj-3",
+      user_id: "user-1",
+      title: "Data Structures",
+      color_hex: "#10b981",
+      exam_date: format(addDays(currentToday, 10), "yyyy-MM-dd"),
+      total_estimated_minutes: 540,
+      created_at: subDays(currentToday, 25).toISOString(),
+    },
+  ];
+
+  const makeUnit = (
+    id: string,
+    subjectId: string,
+    title: string,
+    minutes: number,
+    load: CognitiveLoad,
+    order: number,
+    completed = false
+  ): StudyUnit => ({
+    id,
+    subject_id: subjectId,
+    title,
+    estimated_minutes: minutes,
+    cognitive_load: load,
+    sort_order: order,
+    is_completed: completed,
+    completed_at: completed ? subDays(currentToday, 2).toISOString() : null,
+    created_at: subDays(currentToday, 20).toISOString(),
+  });
+
+  const studyUnits: StudyUnit[] = [
+    makeUnit("su-1", "subj-1", "Matrix Operations", 60, "MEDIUM", 1, true),
+    makeUnit("su-2", "subj-1", "Eigenvalues & Eigenvectors", 90, "HIGH", 2),
+    makeUnit("su-3", "subj-1", "Vector Spaces", 60, "MEDIUM", 3),
+    makeUnit("su-4", "subj-1", "Linear Transformations", 75, "HIGH", 4),
+    makeUnit("su-5", "subj-1", "Determinants", 45, "LOW", 5, true),
+    makeUnit("su-6", "subj-2", "Nomenclature", 45, "LOW", 1, true),
+    makeUnit("su-7", "subj-2", "Stereochemistry", 90, "HIGH", 2),
+    makeUnit("su-8", "subj-2", "Substitution Reactions", 75, "HIGH", 3),
+    makeUnit("su-9", "subj-2", "Elimination Reactions", 60, "MEDIUM", 4),
+    makeUnit("su-10", "subj-2", "Spectroscopy", 60, "MEDIUM", 5),
+    makeUnit("su-11", "subj-3", "Arrays & Linked Lists", 45, "LOW", 1, true),
+    makeUnit("su-12", "subj-3", "Trees & BST", 60, "MEDIUM", 2),
+    makeUnit("su-13", "subj-3", "Graphs & BFS/DFS", 90, "HIGH", 3),
+    makeUnit("su-14", "subj-3", "Dynamic Programming", 90, "HIGH", 4),
+    makeUnit("su-15", "subj-3", "Hash Tables", 30, "LOW", 5, true),
+  ];
+
+  const makeBlock = (
+    id: string,
+    unitId: string,
+    dayOffset: number,
+    startHour: number,
+    durationMin: number,
+    status: BlockStatus = "SCHEDULED",
+    blockType: BlockType = "STUDY"
+  ): ScheduledBlockWithDetails => {
+    const start = setMinutes(setHours(addDays(currentToday, dayOffset), startHour), 0);
+    const end = new Date(start.getTime() + durationMin * 60000);
+    const targetUnit = studyUnits.find((u) => u.id === unitId)!;
+    const targetSubject = subjects.find((s) => s.id === targetUnit.subject_id)!;
+
+    return {
+      id,
+      user_id: "user-1",
+      study_unit_id: unitId,
+      start_time: start.toISOString(),
+      end_time: end.toISOString(),
+      status,
+      block_type: blockType,
+      created_at: subDays(currentToday, 5).toISOString(),
+      study_unit: targetUnit,
+      subject: targetSubject,
+    };
+  };
+
+  const blocks: ScheduledBlockWithDetails[] = [
+    makeBlock("blk-1", "su-2", 0, 9, 90),
+    makeBlock("blk-2", "su-12", 0, 11, 60),
+    makeBlock("blk-3", "su-7", 0, 14, 90),
+    makeBlock("blk-4", "su-1", 0, 16, 30, "COMPLETED", "REVIEW"),
+    makeBlock("blk-5", "su-3", 1, 9, 60),
+    makeBlock("blk-6", "su-8", 1, 10, 75),
+    makeBlock("blk-7", "su-13", 1, 14, 90),
+    makeBlock("blk-8", "su-4", 2, 9, 75),
+    makeBlock("blk-9", "su-9", 2, 11, 60),
+    makeBlock("blk-10", "su-14", 2, 14, 90),
+    makeBlock("blk-11", "su-10", 3, 10, 60),
+    makeBlock("blk-12", "su-2", 3, 14, 60, "SCHEDULED", "REVIEW"),
+    makeBlock("blk-13", "su-6", -1, 9, 45, "COMPLETED"),
+    makeBlock("blk-14", "su-11", -1, 10, 45, "COMPLETED"),
+    makeBlock("blk-15", "su-5", -1, 14, 45, "MISSED"),
+  ];
+
+  const dailyStats: DailyStudyStats[] = Array.from({ length: 14 }, (_, i) => {
+    const date = format(subDays(currentToday, 13 - i), "yyyy-MM-dd");
+    const planned = 120 + Math.floor(Math.random() * 120);
+    const actual = Math.max(0, planned - 30 + Math.floor(Math.random() * 60));
+    return { date, planned_minutes: planned, actual_minutes: actual };
+  });
+
+  const focusLogs: FocusLog[] = [
+    {
+      id: "fl-1",
+      scheduled_block_id: "blk-13",
+      user_id: "user-1",
+      planned_minutes: 45,
+      actual_minutes: 42,
+      timer_mode: "POMODORO",
+      pomodoro_count: 2,
+      started_at: subDays(currentToday, 1).toISOString(),
+      ended_at: subDays(currentToday, 1).toISOString(),
+    },
+    {
+      id: "fl-2",
+      scheduled_block_id: "blk-14",
+      user_id: "user-1",
+      planned_minutes: 45,
+      actual_minutes: 50,
+      timer_mode: "FLOWMODORO",
+      pomodoro_count: 0,
+      started_at: subDays(currentToday, 1).toISOString(),
+      ended_at: subDays(currentToday, 1).toISOString(),
+    },
+  ];
+
+  const reviewHistory: ReviewHistory[] = [
+    {
+      id: "rh-1",
+      study_unit_id: "su-1",
+      user_id: "user-1",
+      confidence_rating: 3,
+      review_date: format(subDays(currentToday, 3), "yyyy-MM-dd"),
+      next_review_date: format(addDays(currentToday, 4), "yyyy-MM-dd"),
+      interval_days: 7,
+      repetition_number: 1,
+      created_at: subDays(currentToday, 3).toISOString(),
+    },
+    {
+      id: "rh-2",
+      study_unit_id: "su-5",
+      user_id: "user-1",
+      confidence_rating: 4,
+      review_date: format(subDays(currentToday, 1), "yyyy-MM-dd"),
+      next_review_date: format(addDays(currentToday, 13), "yyyy-MM-dd"),
+      interval_days: 14,
+      repetition_number: 2,
+      created_at: subDays(currentToday, 1).toISOString(),
+    },
+  ];
+
+  return {
+    subjects,
+    studyUnits,
+    blocks,
+    dailyStats,
+    focusLogs,
+    reviewHistory,
+  };
+}

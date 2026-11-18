@@ -122,41 +122,41 @@ export function ImportExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl border-border/40 bg-card">
+      <DialogContent className="max-w-2xl border-border bg-card">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5 text-primary" />
-            Curriculum Templates & Data Portability
+            Import & Export
           </DialogTitle>
           <DialogDescription>
-            Import syllabus templates, backup your study units, or paste custom course JSON.
+            Load sample courses, backup your topics, or import JSON.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="templates" className="pt-2">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="templates" className="text-xs">
-              Sample Templates
+              Sample Courses
             </TabsTrigger>
             <TabsTrigger value="export" className="text-xs">
-              Export Syllabus
+              Export
             </TabsTrigger>
             <TabsTrigger value="import" className="text-xs">
-              Import JSON
+              Import
             </TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Sample Templates */}
           <TabsContent value="templates" className="space-y-4 pt-4">
             <p className="text-xs text-muted-foreground">
-              Select a pre-configured university syllabus with estimated durations and cognitive load weights:
+              Pick a sample course with topics and dates to try:
             </p>
 
             <div className="space-y-3">
               {SAMPLE_COURSES.map((course) => (
                 <div
                   key={course.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 p-3.5 transition-colors hover:border-border"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 p-3.5 transition-colors duration-150 hover:border-primary/40"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -168,7 +168,7 @@ export function ImportExportDialog({
                         {course.name}
                       </span>
                       <Badge variant="outline" className="text-[10px]">
-                        {course.units.length} units
+                        {course.units.length} topics
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
@@ -182,7 +182,7 @@ export function ImportExportDialog({
                     className="h-8 gap-1.5 text-xs self-end sm:self-center shrink-0"
                   >
                     <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                    Load Curriculum
+                    Load Course
                   </Button>
                 </div>
               ))}
@@ -193,9 +193,9 @@ export function ImportExportDialog({
           <TabsContent value="export" className="space-y-4 pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Export Current Syllabus</p>
+                <p className="text-sm font-medium">Export Courses</p>
                 <p className="text-xs text-muted-foreground">
-                  {subjects.length} subjects • {studyUnits.length} atomic units
+                  {subjects.length} courses • {studyUnits.length} topics
                 </p>
               </div>
 
@@ -262,7 +262,7 @@ export function ImportExportDialog({
                 className="h-8 gap-1.5 text-xs"
               >
                 <Upload className="h-3.5 w-3.5" />
-                Import Syllabus
+                Import Data
               </Button>
             </div>
           </TabsContent>

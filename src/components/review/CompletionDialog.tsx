@@ -102,7 +102,7 @@ export function CompletionDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm border-border/40 bg-card">
+      <DialogContent className="max-w-sm border-border bg-card">
         <DialogHeader>
           <DialogTitle>How well do you know this?</DialogTitle>
           <DialogDescription className="text-sm">
@@ -118,7 +118,7 @@ export function CompletionDialog({
                 key={value}
                 onClick={() => handleSelect(value)}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 rounded-lg border-2 px-3 py-4 transition-all hover:scale-[1.03] active:scale-[0.98]",
+                  "flex flex-col items-center gap-1.5 rounded-xl border px-3 py-4 transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]",
                   className
                 )}
               >

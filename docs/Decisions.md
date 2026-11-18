@@ -4,6 +4,143 @@ This document records architectural, functional, and product decisions made for 
 
 ---
 
+### 2026-11-18: Official App Release Re-calibrated to v2.0.1 (Build 4) Across Downloads, APIs & Build Configs
+- **Decision**: Standardized official release version to `v2.0.1` (`versionCode: 4`, `buildNumber: "2.0.1"`) across web download portals, mobile update checkers, and APK servers:
+  1. **Download Portal & Version API (`src/app/download/page.tsx`, `src/app/page.tsx`, `src/app/api/version/route.ts`, `mobile/scripts/apk_download_server.mjs`)**:
+     - Updated web landing page and download hub to serve `StudyAir-v2.0.1.apk` (86.2 MB) with real-time verification against `/api/version`.
+     - Highlighted the primary features of v2.0.1: Bidirectional Jam Pelajaran synchronization across Settings, Jadwal, and Susun Manual; direct access to bell times modal on Jadwal tab; fixed Wizard "Batal" navigation button; and Smart Streak Freeze protection.
+     - Updated local Wi-Fi download server (`mobile/scripts/apk_download_server.mjs` on port 8080) with `StudyAir-v2.0.1.apk` candidate paths and matching metadata.
+  2. **App Configuration & Mobile Update Checker (`mobile/src/lib/updateChecker.ts`, `mobile/app.json`, `mobile/package.json`, `package.json`)**:
+     - Updated `CURRENT_APP_VERSION = "2.0.1"`, `CURRENT_VERSION_CODE = 4`, and `APK_FILENAME = "StudyAir-v2.0.1.apk"`.
+     - Created symlinks `public/StudyAir-v2.0.1.apk` and `mobile/StudyAir-v2.0.1.apk` pointing to the standalone production APK binary (86.2 MB).
+     - Ensured in-app update checker detects `v2.0.1` and provides direct seamless downloads.
+- **Rationale**: User requested re-alignment of versioning to v2.0.1 with updated download links and standalone APK distribution.
+- **Attribution**: Builder (per user request).
+
+---
+
+### 2026-11-17: Fixed Wizard "Batal" Navigation & Integrated Jam Pelajaran Management on Jadwal Tab
+- **Decision**: Resolved web and native navigation handling for the Timetable Wizard "Batal" button and integrated Jam Pelajaran management into the primary Jadwal screen:
+  1. **Wizard "Batal" Action Fix (`TimetableWizardScreen.tsx`, `App.tsx`)**:
+     - Resolved React Native Web's inverted button mapping on `Alert.alert` by utilizing explicit `window.confirm` on web and correct destructive-first action on native, ensuring user confirmation immediately resets the wizard state and executes `doExit()`.
+     - In `App.tsx` `handleBackToTab`, guaranteed that pressing back or cancelling from `TimetableWizard` cleanly exits to `Timetable` even when the history stack was empty or rooted at `TimetableWizard`.
+     - Pre-populated `wizard.reviewItems` from existing `store.timetableEntries` so opening "Susun Manual" preserves and displays the student's existing schedule instead of starting with a blank grid.
+  2. **Direct Jam Pelajaran Sync & Access on Jadwal Tab (`TimetableScreen.tsx`)**:
+     - Added a dedicated "Jam Pelajaran" clock icon action in the `ScreenHeader` and a prominent `[🕒 X JP]` pill in `topControlsRow`.
+     - Clicking either control opens a full-featured `BellTimesEditor` modal overlay directly on the Jadwal tab without full-screen context loss.
+     - Period changes or additions immediately update `store.periodTimes`, which reactively syncs to the header badge, class cards, wizard, and calendar timeline.
+- **Rationale**: Eliminates user trapping in the wizard due to non-functioning "Batal" buttons and gives students direct, one-tap control over their school bell times directly from their timetable view.
+- **Attribution**: Builder (per user request).
+
+---
+
+### 2026-11-17: Bidirectional Bell Schedule Sync Between Settings & Timetable Wizard ("Susun Manual")
+- **Decision**: Implemented dynamic synchronization and manual grid extensibility for school bell schedules (`periodTimes`):
+  1. **Singleton Wizard State Sync (`timetableWizardStore.ts`, `TimetableWizardScreen.tsx`)**:
+     - Initialized `initialWizardState.periodTimes` to `[]` instead of hardcoding `DEFAULT_PERIOD_TIMES` (8 periods).
+     - Enhanced `useEffect` in `TimetableWizardScreen.tsx` to unconditionally synchronize `controller.setPeriodTimes(storePeriodTimes)` on Step 1 or whenever wizard period times are unpopulated or out of sync with Settings.
+     - Enabled `resetWizard(initialTimes?: PeriodTime[])` to accept and preserve the user's configured period times from store.
+  2. **Day-Specific Grid Resolution & Inline Addition in "Susun Manual" (`TimetableWizardScreen.tsx`)**:
+     - Replaced static iteration over `wizard.periodTimes` with `manualGridPeriods`, which uses two-pass resolution (base default bell times + day-specific overrides for `selectedGridDay`, e.g. Friday).
+     - Added an inline button `+ Tambah Jam Pelajaran (Jam {n+1})` directly under the "Susun Manual" grid, allowing students to append periods dynamically with automatic 45-minute bell time calculations that sync to both the wizard controller and persistent store.
+  3. **Arbitrary Period Count Support Across Timetable Modals & Overdue Rescheduling (`TimetableScreen.tsx`, `schedulerEngine.ts`, `CreateScheduleSheet.tsx`)**:
+     - Replaced hardcoded period chip array `[1..10]` in `TimetableScreen.tsx` with dynamic `availablePeriods` derived from `periodTimes`.
+     - Added `allowOverdue: true` option in `buildSchedule` and `CreateScheduleSheet.tsx` so students rescheduling or catching up on overdue homework can allocate study blocks today rather than being rejected with `ALREADY_PAST_DEADLINE`.
+- **Rationale**: Fixes desynchronization where configuring 10 periods in Settings failed to appear in "Susun Manual", and allows students with full 10-12 period school timetables to build, customize, and reschedule their classes and study blocks without arbitrary period limits.
+- **Attribution**: Builder (per user feedback).
+
+---
+
+### 2026-11-16: Elevated Official Release to v3.0.1 Across Download Portal, APIs & App Configs
+- **Decision**: Elevated official release version to `v3.0.1` (`versionCode: 3`, `buildNumber: "3.0.1"`) across web and mobile distributions:
+  1. **Download Portal & Version Endpoints (`src/app/download/page.tsx`, `src/app/api/version/route.ts`, `mobile/scripts/apk_download_server.mjs`)**:
+     - Updated download hub to serve `StudyAir-v3.0.1.apk` (86.2 MB) with real-time version verification against `/api/version`.
+     - Highlighted the 4 core pillars of v3.0.1: Smart Streak Freeze protection, dual-layered procedural tactile audio feedback, Duolingo-calibrated day medallions, and the 7-tap developer mode unlock.
+     - Configured the local Wi-Fi APK download server (`:8080`) to serve `StudyAir-v3.0.1.apk` over LAN with vector QR code and HTTP 206 Range request support.
+  2. **App Configuration & Mobile Update Checker (`mobile/src/lib/updateChecker.ts`, `mobile/package.json`, `package.json`, `mobile/app.json`)**:
+     - Bumped `CURRENT_APP_VERSION = "3.0.1"`, `CURRENT_VERSION_CODE = 3`, and `APK_FILENAME = "StudyAir-v3.0.1.apk"`.
+     - Updated changelog notes in Indonesian and English in `mobile/src/lib/i18n.ts`.
+     - Created symlinks in `public/StudyAir-v3.0.1.apk` and `mobile/StudyAir-v3.0.1.apk` pointing to the verified 86.2 MB standalone APK binary.
+- **Rationale**: Ensures students, testers, and school pilot participants receive the latest v3.0.1 release with streak freezing, audio synthesis, and developer mode via seamless direct download and in-app update checks.
+- **Attribution**: Builder (per user request).
+
+### 2026-11-16: Enhanced Universal Click Audio Engine & Removed Akhir Pekan Feature
+- **Decision**: Upgraded mobile tactile sound effects and removed the automatic weekend protection feature:
+  1. **Dual-Layered Universal Click Audio (`sound.ts`)**:
+     - *Acoustics Upgrade*: Enhanced `playClick()` with dual-layered synthesis — a high transient pop (1250Hz -> 500Hz triangle wave) blended with a warm tactile body (460Hz -> 220Hz sine wave) with increased peak amplitudes (0.22/0.18) for clear audibility on mobile and desktop speakers.
+     - *Browser Autoplay & Suspension Handling*: Added automatic async `.resume()` fallback when `AudioContext.state === "suspended"` so initial clicks are never dropped, and attached window listeners on `pointerdown`, `touchstart`, and `click` to unlock audio on first interaction.
+     - *Universal Control Wiring*: Ensured `soundFX.playClick()` fires consistently on `PrimaryButton`, `SecondaryButton`, `TextButton`, `Chip`, bottom navigation tabs, center FAB (`openQuickAction`), back buttons, and modal dismiss actions.
+  2. **Removed "Akhir Pekan" Feature (`StreakScreen.tsx`)**:
+     - Removed the `Akhir Pekan • Dilindungi` pill from `StreakScreen.tsx` under the Streak Freeze card, retaining only `Hari Libur • Dilindungi`.
+     - Preserves the new Streak Freeze inventory system as the primary mechanism for safeguarding study streaks during off-days and busy periods.
+- **Rationale**: Delivers punchy, responsive tactile feedback for every user tap while streamlining streak rules so students use Streak Freezes to protect missed days.
+- **Attribution**: Builder (per user request).
+
+### 2026-11-16: Streak Freezing System Architecture & Enhanced Duolingo-Calibrated Day Medallions
+- **Decision**: Implemented an automated and interactive Streak Freezing system with visual day medallion upgrades:
+  1. **Streak Freeze Earning Architecture (`studyStreakEngine.ts`, `store.tsx`)**:
+     - *3-Day Consecutive Streak Milestone*: Every time the student reaches 3 consecutive study days (`currentStreak >= 3` at intervals 3, 6, 9...), awards +1 Streak Freeze up to `MAX_STREAK_FREEZES = 2`.
+     - *Daily Completion Lucky Drop*: Upon completing a study day (`todayStudied`), rolls a 35% random drop chance once per day to award +1 Streak Freeze if inventory is not full.
+  2. **Streak Preservation & Auto-Save**:
+     - *Auto-Protection*: On app startup, if yesterday was a missed required school day and the user has available freezes, automatically consumes 1 freeze, marks yesterday as frozen (`streakFrozenDates`), and preserves the streak unbroken.
+     - *Manual Proactive Freeze*: Students can proactively freeze today (`Bekukan Hari Ini`) from the Streak screen to protect their streak during busy days or family events.
+     - *Engine Traversal*: `calculateStreak` checks `dayData.isFrozen` during backwards traversal, continuing the streak chain without resetting.
+  3. **Visual Medallion Remaster (`StreakScreen.tsx`)**:
+     - *Completed Days (`hasStudied`)*: Rendered as a full solid bright orange circle (`#FF9600`) with a 3D bevel bottom border (`#CC7800`) and a solid white flame icon (`Ionicons name="flame" size={20} color="#FFFFFF"`).
+     - *Frozen Days (`isFrozen`)*: Rendered as a full solid bright ice-blue circle (`#00BAF2`) with a 3D deep cyan bevel border (`#0284C7`) and a solid white snowflake crystal (`Ionicons name="snow" size={19} color="#FFFFFF"`).
+     - *Pending Today*: Preserved as a dashed orange circle with an outline flame (`flame-outline`).
+     - *Freeze Inventory*: 2-slot interactive cards displaying equipped vs empty slots with one-tap freezing action.
+- **Rationale**: Eliminates student anxiety of losing long streaks due to sudden illness or school events, rewards consistent 3-day milestones, and aligns visual feedback with Duolingo gamification standards.
+- **Attribution**: Builder (per user request).
+
+### 2026-11-12: Rebuilt Standalone v2.0.0 APK With Verified App Launcher Icon & Clean EAS Prebuild Config
+- **Decision**: Rebuilt the standalone Android APK (`StudyAir-v2.0.0.apk`, `86.2 MB`, `version: "2.0.0"`, `versionCode: 2`) on EAS Cloud (`4a39dc68-9a26-4735-aaff-aeffd687dbda`) using `mobile/assets/icon.png` and `mobile/assets/adaptive-icon.png` (`#090d16` background), replacing the stale v1.0.0 placeholder-icon binary:
+  1. **SDK 58 Schema & Prebuild Alignment (`mobile/app.json`, `mobile/plugins/withStudyAirAndroid.js`)**: Moved top-level `splash` into `web.splash` so Expo SDK 58 config validation passes without extra native dependencies, and added a local Expo config plugin (`withStudyAirAndroid.js`) to preserve `android:usesCleartextTraffic="true"` (for local Wi-Fi LAN download/update checks) and `#090d16` `splashscreen_background` during cloud prebuild.
+  2. **Slim EAS Archive (`.easignore`)**: Added root `.easignore` (using rooted paths like `/src/` and `/public/` so `mobile/src/` remains included) to exclude large binaries (`*.apk`), `.git`, and web-only folders, shrinking EAS upload archives to `4.8 MB`.
+  3. **Download Metadata & Range Filename (`src/app/api/version/route.ts`, `src/app/download/page.tsx`, `mobile/scripts/apk_download_server.mjs`)**: Updated APK size metadata to `86.2 MB` and fixed HTTP `206` Range `Content-Disposition` filename to `StudyAir-v2.0.0.apk`.
+- **Rationale**: Ensures the installed Android app displays the StudyAir calendar + paper plane launcher icon, bundles all v2.0.0 code changes, and delivers consistent downloadable packages over LAN and web.
+- **Attribution**: Builder (per user request).
+
+### 2026-11-08: Revised Download & Update Engine (`updateChecker.ts`, `/api/version` & `BottomSheet`)
+- **Decision**: Revised the in-app and web APK download & update check architecture:
+  1. **Deterministic Update & Endpoint Engine (`mobile/src/lib/updateChecker.ts`)**:
+     - Added `compareSemver()`, `resolveDownloadEndpoints()`, `evaluateUpdatePayload()`, `checkAppUpdate()`, and `triggerApkDownload()` with unit test coverage in `mobile/src/lib/__tests__/updateChecker.test.ts`.
+     - Fixed Expo Web (`:8081`) and native Android download routing so Expo Web routes binary downloads to the APK server (`:8080/download`) with fallback to Next.js (`:3000/StudyAir-v2.0.0.apk`), and native Android resolves the Wi-Fi LAN IP instead of `localhost`.
+  2. **Live Version API Endpoints (`/api/version`)**:
+     - Added `src/app/api/version/route.ts` on Next.js (`:3000/api/version`) and `/api/version` with CORS headers on `mobile/scripts/apk_download_server.mjs` (`:8080/api/version`).
+  3. **Tidy Mobile Update UX (`mobile/src/screens/SettingsScreen.tsx`)**:
+     - Decoupled direct APK downloading ("Unduh APK") from opening the version inspector sheet ("Periksa").
+     - Replaced the raw `<Modal>` with the shared `BottomSheet` component, localized all strings in `mobile/src/lib/i18n.ts`, replaced hardcoded colors with theme tokens, and added one-tap link copying (`expo-clipboard`) and portal navigation.
+  4. **Interactive Web Download Hub (`src/app/download/page.tsx`)**:
+     - Added real-time version verification against `/api/version`, embedded the Wi-Fi QR code scanner card, added one-click link copying, and documented in-place APK update behavior (preserving SQLite data).
+- **Rationale**: Ensures downloading and checking for updates works reliably across Expo Web, Next.js Web, and physical Android phones over Wi-Fi while strictly following StudyAir's Tidy Rules.
+- **Attribution**: Builder (per user request).
+
+### 2026-11-03: Standalone StudyAir APK Distribution & New Brand Icon Implementation
+- **Decision**: Replaced the previous Expo Go proxy APK with the genuine standalone Android application package (`StudyAir-v2.0.0.apk`, 85.8 MB) built via EAS, and implemented the new geometric paper plane brand icon across mobile and web interfaces:
+  1. **Genuine Standalone APK Distribution**:
+     - Distributed the authentic standalone React Native Android APK (`85.8 MB`, `libappmodules.so`, `libexpo-sqlite.so`, `libreactnative.so`), replacing `Expo-Go-58.0.5.apk`.
+     - Updated all download targets in `/download` (`src/app/download/page.tsx`), `SettingsScreen.tsx` (`handleDownloadApp`), and the local APK server (`mobile/scripts/apk_download_server.mjs`) to point directly to `public/StudyAir-v2.0.0.apk`.
+  2. **App Brand Icon Implementation**:
+     - Rendered fresh high-resolution multi-variant app icons via `generate_app_icons.mjs` (web SVG, 512px/192px PWA icons, favicon.ico, and Android `mipmap-*` mipmap launcher icons `ic_launcher`, `ic_launcher_round`, `ic_launcher_foreground`).
+     - Mobile App: Integrated the brand icon into `ScreenHeader` on `HomeScreen` (`showLogo`), the `SettingsScreen` version card, and the update changelog modal.
+     - Web App: Displayed the brand icon prominently on the homepage hero (`src/app/page.tsx`), `/download` hero banner (`src/app/download/page.tsx`), and the standalone APK server landing portal (`mobile/scripts/apk_download_server.mjs`).
+- **Rationale**: Eliminates user confusion from downloading the generic Expo Go client, ensures direct installation of the actual StudyAir standalone app, and reinforces brand identity across every screen.
+- **Attribution**: Builder (per user request).
+
+### 2026-11-03: StudyAir v2.0.0 Release, In-App Update Engine & Web Download Hub
+- **Decision**: Elevated official app version to `v2.0.0` across mobile and web packages (`mobile/package.json`, `mobile/app.json`, `package.json`), integrated an in-app download and update checker card in `mobile/src/screens/SettingsScreen.tsx`, and launched a web download hub (`src/app/download/page.tsx`):
+  1. **Version Alignment**: Bumped from `1.0.0` to `2.0.0` to match database schema `version: "2.0.0"` and mark completion of the v2 roadmap (AI scheduling engine, 4-stage streak pet dragon, Indonesian report card standards & TKA calculator).
+  2. **In-App APK Download & Update Check**:
+     - Added a dedicated "StudyAir v2.0.0" card in `SettingsScreen.tsx` with a `✓ Versi Terbaru` badge, an instant "Unduh APK" button, and an interactive "Periksa Pembaruan" action.
+     - Added a release changelog modal detailing the 4 core pillars of v2.0.0.
+  3. **Web Download Portal (`/download`)**:
+     - Created `/download` route in Next.js offering direct download of `StudyAir-ExpoGo-v58.0.5.apk` (aliased to `StudyAir-v2.0.0.apk`), file size and Android compatibility details, a 3-step installation walkthrough, and highlights of v2.0.0 features.
+     - Added direct links in `Navbar.tsx` (`Unduh App`) and homepage hero (`src/app/page.tsx`).
+- **Rationale**: Delivers a seamless app distribution and self-update pathway for students and testers without requiring external app store submission during local and school pilot phases.
+- **Attribution**: Builder (per user request).
+
+
 ### 2026-10-26: Docs folder (Obsidian vault) created for project notes
 - **Decision**: Establish `docs/` as an Obsidian vault at the project root containing `Plan.md`, `Bugs.md`, `Decisions.md`, `Testing.md`, and `Prompts/`.
 - **Rationale**: Keeps project state, bug fixes, architecture rules, and testing commands organized in a single readable location that can be opened in Obsidian or Antigravity without scanning the entire codebase.
@@ -383,4 +520,280 @@ This document records architectural, functional, and product decisions made for 
 - **Rationale**: Elevates user comfort, reduces academic anxiety, and creates an intuitive, delightful daily routine for students.
 - **Attribution**: Builder (per user request and approved plan).
 
+### 2026-10-31: Official StudyAir Cinematic 60 FPS Web Trailer Engine
+- **Decision**: Implemented a standalone, hardware-accelerated 60 FPS cinematic promotional trailer engine (`public/trailer/index.html`) integrated into the local APK download server (`mobile/scripts/apk_download_server.mjs`) on port 8080:
+  1. **8-Scene Narrative Storyboard**:
+     - Scene 1: The Struggle (Dark backdrop, floating panic cards with PR & exam deadlines).
+     - Scene 2: The Solution (Origami paper airplane logo entrance with sapphire flare).
+     - Scene 3: Jadwal Pelajaran (3D phone perspective tilt showing hourly bell times & breaks).
+     - Scene 4: 1-Tap Pomodoro Focus (Macro zoom on task card with animated pulsing timer ring).
+     - Scene 5: Maskot Naga & Duolingo Streak (4-stage dragon evolution with flame aura & confetti).
+     - Scene 6: Standar Rapor Indonesia & Kalkulator TKA (Kurikulum Merdeka 0-100 & SNBP predictor).
+     - Scene 7: 7 Aesthetic Themes (Rapid theme morphing: Midnight OLED, Emerald, Sakura, Amethyst, Sunset).
+     - Scene 8: Call to Action (3D phone docking with live QR code box and direct APK download button).
+  2. **Synthesized Sound Design (Web Audio API)**:
+     - Zero external audio binary dependencies.
+     - Features dynamic sub-bass drops, pentatonic achievement chimes, filtered noise swooshes, and tactile click FX.
+  3. **Interactive & Autoplay Controls**:
+     - 28-second timeline with scrubber bar, Play/Pause toggle, 8 jump buttons, volume toggle, and fullscreen presentation mode.
+  4. **Portal Integration**:
+     - Added prominent `GET /trailer` route and trailer CTA button on the APK landing portal (`http://localhost:8080`).
+- **Rationale**: Provides a breathtaking promotional asset for students, parents, and schools with zero external binary requirements (no ffmpeg needed), runnable instantly in any browser at 60 FPS with full tactile audio and 3D device physics.
+- **Attribution**: Builder (per user request and approved plan).
 
+### 2026-10-31: 12-Second Apple-Keynote Product Sting Engine (1080x1080)
+- **Decision**: Implemented a mathematical, continuous keyframing animation engine (`public/sting/index.html`) running at 29.97 fps (f0–f359) with a 59.94 fps master clock, driven by a pure function `seek(frame)`:
+  1. **Apple-Keynote Aesthetic**: Soft, white, bright blue, glassy, zero frozen cuts (every shot enters already moving with 12–19% exponential ease-out and leaves on an accelerating move or blur ramp).
+  2. **8 Continuous Scenes**:
+     - S1 (f0–71): Header with origami logo disc, `StudyAir` in Inter 500, `on Android` capsule pill, light hub window, and diving cursor click.
+     - S2 (f72–100): Navy squircle app icon (178px, r28%) with 4 orbiting squares locking into a cross (white left, blue top, cyan right, mint bottom) around a grey halo disc ⌀326.
+     - S3 (f101–158): Black laptop bezel, navy menu bar with clock and dots, blue sky gradient wallpaper with geometric line art, frosted glass prompt box (726x228, r60), typing `"Buat jadwal belajar minggu ini"` with caret and blue send button ⌀51, accelerating into a whip-tilt up.
+     - S4 (f159–186): Light answer page ("Rencana Belajar Otomatis") scrolling up with upward-pointing cursor stopping under `"belajar tenang, prestasi terbang"`.
+     - S5 (f187–214): White card overlay (x203–878, r64) with grabber bar rising over blurred page.
+     - S6 (f215–244): Two stacked cards (538x348) at y168 and y552 with frosted pills and giant frosted-glass bottom titles: `"Jadwal Pintar"` and `"Maskot Streak"`.
+     - S7 (f245–300): Logo disc center rise, holding still f269–287 (the only hold in the film), shrinking to ⌀123 at f300.
+     - S8 (f301–359): Black radial end card with 16 zoom streak copies of the wordmark blooming to 1650px and collapsing ease-in to 267px mid-collapse.
+  3. **Milestone Stills Exported**: Generated high-resolution 1080x1080 PNG captures for review (`still_f40_header.png`, `still_f86_orbit_cross.png`, `still_f150_prompt_box.png`, `still_f230_stacked_cards.png`).
+  4. **Integrated Route**: Served on `http://localhost:8080/sting` with full interactive timeline controls and in-browser 60fps WebM recorder.
+- **Rationale**: Delivers a high-fashion, keynote-grade square product sting strictly adhering to exact frame numbers, hard cut positions, and continuous motion physics.
+- **Attribution**: Builder (per user request and approved plan).
+
+### 2026-10-31: Project Re-centering & Gemini 4 Argon Master Prompt (UI-First)
+- **Decision**: Formulated a comprehensive, self-contained master specification prompt designed specifically for Google Gemini 4 Argon (`gemini-4-argon` / Google Antigravity / AI Studio) to build the clean StudyAir Task Schedule Maker from a fresh slate:
+  1. **Re-anchoring on Product Brief v2**: Shed the accumulated complexity of past iterations, returning strictly to the core loop: Task capture (<10s) $\rightarrow$ Deterministic scheduling algorithm in free time between school classes $\rightarrow$ 3-second rule hero card $\rightarrow$ 1-tap Pomodoro timer.
+  2. **Strict UI-First Methodology**: The prompt instructs Gemini 4 Argon to build the entire tactile visual application first (Design system tokens, navigation shell, mock data, and 4 core interactive screens: Rencana, Tugas, Kalender, Fokus), allowing immediate user validation before generating SQLite persistence and engine logic.
+  3. **Architectural Guardrails**: Baked in all critical lessons learned (SQLite `INSERT OR REPLACE INTO` constraint error prevention, coalesced transaction serialization queue, `useCallback` render-loop prevention, pure mathematical deadline calculations, and background focus timer drift prevention).
+  4. **Artifacts**: Created [`docs/Prompts/gemini_4_argon_master_prompt.md`](./Prompts/gemini_4_argon_master_prompt.md) and linked it in [`docs/Prompts/Master-Prompt.md`](./Prompts/Master-Prompt.md).
+- **Rationale**: Equips the user with a ready-to-run, frontier-grade prompt to rapidly scaffold or rewrite a clean, high-performance study companion with Gemini 4 Argon.
+- **Attribution**: Builder (per user request and approved plan).
+
+### 2026-11-02: Stats Heatmap Tab, Long-Press Task Menu, and 4-Stage Dragon Streak Pet
+- **Decision**:
+  1. **Dragon Streak Pet ([`StreakEvolutionMascot.tsx`](../mobile/src/components/streak/StreakEvolutionMascot.tsx), [`studyStreakEngine.ts`](../mobile/src/lib/studyStreakEngine.ts), [`StreakScreen.tsx`](../mobile/src/screens/StreakScreen.tsx))**: Replaced generic flame/icon composites and the Stage 4 phoenix name with a full 4-stage dragon evolution line (`Telur Naga Api` → `Tukik Naga Bara` → `Naga Langit Perkasa` → `Kaisar Naga Kosmik`) rendered with sculpted dragon anatomy (horns, vertical slit eyes, snout nostrils & fangs, articulated bat-membrane dragon wings, ribbed belly, flame-tipped wagging tail, and animated fire breath) plus an interactive 4-stage preview strip on `StreakScreen`.
+  2. **Statistics & Heatmap Tab ([`StatsScreen.tsx`](../mobile/src/screens/StatsScreen.tsx), [`App.tsx`](../mobile/App.tsx))**: Replaced the Kalender bottom tab with `Statistik` (Day/Week/Month switcher, tasks done, academic scores, and 12-week activity heatmap) and swapped `Tugas` (Tab 2) with `Jadwal` (Tab 3).
+  3. **Task Long-Press Menu & Batch Clear Done ([`TasksScreen.tsx`](../mobile/src/screens/TasksScreen.tsx), [`TodayTasksSection.tsx`](../mobile/src/components/home/TodayTasksSection.tsx), [`store.tsx`](../mobile/src/store.tsx))**: Long-pressing a task opens an action menu (toggle done, start focus, delete task, delete all done tasks) with 5-second undo support; fixed `HomeScreen` top safe-area gap and reduced missed-block notice to a single quiet line.
+- **Attribution**: Per user request.
+
+### 2026-11-02: Refined Calm Streak Pet Animation & Concealing Pet Until Streak Accomplished
+- **Decision**:
+  1. **Calm, Natural Idle Animation (`StreakEvolutionMascot.tsx`)**: Slowed the idle breathing/hovering cycle (`1350ms`–`1650ms` sine curve instead of `460ms`), reduced wing-flap sweep, softened vertical hover and egg rocking, removed non-stop idle fire-breathing, spinning orbit rings, and shockwave rings, and restricted the flame puff strictly to tap interactions.
+  2. **10-Level Progressive Growth Variance (`getMascotGrowthState` in `studyStreakEngine.ts`, `StreakEvolutionMascot.tsx`, `StreakScreen.tsx`)**: Added intra-stage progression (`subTier` 1 → 2 → 3 across levels 1–10 at days 1, 3, 5, 7, 14, 21, 30, 50, 75, 100, 180+) so the pet visibly improves as the streak grows:
+     - **Egg (Days 1–6)**: Progresses from a single hairline crack & gentle 2.2° sway (Days 1–2) → second fissure crack & peeking horn buds with 4° rock (Days 3–4) → blinking dragon eyes peeking through the upper crack with 6° rock and tap hop (Days 5–6).
+     - **Baby Hatchling (Days 7–29)**: Progresses from small hatchling with low hover & 1-orb tap puff (Days 7–13) → growing dorsal crest spike, 3rd belly rib & 2-orb tap puff (Days 14–20) → cheek fins, smooth figure-eight horizontal drift, calm floating embers & 3-orb tap puff (Days 21–29).
+     - **Sky Dragon (Days 30–99)**: Progresses from broad-winged drake (Days 30–49) → wing thumb claws, cheek spikes, figure-eight drift & calm rising embers (Days 50–74) → floating golden solar crown & widest wing glide (Days 75–99).
+     - **Cosmic Emperor Dragon (Days 100+)**: Four counter-gliding nebula & astral wings, chest star-core, golden crown, whiskers, figure-eight levitation, and extra-scale ascension at 180+ days.
+  3. **Hide Pet Before Streak Accomplished (`StreakScreen.tsx`, `StreakEvolutionMascot.tsx`, `ScreenHeader.tsx`, `studyStreakEngine.ts`)**: Set Stage 1 minimum requirement to 1 day (`minDays: 1`), hid `StreakEvolutionMascot` when `days < 1` or before the user accomplishes the streak (`!hasAccomplishedStreak`), concealed locked mascot stages (`🔒` and `???`) in the evolution tracker, disabled previewing locked stages before accomplishing the required streak, and hid the header mascot emoji while the streak is unaccomplished/at-risk.
+- **Attribution**: Per user request.
+
+
+
+### 2026-11-02: Instant Theme Boot & Zero-Lag Theme Switching
+- **Decision**:
+  1. **Synchronous Web Cache & Fast Native Boot ([`theme.ts`](../mobile/src/theme.ts), [`store.tsx`](../mobile/src/store.tsx))**: Cached the active theme key under `@studyair_theme_fast` (`localStorage` on Web for 0ms synchronous hydration before first render, and fast `AsyncStorage` read on Native before opening/migrating the 14 SQLite tables).
+  2. **In-Place Native `StyleSheet.create` Binding ([`theme.ts`](../mobile/src/theme.ts))**: Registered color-token bindings for native `StyleSheet.create` rules so `applyTheme` updates existing style sheets in-place in <0.1ms without requiring a full root tree remount.
+  3. **Zero Background Tab Remounts & Single-Table Settings Save ([`App.tsx`](../mobile/App.tsx), [`store.tsx`](../mobile/src/store.tsx))**: Stopped unmounting `<SafeAreaView>` and hidden background tabs (`HomeScreen`, `TimetableScreen`, `TasksScreen`, `StatsScreen`) on theme taps, and isolated `appSettings` persistence to `saveAppSettings` instead of rewriting all 14 SQLite tables.
+- **Attribution**: Per user request.
+
+
+## 2026-11-02 — Deterministic Deadline (`Waktu Tenggat`) Engine & 1-Tap Deadline Editing
+- **Decision**:
+  1. Prioritize explicit deadline clauses (`dikumpul`, `tenggat`, `deadline`, `batas waktu`) over leading context words in `parseIndonesianDateHint`, and support `"hari ini"`, standalone Indonesian weekdays, `"N hari lagi"`, and `"DD Month"` dates.
+  2. Default AI-scanned tasks without an explicit date to `"Kelas Depan"` (`deadlineMode: "nextClass"`) instead of `"Besok"` so `calculateNextClassDeadline` resolves against the subject's actual timetable.
+  3. Automatically recalculate `nextClass` and `afterNClasses` task deadlines in `store.tsx` whenever `timetableEntries`, `daysOff`, or `overrides` change, and provide 1-tap inline deadline editing across `AddTaskSheet`, `QuickActionSheet`, `AIScannerScreen`, `TodayTasksSection`, and `TasksScreen`.
+- **Rationale**: Eliminates deadline mismatches between natural-language task descriptions, subject timetables, and manual/AI task creation while making any deadline adjustable in one tap.
+- **Attribution**: Per user request.
+
+### 2026-11-02: Gesture-First Navigation — Swipes, Hold Shortcuts & Sheet Pull-Down
+- **Decision**:
+  1. **Horizontal Tab Swiping & Right-Swipe Back (`App.tsx`)**: Added `screenPanResponder` with directional slide entrance animation (`tabSlideAnim`) to swipe left/right between the 4 main tabs (`Today` ↔ `Tasks` ↔ `Timetable` ↔ `Stats`) and swipe right from any auxiliary screen (`Settings`, `Streak`, `Calendar`, `Grades`, `Exams`, `Subjects`, `Progress`, `AIScanner`) to return to the previous tab.
+  2. **Tab-Bar Long-Press Shortcuts & Scrubbing (`App.tsx`)**: Added `onLongPress` power shortcuts on all 5 bottom navigation items (`Hari Ini` → Focus Timer, `Tugas` → Add Task Sheet, `+` FAB → Direct Add Task Sheet, `Jadwal` → Calendar Screen, `Statistik` → Grades & GPA Screen) with floating toast confirmation (`navToastPill`) and horizontal swipe scrubbing across the bottom tab bar (`tabBarPanResponder`).
+  3. **BottomSheet Pull-Down to Dismiss (`BottomSheet.tsx`)**: Added vertical `PanResponder` and spring physics (`translateY`) on the sheet drag handle and header so users can swipe down to close any bottom sheet.
+  4. **Task Filter Swipes & Hold Shortcuts (`TasksScreen.tsx`)**: Added horizontal swipe (`filterSwipeResponder`) across the task list to cycle between `Semua` ↔ `Terjadwal` ↔ `Belum Dijadwalkan` ↔ `Selesai`, plus long-press shortcuts on filter pills (hold `Semua` → Add Task, hold `Terjadwal`/`Belum Dijadwalkan` → Buat Jadwal AI, hold `Selesai` → Clear Completed Tasks).
+  5. **Timetable Multi-Day Swipe Fix & Hold Shortcuts (`TimetableDayView.tsx`)**: Fixed stale closure in weekday swipe `PanResponder` using refs so consecutive day swipes work smoothly, and added long-press on weekday chips to add a class on that day and long-press on class rows to jump straight to editing.
+- **Rationale**: Makes everyday navigation faster, more tactile, and ergonomic for one-handed mobile use.
+- **Attribution**: Per user request.
+
+### 2026-11-02: 9:16 Vertical (1080×1920) Interactive Web Trailer & Rendered MP4/WebM Pipeline
+- **Decision**:
+  1. **True 9:16 Vertical (1080×1920) Stage (`public/trailer/index.html`, `src/app/trailer/page.tsx`)**: Rebuilt the StudyAir official trailer for TikTok, Instagram Reels, and YouTube Shorts (`1080×1920`) with a deterministic time controller (`window.seekToTime(t)` and `window.enterRenderMode()`) driving 8 continuous 3D phone showcase scenes across 30.0 seconds:
+     - Scene 1: Student Struggle (Overloaded late-night homework & exam panic).
+     - Scene 2: `<10s` Task Capture with automatic Indonesian NLP deadline detection (`"dikumpul Jumat"`).
+     - Scene 3: AI Photo & WhatsApp Chat Scanner with `"Kelas Depan"` timetable deadline resolution.
+     - Scene 4: Deterministic `"Buat Jadwal"` engine (`0.3ms` conflict-free block placement) & Rencana Hari Ini 3-second rule.
+     - Scene 5: 1-Tap Pomodoro Focus Timer with SVG progress arc & streak completion burst.
+     - Scene 6: 4-Stage / 10-Level Dragon Streak Companion (`Telur Naga Api` → `Kaisar Naga Kosmik`) & 12-Week Activity Heatmap.
+     - Scene 7: Gesture-First Navigation (horizontal tab swipes, long-press tab shortcuts) & 0ms 7-Theme live morphing.
+     - Scene 8: Outro App Lockup, scannable QR code, and Android download CTA.
+  2. **Automated Video & Audio Renderer (`mobile/scripts/render_trailer_video.mjs`)**: Synthesizes a 30.0s stereo 44.1kHz PCM soundtrack (`soundtrack.wav`), captures 900 deterministic `1080×1920` frames via headless Chromium, and encodes both `public/trailer/StudyAir-Trailer-9x16.webm` (`16.72 MB`, VP9) and `public/trailer/StudyAir-Trailer-9x16.mp4` (`27.0 MB`, H.264 + AAC).
+  3. **Indonesian Voice-Over & Live Captions (`mobile/scripts/generate_trailer_voiceover.mjs`, `public/trailer/voiceover.m4a`, `public/trailer/voiceover.wav`)**: Added an 8-scene Indonesian voiceover synthesizer (using Gemini 2.5 Flash Preview Neural TTS `Aoede` with macOS `Damayanti` fallback, automatic window fitting, and BGM audio ducking to 36% during speech) plus an on-screen `🎙️ VO:` caption pill in `public/trailer/index.html` and synchronized `<audio>` playback.
+- **Rationale**: Delivers both an interactive 60fps web experience and ready-to-share vertical video files with full Indonesian voiceover from a single deterministic source of truth.
+- **Attribution**: Per user request and approved plan.
+
+
+## 2026-11-02 — Interactive Streak Pet Care, Custom Naming, Bara Api Feeding & Elemental Skins
+- **Decision**:
+  1. Added `deriveDragonPetStats` and `DRAGON_ELEMENTS` in `mobile/src/lib/studyStreakEngine.ts` to calculate companion XP, level, mood (`ecstatic`, `happy`, `calm`, `hungry`, `sleepy`), and daily earned `Bara Api` snacks from study minutes and completed tasks.
+  2. Added custom dragon naming (`streakPetName` with 1-tap presets `Bara`, `Ignis`, `Draco`, `Astra`, `Zuko`, `Pyro`), interactive care buttons (`🍖 Beri Makan`, `🔥 Semburan`, `✨ Elus Naga`), and 5 unlockable elemental skins (`Alami`, `🔥 Api Magma`, `⚡ Petir Biru`, `🌿 Zamrud Hutan`, `☀️ Surya Emas`, `🌌 Nebula Kosmik`) in `StreakScreen.tsx` and `StreakEvolutionMascot.tsx`.
+  3. Kept the dragon companion visible in an expressive sleepy/hungry state (`💤🍖`) when `currentStreak > 0` and `!todayStudied` (`isAtRisk`) instead of hiding it completely until after studying.
+- **Rationale**: Makes the dragon streak pet feel like a living companion tied directly to daily study actions while keeping all animations hardware-accelerated (`useNativeDriver: true`).
+- **Attribution**: Per user request.
+
+### 2026-11-02: Unified App Icon System (Mobile, Android Native & Web PWA)
+- **Decision**:
+  1. **Minimalist Brand Emblem (`mobile/scripts/generate_app_icons.mjs`, `public/studyair-icon.svg`)**: Created a clean, minimalist geometric icon combining a rounded royal-blue calendar tile and a bold 3-facet sky-blue origami paper plane on a deep space navy (`#090d16`) canvas, with zero visual clutter so it remains crisp from 16×16 favicons up to 1024×1024 store icons.
+  2. **Expo & Native Android Assets**: Generated full-bleed `mobile/assets/icon.png` (1024x1024), mask-safe `mobile/assets/adaptive-icon.png` (1024x1024 with 66% safe zone), branded `mobile/assets/splash.png` (1080x1920), `mobile/assets/favicon.png` (48x48), Android native `drawable/splashscreen_image.png` (1242x1242), and all 5 Android density buckets (`mipmap-mdpi` through `mipmap-xxxhdpi` for `ic_launcher`, `ic_launcher_round`, and `ic_launcher_foreground`). Updated `splashscreen_background` in `colors.xml` from `#FFFFFF` to `#090d16`.
+  3. **Web PWA & Favicon Suite**: Generated multi-size `src/app/favicon.ico` (16x16, 32x32, 48x48), `public/apple-touch-icon.png` (180x180), `public/icon-192.png`, and `public/icon-512.png`, and wired them into `public/manifest.json`, `src/app/layout.tsx`, and `src/components/layout/Navbar.tsx`.
+- **Rationale**: Replaces mismatched placeholder icons and blank splash screens with a unified, minimalist brand identity across iOS, Android, Expo, and Web PWA.
+- **Attribution**: Per user request.
+
+
+## 2026-11-02 — Mobile-Accessible Contribution Heatmap (`StatsScreen.tsx`)
+- **Decision**:
+  1. Added a 3-mode range zoom switcher (`8m` / `12m` / `16m`) with adaptive cell sizing (`22dp`, `18dp`, `16dp`), sticky weekday labels, and horizontal scroll auto-anchored to the current week.
+  2. Made every heatmap cell a tappable `<Pressable>` with haptic feedback, month headers above week columns, high-contrast selection outlines, and inline numeric task counts in `8m` or selected states.
+  3. Added an interactive legend level filter (`0`, `1`, `2`, `3`, `4+`) and a Selected Day Inspector card below the heatmap with `‹` / `›` 1-day steppers and the list of completed tasks (`tasksByDay` in `taskStats.ts`).
+- **Rationale**: Preserves the classic 7×N GitHub-style contribution heatmap appearance while solving the lack of hover and tiny touch targets on mobile screens.
+- **Attribution**: Per user request.
+
+
+### 2026-11-08: Standalone APK Distribution, Update Checker & App-Wide UI Cleanup
+- **Decision**:
+  1. **Standalone APK & Live Update Checker (`updateChecker.ts`, `SettingsScreen.tsx`, `src/app/download/page.tsx`)**: Replaced `Expo-Go-58.0.5.apk` with the standalone `StudyAir-v2.0.0.apk` (`85.8 MB`), added `updateChecker.ts` with semver comparison and LAN endpoint resolution (`:8080/api/version` + `:3000/api/version`), converted the update dialog in `SettingsScreen.tsx` to `BottomSheet` with copy-link support (`expo-clipboard`), and upgraded `/download` with live version checking and a scannable QR code.
+  2. **App-Wide UI Cleanup (`ScreenHeader.tsx`, `HomeScreen.tsx`, `TodayTasksSection.tsx`, `TasksScreen.tsx`, `TimetableScreen.tsx`, `StatsScreen.tsx`, `SettingsScreen.tsx`)**:
+     - Replaced heavy 3D bottom bevels (`borderBottomWidth: 3 / 3.5`) on header pills/buttons, weekly timetable cards, and settings update cards with clean 1px hairline borders (`borderWidth: 1`).
+     - Removed decorative 34×34 icon boxes inside `HomeScreen` and `TodayTasksSection` card headers so all cards share a calm typographic hierarchy, and converted `TodayTasksSection`'s task detail `<Modal>` to `BottomSheet`.
+     - Removed duplicate `calendar-outline` header icon on `TimetableScreen` (keeping the visible `"Kalender"` pill in `topControlsRow`), removed the redundant inner `subjectDot` on `TasksScreen` cards (which already have a 4dp left `accentColor` stripe), and removed the duplicate number in `StatsScreen` counter boxes (`{c.value}` above `tugas · {c.label}`).
+     - Pruned ~400 lines of unused legacy styles across `HomeScreen.tsx`, `TodayTasksSection.tsx`, `TasksScreen.tsx`, and `TimetableScreen.tsx`.
+- **Rationale**: Eliminates visual clutter, duplicate actions, and inconsistent modal/border treatments across all 4 tabs and Settings.
+- **Attribution**: Per user request.
+
+
+### 2026-11-08: Warm Low-Pass UI Audio & Grouped Settings Layout
+- **Decision**:
+  1. **UI Audio Synthesis (`mobile/src/lib/sound.ts`, `mobile/src/lib/haptics.ts`)**: Replaced raw unfiltered oscillator beeps with soft attack envelopes and `BiquadFilterNode` low-pass filtering (`playClick` woodblock micro-tap, `playToggle` 2-note pop, `playSuccess` triad chime, `playWarning` muted thud) with 25–80ms debouncing, and wired them into `HapticFeedback`.
+  2. **Settings Cleanup (`mobile/src/screens/SettingsScreen.tsx`, `mobile/src/lib/i18n.ts`)**: Grouped root settings into three `SectionHeader` sections (`Sekolah & Akademik`, `Preferensi`, `Data & Aplikasi`), fixed double horizontal margins on root `ListRow`s, replaced the bulky 2-button update card + duplicate footer with a single `Versi & Pembaruan` row that opens the update sheet, removed static notification preview boxes, and moved the Streak Simulator card from `Aturan Streak` into `Lanjutan & Mode AI`.
+- **Rationale**: Makes UI audio soft and click-free across taps/toggles/saves, and turns the Settings root screen into a clean, aligned grouped list.
+- **Attribution**: Per user request.
+
+
+### 2026-11-08: Organic Biomechanical Streak Dragon Companion
+- **Decision**:
+  1. **Circadian Rhythm & Biological Engine (`deriveDragonOrganicBehavior` in `mobile/src/lib/studyStreakEngine.ts`)**: Added real-time circadian phase awareness (`pagi`, `siang`, `sore`, `malam`), dynamic biological heartbeat BPM (`54–108 BPM`), asymmetric wingbeat timings (`38%` fast power downstroke + `62%` graceful recovery glide), respiratory cycle timings, and contextual autonomous idle thoughts.
+  2. **Organic Anatomy & Biomechanical Motion (`mobile/src/components/streak/StreakEvolutionMascot.tsx`)**:
+     - Replaced stiff symmetric loops with asymmetric wingbeats + 2-joint articulated wingtip follow-through (`wingTipAnim`) and pinion feathers.
+     - Added an independent respiratory cycle (inhale → brief lung hold → warm exhale) with twin nostril breath/ember wisps (`nostrilPuffAnim`) on each exhale, plus lub-dub heartbeat pulses (`heartbeatAnim`) in the egg stage.
+     - Replaced single-hinge tails with a 3-segment nested kinematic wave tail (`Base → Mid → Tip + dual-core flickering flame`) where each segment rotates with phase lag.
+     - Added natural randomized blinking (including occasional double-blinks), 2D pupil micro-saccades, dual specular catchlights, happy crescent eye squints (`happySquintAnim`), rosy cheek blushes (`cheekBlushAnim`), curved tapered horns, fluttering ear frills, soft neck bridges, and resting forepaws.
+     - Added a physical feeding arc (`snackArcAnim` flying into the mouth + 3 jaw chomps `jawChompAnim`).
+  3. **Organic Care Audio & Live Status (`mobile/src/lib/sound.ts`, `mobile/src/screens/StreakScreen.tsx`)**: Added `playDragonEat()` (two rhythmic triangle-wave crunch chomps + rising happy chirp) and `playDragonPurr()` (warm 3-voice harmonic vibrato purr), surfaced the circadian rhythm & heartbeat BPM pill in the care panel, and enabled rotating autonomous idle thoughts on `StreakScreen`.
+- **Rationale**: Makes the streak pet look, breathe, move, and react like a living creature using 100% hardware-accelerated native animations (`useNativeDriver: true`) without requiring any new native dependencies.
+- **Attribution**: Per user request.
+
+
+### 2026-11-08: Multi-Level Navigation Stack (`BackHandler` + Web `popstate`), v2 Onboarding & UI Harmonization
+- **Decision**:
+  1. **Multi-Level Navigation Stack & Back Ergonomics (`mobile/App.tsx`)**:
+     - Replaced the 1-slot `previousTabRef` with a 20-entry history stack (`navHistoryRef`) and centralized `resolveTabScreen()`.
+     - Added Android hardware `BackHandler` integration that closes open modals (`QuickActionSheet`, `StreakCelebrationModal`) first, then pops `navHistoryRef` before minimizing the app.
+     - Added Web Simulator URL hash routing (`#/today`, `#/tasks`, `#/timetable`, `#/stats`, `#/streak`, `#/settings`, etc.) and `window.addEventListener("popstate", ...)` so browser Back/Forward buttons and page refreshes preserve navigation state.
+  2. **v2 Onboarding Modernization (`mobile/src/components/onboarding/OnboardingModal.tsx`)**:
+     - Removed hardcoded `exam_date: "2026-11-25"` / `examDate: "2026-11-25"` from onboarding subject creation so newly onboarded subjects no longer generate fake exams in `Ulangan`.
+     - Added a `← Kembali` step button in the header, duration estimate chips (`15m`, `30m`, `45m`, `60m`), a live `calculateNextClassDeadline()` + `formatLocaleDate()` preview (replacing the hardcoded `"Senin, 26 Okt"` text), and a Streak Dragon Companion teaser card.
+  3. **UI Border & Modal Harmonization (`mobile/src/screens/StreakScreen.tsx`, `mobile/App.tsx`)**:
+     - Converted the Mystery Milestone Clue modal in `StreakScreen.tsx` to `BottomSheet`, replaced heavy `borderBottomWidth: 4` bevels on `heroStageCard`, `evolutionCard`, `duoPrimaryBtn`, `mysteryBtn`, and `centerFab` with clean 1px hairline borders, and removed dead `navToastPill` styles.
+- **Rationale**: Prevents accidental app exits on Android/Web Back navigation, eliminates fake onboarding exam dates, and finishes aligning `StreakScreen` and `OnboardingModal` with the v2 design system.
+- **Attribution**: Per user request.
+
+
+### 2026-11-09: Penjadwalan Tugas & Deadline Overhaul (`DeadlinePickerStrip`, `AddTaskSheet`, `TasksScreen`, `CreateScheduleSheet`, `TodayTasksSection`)
+- **Decision**:
+  1. **Visual 14-Day Calendar Strip & Smart Deadline Selector (`mobile/src/components/tasks/DeadlinePickerStrip.tsx`)**:
+     - Replaced raw `YYYY-MM-DD` text inputs and rigid 3-button selectors with a unified `DeadlinePickerStrip` component.
+     - Displays a live resolved deadline summary banner (`Senin, 10 Nov` + relative urgency pill `Besok` / `3 hari lagi` + inline `-1` / `+1` day steppers), 6 smart 1-tap presets (`Kelas Depan (Hari, Tgl)`, `⚡ Hari Ini`, `🌅 Besok`, `📆 Lusa`, `2 Pertemuan`, `+1 Minggu`), and an interactive 14-day horizontal calendar strip that highlights days when the selected subject has a school class (`Kelas` badge) or holiday (`Libur`).
+  2. **Auto-Schedule Study Block with Live Slot Preview (`mobile/src/components/tasks/AddTaskSheet.tsx`)**:
+     - Integrated `DeadlinePickerStrip` into `AddTaskSheet.tsx` and added an enabled-by-default `"✨ Jadwalkan blok belajar otomatis"` toggle that previews the exact day & time slot where the study block will be placed (`Rencana belajar: Hari Ini • 16:00–16:30 (30 mnt)`) and automatically runs `buildSchedule` + `applySchedule` upon saving.
+  3. **Restored Schedule Controls & Upgraded Task Cards (`mobile/src/screens/TasksScreen.tsx`, `mobile/src/components/home/TodayTasksSection.tsx`)**:
+     - Restored the missing `sparkles-outline` (`Susun Jadwal`) and `add-outline` (`Tambah Tugas`) header actions and the `needsSchedule` auto-schedule banner in `TasksScreen.tsx` (`setCreateScheduleVisible(true)` was previously never called).
+     - Removed duplicated date text on task cards (`Matematika • PR` on the left, and a unified deadline badge `🔥 Hari Ini`, `🏫 Besok • 10 Nov`, `3 hari lagi • 12 Nov`, or `⚠️ Terlambat 2h • 6 Nov` on the right), plus a 1-tap `✨ Jadwalkan` chip on unscheduled cards.
+     - Upgraded the task detail/edit `BottomSheet` in both `TasksScreen.tsx` and `TodayTasksSection.tsx` with `DeadlinePickerStrip`, duration estimate chips (`15m`–`90m`), and a 1-tap `Jadwalkan Blok Belajar Otomatis` action.
+  4. **Day-by-Day Block Preview & 1-Tap Deadline Conflict Fixer (`mobile/src/components/schedule/CreateScheduleSheet.tsx`)**:
+     - Added a day-by-day preview list (`Rencana Blok Belajar`) showing the exact time range (`16:00–16:30`), subject color, task title, and deadline for every proposed block.
+     - Added 1-tap conflict resolution buttons (`📅 Undur +1 Hari` and `🏫 Ke Kelas Depan`) directly on `unallocated` tasks inside `CreateScheduleSheet.tsx` so students can extend a tight deadline and immediately fit the task into their schedule.
+- **Rationale**: Makes setting deadlines and scheduling study blocks visual, class-aware, and 1-tap effortless without typing raw ISO dates.
+- **Attribution**: Per user request.
+
+### 2026-11-09: Streak Pet Improvement & Removal of Redundant EXP/Level Layer
+- **Decision**:
+  1. **Removed Redundant EXP & Companion Level (`mobile/src/lib/studyStreakEngine.ts`, `mobile/src/screens/StreakScreen.tsx`)**: Removed `totalXp`, `xpIntoLevel`, `xpForNextLevel`, `xpPercent`, `companionLevel`, and infinite `+5 XP` / `+25 XP` farming on pet/feed actions, as well as the `LV.X` badge labels in the hero pill and evolution card header.
+  2. **Daily Satiety & Bara Api Care Loop (`satietyCount` / `satietyTarget` / `satietyLabel`)**: Replaced the XP progress bar in `petCarePanel` with a 3-dot **Kenyang Harian (`0/3` – `3/3`)** fullness meter paired with a live **Stok Bara Api (`🔥 X Bara Siap`)** badge and mood-aware affectionate reactions when petting or feeding.
+- **Rationale**: Eliminates three competing progression numbers (Streak Days, Mascot Growth `LV.1–10`, and Companion `Lv.X` XP) so long-term progression is strictly driven by **Streak Days & 4-Stage Evolution**, while daily care focuses on feeding `Bara Api` earned from real study tasks and focus time.
+- **Attribution**: Per user request.
+
+
+### 2026-11-09: Simplified Stage 4 (`deity`) Streak Dragon & Streamlined `StreakScreen` UI
+- **Decision**:
+  1. **Simplified Stage 4 (`Naga Agung Kosmik`) Dragon Anatomy (`mobile/src/components/streak/StreakEvolutionMascot.tsx`, `mobile/src/lib/studyStreakEngine.ts`)**:
+     - Replaced the cluttered 4-wing / 4-horn / snout-whisker Stage 4 (`deity`) render tree with a clean, regal silhouette featuring a **single pair of articulated wings**, a **floating golden crown halo** (`cosmicHaloCrown`), a single pair of swept-back horns, and a **single star emblem** (`starCoreDiamond`) on a smooth, rib-free chest plate.
+     - Removed all hardcoded cyan/pink (`#38BDF8` / `#06B6D4` / `#EC4899`) overrides on Stage 4's wings, horn tips, ear frills, eyes, nostrils, and chest emblem so Stage 4 uses a cohesive royal violet & gold default palette and cleanly adapts to any selected elemental skin (`fire`, `ice`, `emerald`, `solar`, `cosmic`).
+  2. **Streamlined `StreakScreen` Layout & Removed Hex-Alpha String Interpolations (`mobile/src/screens/StreakScreen.tsx`)**:
+     - Reorganized `heroStageCard` with a compact top header bar (`petIdentityPill` on the left + `Rekor Terbaik` capsule on the right), centered `StreakEvolutionMascot` (`size={104}`), clean speech bubble (`speechBubble`), and a unified single-row care status bar (`Mood` + `Kenyang 0/3` dots + `🔥 Bara` badge).
+     - Folded the bulky standalone 2-card `Perlindungan Streak` box into a compact `freezeCompactBar` strip at the bottom of the 7-day `Rantai Streak Minggu Ini` card, and removed all `${color}20` hex-alpha string concatenations across `StreakScreen.tsx` and `StreakEvolutionMascot.tsx`.
+- **Rationale**: Makes the final evolution stage look regal and readable instead of visually noisy, and reduces vertical clutter on `StreakScreen`.
+- **Attribution**: Per user request.
+
+
+### 2026-11-10: UI Evaluation Fixes — Decluttering, Unified Headers & Visual Polish
+- **Decision**:
+  1. **Production Debug Gate & Locked Mascot Declutter (`StreakScreen.tsx`)**: Gated the header `construct-outline` debug button behind `__DEV__`, updated the subtitle to `"Konsistensi belajar harian"`, and hid the 4 redundant locked padlock stage tiles when `!hasDragonCompanion`.
+  2. **Compact Deadline Picker & Ionicon Standardization (`DeadlinePickerStrip.tsx`, `AddTaskSheet.tsx`)**: Removed duplicate `-1/+1` day steppers, collapsed the 14-day calendar strip behind a `"Pilih tanggal"` preset chip (auto-expanding if a custom non-preset date is selected), and replaced inline emoji (`🏫`, `⚡`, `🌅`, `📆`, `✨`) with Ionicons so `Tipe Tugas` fits above the fold in `AddTaskSheet`.
+  3. **Two-Line Task Filter Pills & Collapsible Completed Section (`TasksScreen.tsx`)**: Stacked filter pill labels above their counts so `"Semua"`, `"Terjadwal"`, `"Belum"`, and `"Selesai"` fit without clipping on 390px viewports, and grouped completed tasks in the `"Semua"` view under a collapsible `"Selesai (n)"` row.
+  4. **Unified Main-Tab Headers (`HomeScreen.tsx`, `TasksScreen.tsx`, `TimetableScreen.tsx`, `StatsScreen.tsx`, `App.tsx`)**: Standardized all 4 main tabs to display the streak badge and `settings-outline` action on the right.
+  5. **Timetable & Stats Copy Polish (`TimetableScreen.tsx`, `TimetableDayView.tsx`, `StatsScreen.tsx`, `HomeScreen.tsx`, `i18n.ts`, `App.tsx`)**: Shortened timetable view segments to `"Harian / Mingguan"` with a lightweight `"Kalender >"` link, formatted period badges as `"Jam 1-2"`, added `"Tugas selesai"` section caption and `"8 mg / 12 mg / 16 mg"` week chips on `StatsScreen`, colored `Perlengkapan Sekolah` progress neutral until all items are ready, bumped tab bar labels to `12px`, and added a one-time gesture hint toast (`@studyair_gesture_hint_v1`).
+- **Rationale**: Resolves all high- and medium-impact issues found during the live 390×844 UI evaluation by removing redundant controls and unifying screen chrome.
+- **Attribution**: Per user request and approved plan.
+
+
+### 2026-11-11: "Tinjau Tugas" (Dari Teks / AI Task Review) UI Overhaul, Localization & Compound Splitting
+- **Decision**:
+  1. **Smart Compound Homework Clause Splitting (`mobile/src/services/aiService.ts`, `src/lib/gemini.ts`)**:
+     - Added `splitCompoundTaskClauses()` and `expandExtractedTasks()` so comma/semicolon-separated homework blocks (e.g. `"Halaman 58-59 kegiatan 2, Halaman 63 kegiatan 2 dan 3, Halaman 68 kegiatan 2"`) split cleanly into separate tasks while keeping number lists inside one assignment (`"hal 45 no 1, 2, dan 3"`) intact and preventing cross-sentence subject/date leakage in `extractTasksLocal()`.
+     - Updated `createFallbackTaskFromText()` to return `deadlineMode` and Indonesian `formatLocaleDate` labels (`Kelas Depan (Sen, 16 Nov)` instead of hardcoded `"Next Class (...)"`).
+     - Updated Gemini prompts (`directGeminiTaskExtractCall` & `parseWhiteboardWithGemini`) to emit distinct items for comma-separated exercise/page lists.
+  2. **Overhauled `Tinjau Tugas` Review UI (`mobile/src/components/QuickActionSheet.tsx`, `mobile/src/components/common/BottomSheet.tsx`)**:
+     - Constrained bottom-sheet widths (`width: "100%", maxWidth: 560, alignSelf: "center"`) so modals stay crisp and centered on desktop/web viewports while remaining full-width on mobile.
+     - Removed the duplicate header `Simpan` button, replaced English copy (`HOMEWORK`, `Next Class`, `Save All N Tasks`, `Notes / Instructions`, `Task title...`, `Date note:`) with localized Indonesian controls, added editable type pills (`PR`, `Kuis`, `Proyek`), multiline titles, 1-tap `Pisahkan menjadi N tugas` / `Tambah Tugas Lain` helpers, and fixed `handleUpdateBatchItemSubject` to only update class-based deadlines (`deadlineMode === "nextClass" | "afterNClasses"`).
+     - Integrated `DeadlinePickerStrip` (with `-1h`/`+1h` steppers and expandable 14-day class-aware calendar strip) and an enabled-by-default `"✨ Jadwalkan blok belajar otomatis"` sticky footer toggle.
+- **Rationale**: Eliminates mixed English/Indonesian strings, duplicate save actions, desktop width stretching, and cramped uneditable cards in the AI review sheet.
+- **Attribution**: Per user request (`/plan` approved).
+
+
+### 2026-11-15: Hidden Debug Menu & 7-Tap Build Number Developer Mode Easter Egg
+- **Decision**:
+  1. **Default-Hidden Debug Tooling**: Completely removed default visibility of `StreakDebugModal` and the `construct-outline` (🛠) header button on `StreakScreen.tsx` as well as the "Simulator Streak" panel in `SettingsScreen.tsx`. Even in `__DEV__`, debug tooling is hidden by default.
+  2. **Android-Style 7-Tap Build Number Gesture (`SettingsScreen.tsx`, `updateChecker.ts`)**:
+     - Wrapped the version/build subtitle (`updateModalSubtitle`) in `Settings > Versi & Pembaruan Aplikasi` in a `Pressable`.
+     - Taps 1–3 emit subtle audio/haptic feedback.
+     - Taps 4–6 surface step feedback toasts (`dev_mode_steps` e.g. "3 langkah lagi menuju Mode Pengembang").
+     - Tap 7 activates `developerModeEnabled: true` in `AppSettings` with celebratory fanfare (`playSuccess`) and toast notification (`dev_mode_activated`).
+     - Includes a 3.5-second reset timeout if tapping pauses.
+  3. **Developer Mode Controls & Re-Locking**:
+     - When active, surfaces `Mode Pengembang (Aktif ✓)` in root Settings and restores the "Simulator Streak" card under `Lanjutan & Mode AI` with a 1-tap "Nonaktifkan Mode Pengembang" button to allow instant re-locking.
+     - Restores the 🛠 header button in `StreakScreen.tsx` which opens `StreakDebugModal`.
+  4. **Persistence & Verification**:
+     - Stored in `AppSettings.developerModeEnabled` (persisted to SQLite and AsyncStorage). Added unit tests in `developerMode.test.ts` (33/33 tests passing) and verified end-to-end via automated browser simulation.
+- **Rationale**: Keeps production and development UI clean of debug artifacts while preserving rapid diagnostic capabilities via the standard Android Easter egg pattern.
+- **Attribution**: Per user request (`/plan` approved).
+
+
+### 2026-11-15: Complete Indonesian School Curriculum Subjects & Quick Add Action
+- **Decision**:
+  1. **Comprehensive Subject Roster (`DEFAULT_CURRICULUM_SUBJECTS` & `ensureStandardSubjects`)**:
+     - Replaced the narrow 4-subject sample set (`Matematika`, `Fisika`, `Kimia`, `PJOK`) with the complete 16-subject Indonesian middle & high school curriculum in `mobile/src/lib/subjectDictionary.ts`:
+       - Matematika, Bahasa Indonesia, Bahasa Inggris, Fisika, Kimia, Biologi, Sejarah, Geografi, Ekonomi, Sosiologi, Pendidikan Agama Islam (PAI), Pendidikan Pancasila (PPKn), Informatika, PJOK, Seni Budaya, and Bimbingan Konseling (BK).
+     - Added `ensureStandardSubjects()` in `storage.ts`, `storage.web.ts`, and `store.tsx` (`loadState`) so any existing storage or session seamlessly merges the missing standard subjects without duplicating or altering existing subjects or timetable links.
+  2. **1-Tap Quick Add Subject Action (`QuickActionSheet.tsx` & `AddTaskSheet.tsx`)**:
+     - Added a `+ Tambah Mapel` / `+ Mapel Baru` chip at the end of the subject selector in both `Tinjau Tugas` and `AddTaskSheet`.
+     - In `Tinjau Tugas`, creating a new subject immediately assigns it to the current batch item and returns to the review modal without losing user progress.
+     - In `AddTaskSheet`, an inline input allows creating and selecting a new subject on the fly.
+- **Rationale**: Eliminates the limitation where students could only select from 4 subjects, ensuring the full national curriculum is ready out-of-the-box while enabling frictionless custom subject creation.
+- **Attribution**: Per user request.

@@ -390,6 +390,7 @@ export function buildSchedule(options: {
   prefs: SchedulePrefs;
   referenceDate: string; // YYYY-MM-DD
   daysAhead?: number; // default 14
+  allowOverdue?: boolean;
 }): ScheduleResult {
   const {
     tasks = [],
@@ -397,6 +398,7 @@ export function buildSchedule(options: {
     prefs,
     referenceDate,
     daysAhead = 14,
+    allowOverdue = false,
   } = options;
 
   // 1. Filter out completed tasks and sort active tasks
@@ -466,23 +468,31 @@ export function buildSchedule(options: {
 
     // Check if task is already past deadline
     if (task.deadlineDate < referenceDate) {
-      unallocated.push({
-        taskId: task.id,
-        taskTitle: task.title,
-        subjectId: task.subjectId,
-        deadlineDate: task.deadlineDate,
-        neededMinutes,
-        allocatedMinutes: 0,
-        reason: "ALREADY_PAST_DEADLINE",
-      });
-      continue;
+      if (!allowOverdue) {
+        unallocated.push({
+          taskId: task.id,
+          taskTitle: task.title,
+          subjectId: task.subjectId,
+          deadlineDate: task.deadlineDate,
+          neededMinutes,
+          allocatedMinutes: 0,
+          reason: "ALREADY_PAST_DEADLINE",
+        });
+        continue;
+      }
     }
 
-    const earliestDate = task.givenDate && task.givenDate > referenceDate
-      ? task.givenDate
-      : referenceDate;
+    const effectiveDeadline =
+      allowOverdue && task.deadlineDate < referenceDate
+        ? referenceDate
+        : task.deadlineDate;
 
-    if (earliestDate > task.deadlineDate) {
+    const earliestDate =
+      task.givenDate && task.givenDate > referenceDate && task.givenDate <= effectiveDeadline
+        ? task.givenDate
+        : referenceDate;
+
+    if (earliestDate > effectiveDeadline) {
       unallocated.push({
         taskId: task.id,
         taskTitle: task.title,
@@ -496,7 +506,7 @@ export function buildSchedule(options: {
     }
 
     const chunks = chunkTask(neededMinutes, maxBlock);
-    const validDates = dateRange(earliestDate, task.deadlineDate);
+    const validDates = dateRange(earliestDate, effectiveDeadline);
 
     let blockCounter = 1;
     for (const chunkDuration of chunks) {

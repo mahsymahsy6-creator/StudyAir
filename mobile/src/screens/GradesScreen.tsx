@@ -41,14 +41,16 @@ import {
 } from "../lib/gradeEngine";
 import { HapticFeedback } from "../lib/haptics";
 import { soundFX } from "../lib/sound";
+import { t } from "../lib/i18n";
 
 interface GradesScreenProps {
   navigation: {
     navigate: (screen: string, params?: any) => void;
   };
+  onBack?: () => void;
 }
 
-export function GradesScreen({ navigation }: GradesScreenProps) {
+export function GradesScreen({ navigation, onBack }: GradesScreenProps) {
   const { subjects, grades, addGrade, updateGrade, deleteGrade, setSubjectTargetGrade } =
     useMobileStudyStore();
 
@@ -175,30 +177,13 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
       {/* ─── Screen Header ─── */}
       <ScreenHeader
         title="Nilai & Rapor"
+        onBack={onBack}
         subtitle={
           overallSummary.gradedSubjectsCount > 0
             ? `Rata-rata: ${overallSummary.cumulativeAverage} (${overallSummary.letterGrade}) • ${overallSummary.totalAssessments} Penilaian`
-            : "Pelacak Nilai Akademik Standar Indonesia"
+            : "Rapor & Ketuntasan KKM"
         }
         actions={[
-          {
-            icon: "calculator-outline",
-            accessibilityLabel: "Kalkulator Nilai TKA",
-            onPress: () => {
-              HapticFeedback.light();
-              soundFX.playClick();
-              setTkaModalVisible(true);
-            },
-          },
-          {
-            icon: "people-outline",
-            accessibilityLabel: "Daftar Guru",
-            onPress: () => {
-              HapticFeedback.light();
-              soundFX.playClick();
-              setTeacherDirectoryVisible(true);
-            },
-          },
           {
             icon: "add",
             accessibilityLabel: "Catat Nilai Baru",
@@ -214,45 +199,107 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
       >
         {/* ─── 1. Cumulative Report Card Hero Banner (Standar Indonesia) ─── */}
         <Card style={styles.heroCard}>
-          {/* Main Score Section: Full Width */}
-          <View style={styles.heroMainScoreSection}>
-            <Text style={styles.heroLabel}>RATA-RATA RAPOR INDONESIA</Text>
-            <View style={styles.heroScoreRow}>
-              <Text style={styles.heroScoreText}>
-                {overallSummary.cumulativeAverage > 0
-                  ? overallSummary.cumulativeAverage.toFixed(1)
-                  : "0.0"}
+          {overallSummary.totalAssessments === 0 ? (
+            <View style={{ alignItems: "center", paddingVertical: spacing.xs }}>
+              <Ionicons name="stats-chart-outline" size={28} color={colors.primary} style={{ marginBottom: 6 }} />
+              <Text style={[styles.snbpTitle, { textAlign: "center" }]}>
+                {t("belum_ada_nilai_title")}
               </Text>
-              <View style={styles.heroGradePill}>
-                <Text style={styles.heroGradePillText}>
-                  Predikat {overallSummary.letterGrade}
+              <Text style={[styles.snbpDescText, { textAlign: "center", marginTop: 4, marginBottom: 12 }]}>
+                {t("belum_ada_nilai_desc")}
+              </Text>
+              <Pressable
+                style={[styles.simDoneBtn, { paddingHorizontal: 20, marginTop: 0, width: "100%" }]}
+                onPress={() => handleOpenAddGrade()}
+                accessibilityLabel="Catat Nilai Pertama"
+              >
+                <Text style={styles.simDoneBtnText}>+ {t("catat_nilai_pertama")}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              {/* Main Score Section: Full Width */}
+              <View style={styles.heroMainScoreSection}>
+                <Text style={styles.heroLabel}>RATA-RATA RAPOR INDONESIA</Text>
+                <View style={styles.heroScoreRow}>
+                  <Text style={styles.heroScoreText}>
+                    {overallSummary.cumulativeAverage.toFixed(1)}
+                  </Text>
+                  <View style={styles.heroGradePill}>
+                    <Text style={styles.heroGradePillText}>
+                      Predikat {overallSummary.letterGrade}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Ketuntasan KKM indicator */}
+                <View style={styles.kkmSummaryRow}>
+                  <Ionicons
+                    name={
+                      overallSummary.incompleteKKMCount === 0
+                        ? "checkmark-circle"
+                        : "alert-circle"
+                    }
+                    size={14}
+                    color={
+                      overallSummary.incompleteKKMCount === 0
+                        ? colors.emerald
+                        : colors.amber
+                    }
+                    style={{ marginRight: 5 }}
+                  />
+                  <Text style={styles.kkmSummaryText}>
+                    {`${overallSummary.completedKKMCount} dari ${overallSummary.gradedSubjectsCount} Mapel Tuntas KKM (${overallSummary.kkmCompletionRate}%)`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Performance Motivation Message */}
+              <View style={styles.performanceRow}>
+                <Ionicons name="sparkles" size={14} color={colors.amber} style={{ marginRight: 6 }} />
+                <Text style={styles.performanceText}>
+                  {overallSummary.performanceDescription}
                 </Text>
               </View>
-            </View>
 
-            {/* Ketuntasan KKM indicator */}
-            <View style={styles.kkmSummaryRow}>
-              <Ionicons
-                name={
-                  overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
-                    ? "checkmark-circle"
-                    : "alert-circle"
-                }
-                size={14}
-                color={
-                  overallSummary.incompleteKKMCount === 0 && overallSummary.gradedSubjectsCount > 0
-                    ? colors.emerald
-                    : colors.amber
-                }
-                style={{ marginRight: 5 }}
-              />
-              <Text style={styles.kkmSummaryText}>
-                {overallSummary.gradedSubjectsCount > 0
-                  ? `${overallSummary.completedKKMCount} dari ${overallSummary.gradedSubjectsCount} Mapel Tuntas KKM (${overallSummary.kkmCompletionRate}%)`
-                  : "Belum ada nilai KKM"}
-              </Text>
-            </View>
-          </View>
+              {/* Quick Highlight Stats Strip */}
+              <View style={styles.statsStrip}>
+                {overallSummary.highestSubject && (
+                  <View style={styles.statBox}>
+                    <Text style={styles.statBoxLabel}>TERTINGGI</Text>
+                    <Text style={styles.statBoxValue} numberOfLines={1}>
+                      {overallSummary.highestSubject.subjectName}
+                    </Text>
+                    <Text style={[styles.statBoxScore, { color: colors.emerald }]}>
+                      {overallSummary.highestSubject.average.toFixed(1)}
+                    </Text>
+                  </View>
+                )}
+
+                {overallSummary.lowestSubject && overallSummary.gradedSubjectsCount > 1 && (
+                  <View style={styles.statBox}>
+                    <Text style={styles.statBoxLabel}>PERLU PENGUATAN</Text>
+                    <Text style={styles.statBoxValue} numberOfLines={1}>
+                      {overallSummary.lowestSubject.subjectName}
+                    </Text>
+                    <Text style={[styles.statBoxScore, { color: colors.amber }]}>
+                      {overallSummary.lowestSubject.average.toFixed(1)}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.statBox}>
+                  <Text style={styles.statBoxLabel}>KETUNTASAN KKM</Text>
+                  <Text style={styles.statBoxValue}>
+                    {overallSummary.completedKKMCount} / {overallSummary.gradedSubjectsCount}
+                  </Text>
+                  <Text style={[styles.statBoxScore, { color: colors.primary }]}>
+                    {overallSummary.kkmCompletionRate}% Tuntas
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
 
           {/* Quick Action Tools Bar (Target Simulator & Kalkulator TKA) */}
           <View style={styles.heroToolsRow}>
@@ -266,8 +313,8 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
               hitSlop={touchTarget.min / 4}
               accessibilityLabel="Kalkulator TKA"
             >
-              <Ionicons name="calculator" size={15} color={colors.accent} style={{ marginRight: 6 }} />
-              <Text style={styles.heroToolBtnText}>Kalkulator TKA</Text>
+              <Ionicons name="calculator" size={15} color={colors.primary} style={{ marginRight: 6 }} />
+              <Text style={styles.heroToolBtnText}>{t("kalkulator_tka")}</Text>
             </Pressable>
 
             <Pressable
@@ -277,53 +324,8 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
               accessibilityLabel="Buka Target Simulator Nilai"
             >
               <Ionicons name="speedometer-outline" size={15} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.heroToolBtnText}>Target Simulator</Text>
+              <Text style={styles.heroToolBtnText}>{t("simulator_target")}</Text>
             </Pressable>
-          </View>
-
-          {/* Performance Motivation Message */}
-          <View style={styles.performanceRow}>
-            <Ionicons name="sparkles" size={14} color={colors.amber} style={{ marginRight: 6 }} />
-            <Text style={styles.performanceText}>
-              {overallSummary.performanceDescription}
-            </Text>
-          </View>
-
-          {/* Quick Highlight Stats Strip */}
-          <View style={styles.statsStrip}>
-            {overallSummary.highestSubject && (
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxLabel}>TERTINGGI</Text>
-                <Text style={styles.statBoxValue} numberOfLines={1}>
-                  {overallSummary.highestSubject.subjectName}
-                </Text>
-                <Text style={[styles.statBoxScore, { color: colors.emerald }]}>
-                  {overallSummary.highestSubject.average.toFixed(1)}
-                </Text>
-              </View>
-            )}
-
-            {overallSummary.lowestSubject && overallSummary.gradedSubjectsCount > 1 && (
-              <View style={styles.statBox}>
-                <Text style={styles.statBoxLabel}>PERLU PENGUATAN</Text>
-                <Text style={styles.statBoxValue} numberOfLines={1}>
-                  {overallSummary.lowestSubject.subjectName}
-                </Text>
-                <Text style={[styles.statBoxScore, { color: colors.amber }]}>
-                  {overallSummary.lowestSubject.average.toFixed(1)}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.statBox}>
-              <Text style={styles.statBoxLabel}>KETUNTASAN KKM</Text>
-              <Text style={styles.statBoxValue}>
-                {overallSummary.completedKKMCount} / {overallSummary.gradedSubjectsCount}
-              </Text>
-              <Text style={[styles.statBoxScore, { color: colors.primary }]}>
-                {overallSummary.kkmCompletionRate}% Tuntas
-              </Text>
-            </View>
           </View>
         </Card>
 
@@ -401,10 +403,10 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
                     {
                       backgroundColor:
                         overallSummary.snbpSummary.eligibleTier === "high"
-                          ? `${colors.emerald}20`
+                          ? colors.emeraldLight
                           : overallSummary.snbpSummary.eligibleTier === "medium"
-                          ? `${colors.amber}20`
-                          : `${colors.danger}20`,
+                          ? colors.amberLight
+                          : colors.roseLight,
                     },
                   ]}
                 >
@@ -539,7 +541,7 @@ export function GradesScreen({ navigation }: GradesScreenProps) {
             {subjects.length > 0 ? (
               subjects.map((sub) => {
                 const summary = subjectSummaries.get(sub.id);
-                const subColor = sub.color || sub.color_hex || colors.primary;
+                const subColor = sub.color || sub.color_hex || "#1CB0F6";
                 const isExpanded = !!expandedSubjectIds[sub.id];
                 const subGrades = grades.filter((g) => g.subjectId === sub.id);
 
@@ -967,7 +969,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.cardLarge,
     borderWidth: 1.5,
-    borderColor: `${colors.primary}50`,
+    borderColor: colors.blockBorder,
     padding: spacing.lg,
     borderBottomWidth: 4,
     borderBottomColor: colors.primary,
@@ -997,7 +999,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   heroGradePill: {
-    backgroundColor: `${colors.primary}25`,
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.full,
@@ -1201,7 +1203,7 @@ const styles = StyleSheet.create({
   },
   snbpSubjectChipActive: {
     borderColor: colors.primary,
-    backgroundColor: `${colors.primary}18`,
+    backgroundColor: colors.primaryLight,
   },
   snbpSubjectChipText: {
     fontSize: 11,

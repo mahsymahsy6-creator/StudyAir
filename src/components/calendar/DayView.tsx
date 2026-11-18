@@ -40,8 +40,8 @@ export function DayView({
   return (
     <div className="flex flex-1 overflow-auto bg-background">
       {/* Time gutter */}
-      <div className="sticky left-0 z-20 w-20 shrink-0 border-r border-border/30 bg-background/95 backdrop-blur-md select-none">
-        <div className="h-16 border-b border-border/30" /> {/* Header spacer */}
+      <div className="sticky left-0 z-20 w-20 shrink-0 border-r border-border bg-background select-none">
+        <div className="h-16 border-b border-border" /> {/* Header spacer */}
         {hours.map((hour) => (
           <div
             key={hour}
@@ -56,7 +56,7 @@ export function DayView({
 
       {/* Day column */}
       <div className="flex-1 max-w-4xl">
-        <div className="flex items-center justify-between h-16 border-b border-border/30 px-6 bg-card/20 backdrop-blur-sm">
+        <div className="flex items-center justify-between h-16 border-b border-border px-6 bg-card/40">
           <div>
             <h2 className="text-sm font-semibold tracking-tight text-foreground">
               {format(selectedDate, "EEEE, MMMM d, yyyy")}

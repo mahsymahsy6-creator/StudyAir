@@ -83,7 +83,7 @@ export function FocusSessionModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleStop()}>
-      <DialogContent className="max-w-md border-border/40 bg-card">
+      <DialogContent className="max-w-md border-border bg-card">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <div
@@ -171,12 +171,12 @@ export function FocusSessionModal({
                 <p className="text-xs text-muted-foreground">cycles</p>
               </div>
             )}
-            <div className="flex items-center rounded-lg border border-border/60 bg-muted/30 p-0.5">
+            <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
               <button
                 type="button"
                 onClick={() => timer.setMode("POMODORO")}
                 className={cn(
-                  "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                  "px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-all duration-150",
                   timer.mode === "POMODORO"
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
@@ -188,7 +188,7 @@ export function FocusSessionModal({
                 type="button"
                 onClick={() => timer.setMode("FLOWMODORO")}
                 className={cn(
-                  "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                  "px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-all duration-150",
                   timer.mode === "FLOWMODORO"
                     ? "bg-primary text-primary-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"

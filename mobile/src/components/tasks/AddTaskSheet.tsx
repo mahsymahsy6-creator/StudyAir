@@ -14,9 +14,12 @@ import { BottomSheet } from "../common/BottomSheet";
 import { useMobileStudyStore } from "../../store";
 import { Task, TaskType, DeadlineMode } from "../../types";
 import { t } from "../../lib/i18n";
+import { formatLocaleDate } from "../../lib/dateUtils";
 import { calculateNextClassDeadline } from "../../engine/deadlineEngine";
 import { parseIndonesianDateHint } from "../../engine/dateHintParser";
 import { suggestTaskDuration } from "../../services/aiService";
+import { buildSchedule, extractBusyBlocksFromTimetable } from "../../engine/schedulerEngine";
+import { DeadlinePickerStrip } from "./DeadlinePickerStrip";
 
 export interface AddTaskSheetProps {
   visible: boolean;
@@ -35,22 +38,37 @@ export function AddTaskSheet({
   initialSubjectId,
   initialDeadline,
 }: AddTaskSheetProps) {
-  const { subjects, timetableEntries, daysOff, overrides, addTask } = useMobileStudyStore();
+  const {
+    subjects,
+    tasks,
+    timetableEntries,
+    periodTimes,
+    daysOff,
+    overrides,
+    schedulePrefs,
+    addTask,
+    addSubject,
+    applySchedule,
+  } = useMobileStudyStore();
 
-  const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   // Form State
   const [taskTitle, setTaskTitle] = useState("");
   const [taskTitleError, setTaskTitleError] = useState("");
   const [taskSubjectId, setTaskSubjectId] = useState("");
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState("");
   const [taskType, setTaskType] = useState<TaskType>("homework");
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(30);
   const [isCustomDuration, setIsCustomDuration] = useState(false);
   const [customDurationText, setCustomDurationText] = useState("30");
   const [deadlineMode, setDeadlineMode] = useState<"next_class" | "in_2_classes" | "custom">("next_class");
+  const [hasManualDeadlineSelection, setHasManualDeadlineSelection] = useState(false);
   const [customDeadline, setCustomDeadline] = useState(
     initialDeadline || format(addDays(new Date(), 1), "yyyy-MM-dd")
   );
+  const [autoScheduleBlock, setAutoScheduleBlock] = useState(true);
   const [taskNotes, setTaskNotes] = useState("");
   const [showMoreOptions, setShowMoreOptions] = useState(false);
 
@@ -65,13 +83,21 @@ export function AddTaskSheet({
       setIsCustomDuration(false);
       setCustomDurationText("30");
       setDeadlineMode(initialDeadline ? "custom" : "next_class");
+      setHasManualDeadlineSelection(Boolean(initialDeadline));
       setCustomDeadline(initialDeadline || format(addDays(new Date(), 1), "yyyy-MM-dd"));
+      setAutoScheduleBlock(true);
       setTaskNotes("");
       setShowMoreOptions(false);
     }
   }, [visible, initialSubjectId, initialDeadline, subjects]);
 
   const activeSubjectId = taskSubjectId || subjects[0]?.id || "general";
+  const activeSubjectObj = useMemo(
+    () => subjects.find((s) => s.id === activeSubjectId),
+    [subjects, activeSubjectId]
+  );
+  const activeSubjectColor =
+    activeSubjectObj?.color || activeSubjectObj?.color_hex || colors.primary;
 
   // Pre-calculate smart next-class deadlines
   const nextClass1 = useMemo(() => {
@@ -90,18 +116,21 @@ export function AddTaskSheet({
     });
   }, [activeSubjectId, todayStr, timetableEntries, daysOff, overrides]);
 
-  // Detected date hint from title
+  // Detected date hint from title or notes
   const detectedDateHint = useMemo(() => {
-    return parseIndonesianDateHint(taskTitle, todayStr);
-  }, [taskTitle, todayStr]);
+    return parseIndonesianDateHint(taskTitle, todayStr) || parseIndonesianDateHint(taskNotes, todayStr);
+  }, [taskTitle, taskNotes, todayStr]);
 
   // Suggested duration from title & task type
   const suggestedDuration = useMemo(() => {
     return suggestTaskDuration(taskTitle, taskType);
   }, [taskTitle, taskType]);
 
-  // Effective deadline string
+  // Effective deadline string (auto-applies NLP date hint unless user manually picked a deadline mode)
   const effectiveDeadline = useMemo(() => {
+    if (!hasManualDeadlineSelection && detectedDateHint?.suggestedDate) {
+      return detectedDateHint.suggestedDate;
+    }
     if (deadlineMode === "next_class") {
       return nextClass1.found && nextClass1.deadlineDate
         ? nextClass1.deadlineDate
@@ -113,7 +142,87 @@ export function AddTaskSheet({
         : format(addDays(new Date(), 7), "yyyy-MM-dd");
     }
     return customDeadline;
-  }, [deadlineMode, nextClass1, nextClass2, customDeadline]);
+  }, [hasManualDeadlineSelection, detectedDateHint, deadlineMode, nextClass1, nextClass2, customDeadline]);
+
+  const resolvedModeForStrip: DeadlineMode = useMemo(() => {
+    if (!hasManualDeadlineSelection && detectedDateHint?.suggestedDate) {
+      return "custom";
+    }
+    if (deadlineMode === "next_class") return "nextClass";
+    if (deadlineMode === "in_2_classes") return "afterNClasses";
+    return "custom";
+  }, [hasManualDeadlineSelection, detectedDateHint, deadlineMode]);
+
+  // Live preview of where the study block will be placed when auto-scheduled
+  const previewBlockInfo = useMemo(() => {
+    if (!visible) return null;
+    try {
+      const horizonEndStr = format(addDays(parseISO(todayStr), 14), "yyyy-MM-dd");
+      const busyBlocks = extractBusyBlocksFromTimetable({
+        timetableEntries,
+        periodTimes,
+        daysOff,
+        overrides,
+        startDate: todayStr,
+        endDate: horizonEndStr,
+      });
+      const draftTask: Task = {
+        id: "__draft_preview__",
+        title: taskTitle.trim() || "Tugas Baru",
+        subjectId: activeSubjectId,
+        type: taskType,
+        status: "PENDING",
+        givenDate: todayStr,
+        deadlineDate: effectiveDeadline,
+        deadlineMode: resolvedModeForStrip,
+        estimatedMinutes: Math.max(5, Math.min(360, estimatedMinutes)),
+      };
+      const pendingExisting = tasks.filter((t) => t.status === "PENDING");
+      const res = buildSchedule({
+        tasks: [...pendingExisting, draftTask],
+        busyBlocks,
+        prefs: schedulePrefs,
+        referenceDate: todayStr,
+      });
+      const myBlocks = res.blocks.filter((b) => b.taskId === "__draft_preview__");
+      if (myBlocks.length > 0) {
+        const first = myBlocks[0];
+        const dateLabel =
+          first.date === todayStr
+            ? "Hari Ini"
+            : first.date === format(addDays(parseISO(todayStr), 1), "yyyy-MM-dd")
+            ? "Besok"
+            : formatLocaleDate(parseISO(first.date), "EEE, d MMM");
+        return {
+          fits: true,
+          label: `${dateLabel} • ${first.startTime}–${first.endTime}`,
+          count: myBlocks.length,
+        };
+      }
+      return {
+        fits: false,
+        label: "Jadwal sebelum tenggat padat — coba undur tenggat +1 hari",
+        count: 0,
+      };
+    } catch {
+      return null;
+    }
+  }, [
+    visible,
+    todayStr,
+    timetableEntries,
+    periodTimes,
+    daysOff,
+    overrides,
+    taskTitle,
+    activeSubjectId,
+    taskType,
+    effectiveDeadline,
+    resolvedModeForStrip,
+    estimatedMinutes,
+    tasks,
+    schedulePrefs,
+  ]);
 
   // Handle Preset Duration selection
   const handleSelectPreset = (mins: number) => {
@@ -147,20 +256,45 @@ export function AddTaskSheet({
       return;
     }
 
-    let finalDeadlineMode: DeadlineMode = "custom";
-    if (deadlineMode === "next_class") finalDeadlineMode = "nextClass";
-    else if (deadlineMode === "in_2_classes") finalDeadlineMode = "afterNClasses";
-
     const newTask = addTask({
       title: trimmedTitle,
       subjectId: activeSubjectId,
       type: taskType,
       givenDate: todayStr,
       deadlineDate: effectiveDeadline,
-      deadlineMode: finalDeadlineMode,
+      deadlineMode: resolvedModeForStrip,
       estimatedMinutes: Math.max(5, Math.min(360, estimatedMinutes)),
       notes: taskNotes.trim() || undefined,
     });
+
+    if (autoScheduleBlock) {
+      try {
+        const horizonEndStr = format(addDays(parseISO(todayStr), 14), "yyyy-MM-dd");
+        const busyBlocks = extractBusyBlocksFromTimetable({
+          timetableEntries,
+          periodTimes,
+          daysOff,
+          overrides,
+          startDate: todayStr,
+          endDate: horizonEndStr,
+        });
+        const pendingAll = [
+          ...tasks.filter((t) => t.status === "PENDING" && t.id !== newTask.id),
+          newTask,
+        ];
+        const scheduledRes = buildSchedule({
+          tasks: pendingAll,
+          busyBlocks,
+          prefs: schedulePrefs,
+          referenceDate: todayStr,
+        });
+        if (scheduledRes.blocks.length > 0) {
+          applySchedule(scheduledRes.blocks);
+        }
+      } catch {
+        // Ignore auto-schedule error
+      }
+    }
 
     onTaskAdded?.(newTask);
     onClose();
@@ -204,13 +338,14 @@ export function AddTaskSheet({
             <Pressable
               style={styles.hintChip}
               onPress={() => {
+                setHasManualDeadlineSelection(true);
                 setDeadlineMode("custom");
                 setCustomDeadline(detectedDateHint.suggestedDate);
               }}
             >
               <Ionicons name="sparkles" size={14} color={colors.accent} style={{ marginRight: 6 }} />
               <Text style={styles.hintChipText}>
-                {t("terdeteksi_tanggal", { date: detectedDateHint.label })}
+                {t("terdeteksi_tanggal", { date: detectedDateHint.label })} (Otomatis aktif)
               </Text>
             </Pressable>
           )}
@@ -260,7 +395,72 @@ export function AddTaskSheet({
                 );
               })
             )}
+            <Pressable
+              style={[
+                styles.subjectChip,
+                {
+                  borderColor: colors.primary,
+                  borderStyle: "dashed",
+                },
+              ]}
+              onPress={() => {
+                setIsAddingSubject((v) => !v);
+              }}
+            >
+              <Ionicons name="add" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={[styles.subjectChipText, { color: colors.primary, fontWeight: "700" }]}>
+                Mapel Baru
+              </Text>
+            </Pressable>
           </ScrollView>
+
+          {isAddingSubject && (
+            <View style={styles.inlineAddSubjectRow}>
+              <TextInput
+                style={styles.inlineAddSubjectInput}
+                placeholder="Nama mata pelajaran baru..."
+                placeholderTextColor={colors.textMuted}
+                value={newSubjectName}
+                onChangeText={setNewSubjectName}
+                autoFocus
+              />
+              <Pressable
+                style={styles.inlineAddSubjectSaveBtn}
+                onPress={() => {
+                  if (newSubjectName.trim()) {
+                    const fallbackColors = [
+                      "#3A86FF",
+                      "#8B5CF6",
+                      "#10B981",
+                      "#F59E0B",
+                      "#EF4444",
+                      "#06B6D4",
+                      "#EC4899",
+                      "#14B8A6",
+                    ];
+                    const created = addSubject({
+                      name: newSubjectName.trim(),
+                      color: fallbackColors[subjects.length % fallbackColors.length],
+                    });
+                    setTaskSubjectId(created.id);
+                    setNewSubjectName("");
+                    setIsAddingSubject(false);
+                  }
+                }}
+              >
+                <Text style={styles.inlineAddSubjectSaveText}>Simpan</Text>
+              </Pressable>
+              <Pressable
+                style={styles.inlineAddSubjectCancelBtn}
+                onPress={() => {
+                  setIsAddingSubject(false);
+                  setNewSubjectName("");
+                }}
+              >
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {/* ─── 3. Duration Estimate (Core v2 feature) ─── */}
@@ -358,126 +558,65 @@ export function AddTaskSheet({
           )}
         </View>
 
-        {/* ─── 4. Deadline Selector (Next Class Engine) ─── */}
+        {/* ─── 4. Visual Deadline & Next-Class Calendar Strip ─── */}
         <View style={styles.inputGroup}>
           <Text style={styles.inputLabel}>{t("deadline_mode")}</Text>
-          <View style={styles.segmentedRow}>
-            {/* Option 1: Next Class */}
-            <Pressable
+          <DeadlinePickerStrip
+            todayStr={todayStr}
+            subjectId={activeSubjectId}
+            subjectColor={activeSubjectColor}
+            selectedDate={effectiveDeadline}
+            selectedMode={resolvedModeForStrip}
+            timetableEntries={timetableEntries}
+            daysOff={daysOff}
+            overrides={overrides}
+            onSelectDeadline={(dateStr, mode) => {
+              setHasManualDeadlineSelection(true);
+              setCustomDeadline(dateStr);
+              if (mode === "nextClass") {
+                setDeadlineMode("next_class");
+              } else if (mode === "afterNClasses") {
+                setDeadlineMode("in_2_classes");
+              } else {
+                setDeadlineMode("custom");
+              }
+            }}
+          />
+
+          {/* Auto-Schedule Study Block Toggle + Live Slot Preview */}
+          <Pressable
+            style={[
+              styles.autoScheduleCard,
+              autoScheduleBlock && styles.autoScheduleCardActive,
+            ]}
+            onPress={() => setAutoScheduleBlock((prev) => !prev)}
+          >
+            <View
               style={[
-                styles.segmentedBtn,
-                deadlineMode === "next_class" && styles.segmentedBtnActive,
+                styles.autoScheduleCheck,
+                autoScheduleBlock && styles.autoScheduleCheckActive,
               ]}
-              onPress={() => setDeadlineMode("next_class")}
             >
-              <Ionicons
-                name="school-outline"
-                size={16}
-                color={deadlineMode === "next_class" ? colors.primary : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.segmentedBtnText,
-                  deadlineMode === "next_class" && styles.segmentedBtnTextActive,
-                ]}
-              >
-                {t("kelas_depan")}
-              </Text>
-              <Text style={styles.segmentedBtnSub}>
-                {nextClass1.found && nextClass1.deadlineDate
-                  ? format(parseISO(nextClass1.deadlineDate), "d MMM")
-                  : t("tomorrow")}
-              </Text>
-            </Pressable>
-
-            {/* Option 2: In 2 Classes */}
-            <Pressable
-              style={[
-                styles.segmentedBtn,
-                deadlineMode === "in_2_classes" && styles.segmentedBtnActive,
-              ]}
-              onPress={() => setDeadlineMode("in_2_classes")}
-            >
-              <Ionicons
-                name="repeat-outline"
-                size={16}
-                color={deadlineMode === "in_2_classes" ? colors.primary : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.segmentedBtnText,
-                  deadlineMode === "in_2_classes" && styles.segmentedBtnTextActive,
-                ]}
-              >
-                {t("dua_pertemuan")}
-              </Text>
-              <Text style={styles.segmentedBtnSub}>
-                {nextClass2.found && nextClass2.deadlineDate
-                  ? format(parseISO(nextClass2.deadlineDate), "d MMM")
-                  : "+7 hari"}
-              </Text>
-            </Pressable>
-
-            {/* Option 3: Custom Date */}
-            <Pressable
-              style={[
-                styles.segmentedBtn,
-                deadlineMode === "custom" && styles.segmentedBtnActive,
-              ]}
-              onPress={() => setDeadlineMode("custom")}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={16}
-                color={deadlineMode === "custom" ? colors.primary : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.segmentedBtnText,
-                  deadlineMode === "custom" && styles.segmentedBtnTextActive,
-                ]}
-              >
-                {t("kustom")}
-              </Text>
-              <Text style={styles.segmentedBtnSub}>
-                {customDeadline ? format(parseISO(customDeadline), "d MMM") : "Pilih"}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Quick Date Pills when Custom Date is Active */}
-          {deadlineMode === "custom" && (
-            <View style={styles.customDateWrapper}>
-              <View style={styles.quickDateRow}>
-                <Pressable
-                  style={styles.quickDatePill}
-                  onPress={() => setCustomDeadline(format(addDays(new Date(), 1), "yyyy-MM-dd"))}
-                >
-                  <Text style={styles.quickDatePillText}>Besok (+1d)</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.quickDatePill}
-                  onPress={() => setCustomDeadline(format(addDays(new Date(), 2), "yyyy-MM-dd"))}
-                >
-                  <Text style={styles.quickDatePillText}>Lusa (+2d)</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.quickDatePill}
-                  onPress={() => setCustomDeadline(format(addDays(new Date(), 7), "yyyy-MM-dd"))}
-                >
-                  <Text style={styles.quickDatePillText}>+1 Minggu</Text>
-                </Pressable>
-              </View>
-
-              <TextInput
-                style={[styles.textInput, { marginTop: spacing.xs }]}
-                value={customDeadline}
-                onChangeText={setCustomDeadline}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textMuted}
-              />
+              {autoScheduleBlock && (
+                <Ionicons name="checkmark" size={14} color={colors.textInverse} />
+              )}
             </View>
-          )}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
+                <Text style={styles.autoScheduleTitle}>
+                  Jadwalkan blok belajar otomatis
+                </Text>
+              </View>
+              <Text style={styles.autoScheduleSub}>
+                {autoScheduleBlock && previewBlockInfo
+                  ? previewBlockInfo.fits
+                    ? `Rencana belajar: ${previewBlockInfo.label} (${estimatedMinutes} mnt)`
+                    : previewBlockInfo.label
+                  : "Simpan tanpa menyusun blok belajar otomatis"}
+              </Text>
+            </View>
+          </Pressable>
         </View>
 
         {/* ─── 5. Task Type Selector ─── */}
@@ -736,63 +875,45 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizes.caption,
     color: colors.textMuted,
   },
-  segmentedRow: {
+  autoScheduleCard: {
     flexDirection: "row",
-    gap: spacing.sm,
-  },
-  segmentedBtn: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 64,
-  },
-  segmentedBtnActive: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
-  },
-  segmentedBtnText: {
-    fontWeight: typography.fontWeights.semibold,
-    fontSize: typography.fontSizes.caption,
-    color: colors.textSecondary,
-    marginTop: 2,
-    textAlign: "center",
-  },
-  segmentedBtnTextActive: {
-    color: colors.primary,
-  },
-  segmentedBtnSub: {
-    fontWeight: typography.fontWeights.normal,
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  customDateWrapper: {
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     marginTop: spacing.sm,
   },
-  quickDateRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
+  autoScheduleCardActive: {
+    backgroundColor: colors.accentLight,
+    borderColor: colors.accent,
   },
-  quickDatePill: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
+  autoScheduleCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingVertical: spacing.xs,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
   },
-  quickDatePillText: {
-    fontWeight: typography.fontWeights.medium,
+  autoScheduleCheckActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  autoScheduleTitle: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  autoScheduleSub: {
     fontSize: 11,
     color: colors.textSecondary,
+    marginTop: 1,
   },
   typeSegmentedRow: {
     flexDirection: "row",
@@ -836,5 +957,40 @@ const styles = StyleSheet.create({
   },
   moreOptionsContent: {
     marginTop: spacing.xs,
+  },
+  inlineAddSubjectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  inlineAddSubjectInput: {
+    flex: 1,
+    height: 38,
+    backgroundColor: colors.surfaceHover,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    color: colors.text,
+  },
+  inlineAddSubjectSaveBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    height: 38,
+    borderRadius: radius.sm,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  inlineAddSubjectSaveText: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.bold,
+    color: "#FFFFFF",
+  },
+  inlineAddSubjectCancelBtn: {
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

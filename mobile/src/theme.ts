@@ -3,8 +3,10 @@
  * Multi-Theme Engine supporting Duolingo aesthetics, high contrast, and daylight.
  */
 
-import { Platform } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 import { AppTheme } from "./types";
+
+export const THEME_FAST_CACHE_KEY = "@studyair_theme_fast";
 
 export interface ThemePalette {
   id: AppTheme;
@@ -264,9 +266,9 @@ export const THEMES: Record<AppTheme, ThemePalette> = {
     danger: "#FF4B4B",
     dangerBottom: "#D63434",
 
-    accent: "#CE82FF",
-    accentBottom: "#A855F7",
-    accentLight: "rgba(206, 130, 255, 0.18)",
+    accent: "#38BDF8",
+    accentBottom: "#0284C7",
+    accentLight: "rgba(56, 189, 248, 0.18)",
     violet: "#CE82FF",
     violetBottom: "#A855F7",
 
@@ -560,7 +562,182 @@ export const THEMES: Record<AppTheme, ThemePalette> = {
 };
 
 const isWeb = Platform.OS === "web";
-let activeThemeKey: AppTheme = "navy";
+
+function getInitialThemeKey(): AppTheme {
+  if (isWeb && typeof localStorage !== "undefined") {
+    try {
+      const cached = localStorage.getItem(THEME_FAST_CACHE_KEY) as AppTheme | null;
+      if (cached && cached in THEMES) {
+        return cached;
+      }
+    } catch {
+      // ignore storage read error
+    }
+  }
+  return "navy";
+}
+
+let activeThemeKey: AppTheme = getInitialThemeKey();
+let appliedWebThemeKey: AppTheme | null = null;
+
+const rawColors: ThemePalette = { ...THEMES[activeThemeKey] };
+let webVarMap: Record<string, string> = {};
+
+const DYNAMIC_COLOR_TOKENS: (keyof ThemePalette)[] = [
+  "background",
+  "surface",
+  "surfaceSubtle",
+  "surfaceHover",
+  "border",
+  "borderLight",
+  "borderSubtle",
+  "borderBottom",
+  "text",
+  "textSecondary",
+  "textMuted",
+  "primary",
+  "primaryBottom",
+  "primaryHover",
+  "primaryLight",
+  "secondary",
+  "secondaryBottom",
+  "emerald",
+  "emeraldBottom",
+  "emeraldLight",
+  "success",
+  "successBottom",
+  "amber",
+  "amberBottom",
+  "amberLight",
+  "warning",
+  "warningBottom",
+  "rose",
+  "roseBottom",
+  "roseLight",
+  "danger",
+  "dangerBottom",
+  "accent",
+  "accentBottom",
+  "accentLight",
+  "violet",
+  "violetBottom",
+  "yellow",
+  "yellowBottom",
+  "cognitiveHigh",
+  "cognitiveHighBg",
+  "cognitiveMedium",
+  "cognitiveMediumBg",
+  "cognitiveLow",
+  "cognitiveLowBg",
+  "info",
+  "blockBorder",
+  "blockSurface",
+];
+
+interface NativeStyleBinding {
+  ruleKey: string;
+  propKey: string;
+  tokenKey: keyof ThemePalette;
+}
+
+const registeredNativeSheets: {
+  sheet: Record<string, any>;
+  bindings: NativeStyleBinding[];
+}[] = [];
+const recentTokenReads = new Map<string, keyof ThemePalette>();
+const fallbackTokenLookup = new Map<string, keyof ThemePalette>();
+
+for (const tokenKey of DYNAMIC_COLOR_TOKENS) {
+  const val = THEMES.navy[tokenKey];
+  if (typeof val === "string" && !fallbackTokenLookup.has(val)) {
+    fallbackTokenLookup.set(val, tokenKey);
+  }
+}
+
+if (!isWeb && StyleSheet && typeof StyleSheet.create === "function") {
+  try {
+    (StyleSheet as any).create = function <T extends Record<string, any>>(stylesObj: T): T {
+      if (stylesObj && typeof stylesObj === "object") {
+        const bindings: NativeStyleBinding[] = [];
+        for (const ruleKey of Object.keys(stylesObj)) {
+          const rule = (stylesObj as any)[ruleKey];
+          if (!rule || typeof rule !== "object") continue;
+          for (const propKey of Object.keys(rule)) {
+            const val = rule[propKey];
+            if (typeof val === "string") {
+              const tokenKey = recentTokenReads.get(val) || fallbackTokenLookup.get(val);
+              if (tokenKey) {
+                bindings.push({ ruleKey, propKey, tokenKey });
+              }
+            }
+          }
+        }
+        recentTokenReads.clear();
+        if (bindings.length > 0) {
+          registeredNativeSheets.push({ sheet: stylesObj as any, bindings });
+        }
+      }
+      return stylesObj;
+    };
+  } catch {
+    // ignore if StyleSheet is frozen
+  }
+}
+
+function rebuildWebVarMap(palette: ThemePalette) {
+  webVarMap = {
+    background: `var(--color-bg, ${palette.background})`,
+    surface: `var(--color-surface, ${palette.surface})`,
+    surfaceSubtle: `var(--color-surfaceSubtle, ${palette.surfaceSubtle})`,
+    surfaceHover: `var(--color-surfaceHover, ${palette.surfaceHover})`,
+    border: `var(--color-border, ${palette.border})`,
+    borderLight: `var(--color-borderLight, ${palette.borderLight})`,
+    borderSubtle: `var(--color-borderSubtle, ${palette.borderSubtle})`,
+    borderBottom: `var(--color-borderBottom, ${palette.borderBottom})`,
+    text: `var(--color-text, ${palette.text})`,
+    textSecondary: `var(--color-textSecondary, ${palette.textSecondary})`,
+    textMuted: `var(--color-textMuted, ${palette.textMuted})`,
+    primary: `var(--color-primary, ${palette.primary})`,
+    primaryBottom: `var(--color-primaryBottom, ${palette.primaryBottom})`,
+    primaryHover: `var(--color-primaryHover, ${palette.primaryHover})`,
+    primaryLight: `var(--color-primaryLight, ${palette.primaryLight})`,
+    secondary: `var(--color-secondary, ${palette.secondary})`,
+    secondaryBottom: `var(--color-secondaryBottom, ${palette.secondaryBottom})`,
+    emerald: `var(--color-emerald, ${palette.emerald})`,
+    emeraldBottom: `var(--color-emeraldBottom, ${palette.emeraldBottom})`,
+    emeraldLight: `var(--color-emeraldLight, ${palette.emeraldLight})`,
+    success: `var(--color-success, ${palette.success})`,
+    successBottom: `var(--color-successBottom, ${palette.successBottom})`,
+    amber: `var(--color-amber, ${palette.amber})`,
+    amberBottom: `var(--color-amberBottom, ${palette.amberBottom})`,
+    amberLight: `var(--color-amberLight, ${palette.amberLight})`,
+    warning: `var(--color-warning, ${palette.warning})`,
+    warningBottom: `var(--color-warningBottom, ${palette.warningBottom})`,
+    rose: `var(--color-rose, ${palette.rose})`,
+    roseBottom: `var(--color-roseBottom, ${palette.roseBottom})`,
+    roseLight: `var(--color-roseLight, ${palette.roseLight})`,
+    danger: `var(--color-danger, ${palette.danger})`,
+    dangerBottom: `var(--color-dangerBottom, ${palette.dangerBottom})`,
+    accent: `var(--color-accent, ${palette.accent})`,
+    accentBottom: `var(--color-accentBottom, ${palette.accentBottom})`,
+    accentLight: `var(--color-accentLight, ${palette.accentLight})`,
+    violet: `var(--color-violet, ${palette.violet})`,
+    violetBottom: `var(--color-violetBottom, ${palette.violetBottom})`,
+    yellow: `var(--color-yellow, ${palette.yellow})`,
+    yellowBottom: `var(--color-yellowBottom, ${palette.yellowBottom})`,
+    cognitiveHigh: `var(--color-cognitiveHigh, ${palette.cognitiveHigh})`,
+    cognitiveHighBg: `var(--color-cognitiveHighBg, ${palette.cognitiveHighBg})`,
+    cognitiveMedium: `var(--color-cognitiveMedium, ${palette.cognitiveMedium})`,
+    cognitiveMediumBg: `var(--color-cognitiveMediumBg, ${palette.cognitiveMediumBg})`,
+    cognitiveLow: `var(--color-cognitiveLow, ${palette.cognitiveLow})`,
+    cognitiveLowBg: `var(--color-cognitiveLowBg, ${palette.cognitiveLowBg})`,
+    info: `var(--color-info, ${palette.info})`,
+    textInverse: `var(--color-textInverse, ${palette.textInverse})`,
+    blockBorder: `var(--color-blockBorder, ${palette.blockBorder})`,
+    blockSurface: `var(--color-blockSurface, ${palette.blockSurface})`,
+  };
+}
+rebuildWebVarMap(rawColors);
 
 /**
  * Apply theme dynamically across Web & Native.
@@ -568,12 +745,39 @@ let activeThemeKey: AppTheme = "navy";
  */
 export function applyTheme(themeKey: AppTheme) {
   const palette = THEMES[themeKey] || THEMES.navy;
+  if (activeThemeKey === themeKey && (!isWeb || appliedWebThemeKey === themeKey)) {
+    return;
+  }
   activeThemeKey = themeKey;
 
   // Mutate colors runtime mirror
   Object.assign(rawColors, palette);
 
+  if (!isWeb && registeredNativeSheets.length > 0) {
+    for (let i = 0; i < registeredNativeSheets.length; i++) {
+      const { sheet, bindings } = registeredNativeSheets[i];
+      const clonedRules = new Set<string>();
+      for (let j = 0; j < bindings.length; j++) {
+        const { ruleKey, propKey, tokenKey } = bindings[j];
+        if (!clonedRules.has(ruleKey)) {
+          sheet[ruleKey] = { ...sheet[ruleKey] };
+          clonedRules.add(ruleKey);
+        }
+        sheet[ruleKey][propKey] = palette[tokenKey];
+      }
+    }
+  }
+
+  if (isWeb && typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(THEME_FAST_CACHE_KEY, themeKey);
+    } catch {
+      // ignore storage write error
+    }
+  }
+
   if (isWeb && typeof document !== "undefined" && document.documentElement) {
+    appliedWebThemeKey = themeKey;
     const root = document.documentElement;
     root.style.setProperty("--color-bg", palette.background);
     root.style.setProperty("--color-surface", palette.surface);
@@ -639,65 +843,16 @@ export function getThemeColors(themeKey?: AppTheme): ThemePalette {
   return THEMES[themeKey || activeThemeKey] || THEMES.navy;
 }
 
-const rawColors: ThemePalette = { ...THEMES.navy };
-
 export const colors: ThemePalette = new Proxy(rawColors, {
-  get(target, prop: string) {
-    if (isWeb) {
-      const varMap: Record<string, string> = {
-        background: `var(--color-bg, ${rawColors.background || "#0C1322"})`,
-        surface: `var(--color-surface, ${rawColors.surface || "#18223B"})`,
-        surfaceSubtle: `var(--color-surfaceSubtle, ${rawColors.surfaceSubtle || "#131B30"})`,
-        surfaceHover: `var(--color-surfaceHover, ${rawColors.surfaceHover || "#202D4E"})`,
-        border: `var(--color-border, ${rawColors.border || "#283659"})`,
-        borderLight: `var(--color-borderLight, ${rawColors.borderLight || "#3A4C78"})`,
-        borderSubtle: `var(--color-borderSubtle, ${rawColors.borderSubtle || "#1C2640"})`,
-        borderBottom: `var(--color-borderBottom, ${rawColors.borderBottom || "#121A2C"})`,
-        text: `var(--color-text, ${rawColors.text || "#F8FAFC"})`,
-        textSecondary: `var(--color-textSecondary, ${rawColors.textSecondary || "#CBD5E1"})`,
-        textMuted: `var(--color-textMuted, ${rawColors.textMuted || "#94A3B8"})`,
-        primary: `var(--color-primary, ${rawColors.primary || "#1CB0F6"})`,
-        primaryBottom: `var(--color-primaryBottom, ${rawColors.primaryBottom || "#1488C2"})`,
-        primaryHover: `var(--color-primaryHover, ${rawColors.primaryHover || "#0FA0E5"})`,
-        primaryLight: `var(--color-primaryLight, ${rawColors.primaryLight || "rgba(28, 176, 246, 0.16)"})`,
-        secondary: `var(--color-secondary, ${rawColors.secondary || "#4895EF"})`,
-        secondaryBottom: `var(--color-secondaryBottom, ${rawColors.secondaryBottom || "#2D7AD4"})`,
-        emerald: `var(--color-emerald, ${rawColors.emerald || "#58CC02"})`,
-        emeraldBottom: `var(--color-emeraldBottom, ${rawColors.emeraldBottom || "#46A302"})`,
-        emeraldLight: `var(--color-emeraldLight, ${rawColors.emeraldLight || "rgba(88, 204, 2, 0.16)"})`,
-        success: `var(--color-success, ${rawColors.success || "#58CC02"})`,
-        successBottom: `var(--color-successBottom, ${rawColors.successBottom || "#46A302"})`,
-        amber: `var(--color-amber, ${rawColors.amber || "#FF9600"})`,
-        amberBottom: `var(--color-amberBottom, ${rawColors.amberBottom || "#CC7800"})`,
-        amberLight: `var(--color-amberLight, ${rawColors.amberLight || "rgba(255, 150, 0, 0.16)"})`,
-        warning: `var(--color-warning, ${rawColors.warning || "#FF9600"})`,
-        warningBottom: `var(--color-warningBottom, ${rawColors.warningBottom || "#CC7800"})`,
-        rose: `var(--color-rose, ${rawColors.rose || "#FF4B4B"})`,
-        roseBottom: `var(--color-roseBottom, ${rawColors.roseBottom || "#D63434"})`,
-        roseLight: `var(--color-roseLight, ${rawColors.roseLight || "rgba(255, 75, 75, 0.16)"})`,
-        danger: `var(--color-danger, ${rawColors.danger || "#FF4B4B"})`,
-        dangerBottom: `var(--color-dangerBottom, ${rawColors.dangerBottom || "#D63434"})`,
-        accent: `var(--color-accent, ${rawColors.accent || "#CE82FF"})`,
-        accentBottom: `var(--color-accentBottom, ${rawColors.accentBottom || "#A855F7"})`,
-        accentLight: `var(--color-accentLight, ${rawColors.accentLight || "rgba(206, 130, 255, 0.16)"})`,
-        violet: `var(--color-violet, ${rawColors.violet || "#A855F7"})`,
-        violetBottom: `var(--color-violetBottom, ${rawColors.violetBottom || "#8B3ED8"})`,
-        yellow: `var(--color-yellow, ${rawColors.yellow || "#FFC800"})`,
-        yellowBottom: `var(--color-yellowBottom, ${rawColors.yellowBottom || "#E5A400"})`,
-        cognitiveHigh: `var(--color-cognitiveHigh, ${rawColors.cognitiveHigh || "#FF4B4B"})`,
-        cognitiveHighBg: `var(--color-cognitiveHighBg, ${rawColors.cognitiveHighBg || "rgba(255, 75, 75, 0.16)"})`,
-        cognitiveMedium: `var(--color-cognitiveMedium, ${rawColors.cognitiveMedium || "#FF9600"})`,
-        cognitiveMediumBg: `var(--color-cognitiveMediumBg, ${rawColors.cognitiveMediumBg || "rgba(255, 150, 0, 0.16)"})`,
-        cognitiveLow: `var(--color-cognitiveLow, ${rawColors.cognitiveLow || "#58CC02"})`,
-        cognitiveLowBg: `var(--color-cognitiveLowBg, ${rawColors.cognitiveLowBg || "rgba(88, 204, 2, 0.16)"})`,
-        info: `var(--color-info, ${rawColors.info || "#1CB0F6"})`,
-        textInverse: `var(--color-textInverse, ${rawColors.textInverse || "#FFFFFF"})`,
-        blockBorder: `var(--color-blockBorder, ${rawColors.blockBorder || "rgba(28, 176, 246, 0.4)"})`,
-        blockSurface: `var(--color-blockSurface, ${rawColors.blockSurface || "rgba(28, 176, 246, 0.08)"})`,
-      };
-      if (prop in varMap) return varMap[prop];
+  get(_target, prop: string) {
+    if (isWeb && prop in webVarMap) {
+      return webVarMap[prop];
     }
-    return (rawColors as any)[prop] ?? (THEMES.navy as any)[prop];
+    const val = (rawColors as any)[prop] ?? (THEMES.navy as any)[prop];
+    if (!isWeb && typeof val === "string" && prop !== "textInverse") {
+      recentTokenReads.set(val, prop as keyof ThemePalette);
+    }
+    return val;
   },
 });
 
@@ -761,7 +916,7 @@ export const typography = {
   },
 } as const;
 
-// Auto-initialize default theme on web load
+// Auto-initialize cached/default theme on web load
 if (typeof document !== "undefined" && document.documentElement) {
-  applyTheme("navy");
+  applyTheme(activeThemeKey);
 }

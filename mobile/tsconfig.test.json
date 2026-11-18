@@ -1,0 +1,42 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./dist-test",
+    "rootDir": "./src",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "customConditions": null,
+    "ignoreDeprecations": "6.0",
+    "noImplicitAny": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "src/types.ts",
+    "src/theme.ts",
+    "src/mockData.ts",
+    "src/engine/cognitive-load.ts",
+    "src/engine/dateHintParser.ts",
+    "src/engine/deadlineEngine.ts",
+    "src/engine/schedulerEngine.ts",
+    "src/engine/sm2.ts",
+    "src/engine/streak.ts",
+    "src/lib/dataRepair.ts",
+    "src/lib/dateUtils.ts",
+    "src/lib/daySchedule.ts",
+    "src/lib/examEngine.ts",
+    "src/lib/i18n.ts",
+    "src/lib/periodUtils.ts",
+    "src/lib/serialQueue.ts",
+    "src/lib/storage.ts",
+    "src/lib/storage.web.ts",
+    "src/lib/studyStreakEngine.ts",
+    "src/lib/timetableGrouping.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist-test",
+    "src/**/__tests__/**"
+  ]
+}

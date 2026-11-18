@@ -165,7 +165,7 @@ function ScheduleForm({
       {/* Study Unit selector */}
       <div className="space-y-1.5">
         <Label htmlFor="sched-unit" className="text-xs">
-          Atomic Study Unit
+          Topic
         </Label>
         <Select
           value={selectedUnitId}
@@ -178,8 +178,8 @@ function ScheduleForm({
             <SelectValue
               placeholder={
                 availableUnits.length === 0
-                  ? "No units in this subject"
-                  : "Select Study Unit"
+                  ? "No topics in this course"
+                  : "Select Topic"
               }
             />
           </SelectTrigger>
@@ -297,7 +297,7 @@ function ScheduleForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="STUDY">Study Session</SelectItem>
-              <SelectItem value="REVIEW">SM-2 Review Block</SelectItem>
+              <SelectItem value="REVIEW">Quick Review</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -334,14 +334,14 @@ export function CreateScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md border-border/40 bg-card">
+      <DialogContent className="max-w-md border-border bg-card">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-primary" />
             Schedule Study Session
           </DialogTitle>
           <DialogDescription>
-            Place an atomic study unit or review block into your calendar.
+            Pick a topic and time to add to your calendar.
           </DialogDescription>
         </DialogHeader>
 

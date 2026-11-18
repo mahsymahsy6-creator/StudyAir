@@ -18,7 +18,17 @@ import { colors, spacing, radius, typography } from "../theme";
 import { useMobileStudyStore } from "../store";
 import { CognitiveLoad } from "../types";
 import { MobileParsedUnit } from "../gemini";
-import { extractSyllabusFromAI } from "../services/aiService";
+import {
+  extractSyllabusFromAI,
+  extractWhiteboardFromAI,
+  extractTasksFromAI,
+  suggestTaskDuration,
+  resolveDeadlineDate,
+} from "../services/aiService";
+import { resolveIndonesianSubject } from "../lib/subjectDictionary";
+import { calculateNextClassDeadline } from "../engine/deadlineEngine";
+import { parseIndonesianDateHint } from "../engine/dateHintParser";
+import { toLocalDateStr, addDaysLocal } from "../lib/dateUtils";
 
 const PRESETS = [
   {
@@ -87,9 +97,12 @@ interface AIScannerScreenProps {
 
 export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
   const {
+    subjects,
+    timetableEntries,
+    daysOff,
+    overrides,
     addSubject,
-    addStudyUnit,
-    addBlock,
+    addTask,
     geminiApiKey,
     setGeminiApiKey,
     setIsAIScanning,
@@ -209,11 +222,50 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
     abortControllerRef.current = controller;
 
     try {
-      const promptStr = "Deconstruct this photographed study task, syllabus, or lecture outline into structured atomic study units.";
-      
-      // Stage 2: Reading timetable
       setScanStage("reading");
 
+      // Prefer whiteboard task extraction so photographed assignments become Tasks
+      try {
+        const wbRes = await extractWhiteboardFromAI(
+          {
+            imageBase64: capturedImage.base64,
+            mimeType: "image/jpeg",
+            signal: controller.signal,
+          },
+          geminiApiKey
+        );
+        if (controller.signal.aborted) return;
+
+        if (wbRes.extraction.tasks && wbRes.extraction.tasks.length > 0) {
+          setScanStage("checking");
+          const rawSub = wbRes.extraction.subject || "Tugas";
+          const dict = resolveIndonesianSubject(rawSub);
+          setActiveModel(wbRes.model);
+          setActiveSubject(dict.canonicalName !== "Mata Pelajaran" ? dict.canonicalName : rawSub);
+          setActiveExamDate("");
+          setActiveColor(dict.defaultColor || "#3A86FF");
+          setExtractedUnits(
+            wbRes.extraction.tasks.map((tItem, idx) => {
+              const titleHint = parseIndonesianDateHint(tItem.title || "", toLocalDateStr());
+              const rawHint = tItem.rawDeadline ? parseIndonesianDateHint(tItem.rawDeadline, toLocalDateStr()) : null;
+              return {
+                id: `wb-${idx}-${Date.now()}`,
+                title: tItem.title || "Tugas",
+                estimated_minutes: suggestTaskDuration(tItem.title, tItem.type || "homework"),
+                cognitive_load: "MEDIUM" as CognitiveLoad,
+                enabled: true,
+                suggested_time: rawHint?.label || tItem.rawDeadline || titleHint?.label || "Kelas Depan",
+              };
+            })
+          );
+          setScanState("completed");
+          return;
+        }
+      } catch (_wbErr) {
+        // Fallback to general AI extraction below
+      }
+
+      const promptStr = "Deconstruct this photographed study task, homework, or assignment notes into actionable tasks.";
       const { extraction, model } = await extractSyllabusFromAI(
         {
           imageBase64: capturedImage.base64,
@@ -226,22 +278,23 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
 
       if (controller.signal.aborted) return;
 
-      // Stage 3: Checking subjects
       setScanStage("checking");
 
       setActiveModel(model);
       setActiveSubject(extraction.subject_title);
-      setActiveExamDate(extraction.exam_date || "");
+      setActiveExamDate("");
       setActiveColor(extraction.color_hex || "#3A86FF");
       setExtractedUnits(
-        extraction.units.map((u) => ({
-          ...u,
-          enabled: true,
-          suggested_time: u.suggested_time || "10:00",
-        }))
+        extraction.units.map((u) => {
+          const titleHint = parseIndonesianDateHint(u.title || "", toLocalDateStr());
+          return {
+            ...u,
+            enabled: true,
+            suggested_time: u.suggested_time && !u.suggested_time.includes(":") ? u.suggested_time : (titleHint?.label || "Kelas Depan"),
+          };
+        })
       );
 
-      // Immediately show review screen (no artificial delay!)
       setScanState("completed");
       const tEnd = Date.now();
       if (__DEV__) { console.log(`[DEBUG TIMING] Total Scan Pipeline Duration: ${tEnd - tStart}ms`); }
@@ -263,7 +316,7 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
 
   const handleRunRealAI = async () => {
     if (!syllabusInput.trim()) {
-      Alert.alert("Empty Syllabus", "Please type or paste syllabus topics, lecture schedule, or exam notes.");
+      Alert.alert("Empty Input", "Please type or paste your task notes or assignment text.");
       return;
     }
 
@@ -275,6 +328,37 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
 
     try {
       setScanStage("reading");
+
+      // Extract as Tasks first so text input creates Tasks, not Ulangan
+      const taskRes = await extractTasksFromAI(syllabusInput, geminiApiKey);
+      if (controller.signal.aborted) return;
+
+      if (taskRes.tasks && taskRes.tasks.length > 0) {
+        setScanStage("checking");
+        const firstSub = taskRes.tasks.find((t) => t.subject)?.subject || "Umum";
+        const dict = resolveIndonesianSubject(firstSub);
+        setActiveModel(taskRes.model || "Gemini Task Engine");
+        setActiveSubject(dict.canonicalName !== "Mata Pelajaran" ? dict.canonicalName : firstSub);
+        setActiveExamDate("");
+        setActiveColor(dict.defaultColor || "#3A86FF");
+        setExtractedUnits(
+          taskRes.tasks.map((tItem, idx) => {
+            const phraseHint = tItem.datePhrase ? parseIndonesianDateHint(tItem.datePhrase, toLocalDateStr()) : null;
+            const titleHint = parseIndonesianDateHint(tItem.title || "", toLocalDateStr());
+            return {
+              id: `txt-${idx}-${Date.now()}`,
+              title: tItem.subject ? `[${tItem.subject}] ${tItem.title}` : tItem.title,
+              estimated_minutes: suggestTaskDuration(tItem.title, tItem.type || "homework"),
+              cognitive_load: "MEDIUM" as CognitiveLoad,
+              enabled: true,
+              suggested_time: phraseHint?.label || tItem.datePhrase || titleHint?.label || "Kelas Depan",
+            };
+          })
+        );
+        setScanState("completed");
+        return;
+      }
+
       const { extraction, model } = await extractSyllabusFromAI(
         { text: syllabusInput, signal: controller.signal },
         geminiApiKey
@@ -285,17 +369,19 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
       setScanStage("checking");
       setActiveModel(model);
       setActiveSubject(extraction.subject_title);
-      setActiveExamDate(extraction.exam_date || "");
+      setActiveExamDate("");
       setActiveColor(extraction.color_hex || "#3A86FF");
       setExtractedUnits(
-        extraction.units.map((u) => ({
-          ...u,
-          enabled: true,
-          suggested_time: u.suggested_time || "10:00",
-        }))
+        extraction.units.map((u) => {
+          const titleHint = parseIndonesianDateHint(u.title || "", toLocalDateStr());
+          return {
+            ...u,
+            enabled: true,
+            suggested_time: u.suggested_time && !u.suggested_time.includes(":") ? u.suggested_time : (titleHint?.label || "Kelas Depan"),
+          };
+        })
       );
 
-      // Immediately show review screen (no artificial delay!)
       setScanState("completed");
     } catch (err: any) {
       if (err?.name === "AbortError" || controller.signal.aborted) {
@@ -306,7 +392,7 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
       setScanState("idle");
       Alert.alert(
         "Gemini Analysis Error",
-        err?.message || "Could not analyze syllabus. Check your internet connection."
+        err?.message || "Could not analyze tasks. Check your internet connection."
       );
     } finally {
       abortControllerRef.current = null;
@@ -317,9 +403,9 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
     const preset = PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
 
-    setActiveModel("Sample Curriculum Preset");
+    setActiveModel("Sample Task Preset");
     setActiveSubject(preset.subject);
-    setActiveExamDate(preset.examDate);
+    setActiveExamDate("");
     setActiveColor(preset.color);
     setExtractedUnits(preset.units);
     setScanState("completed");
@@ -331,58 +417,118 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
     );
   };
 
+  const resolveOrCreateTaskSubject = (rawName: string) => {
+    const cleanName = (rawName || "").trim();
+    const dict = resolveIndonesianSubject(cleanName);
+    const lower = cleanName.toLowerCase();
+
+    const existing = subjects.find(
+      (s) =>
+        s.name.toLowerCase() === lower ||
+        (s.title && s.title.toLowerCase() === lower) ||
+        s.name.toLowerCase() === dict.canonicalName.toLowerCase() ||
+        s.aliases?.some((a) => a.toLowerCase() === lower || dict.aliases.includes(a.toLowerCase()))
+    );
+
+    if (existing) return existing;
+    if (!cleanName || cleanName === "Umum" || cleanName === "Tugas") {
+      if (subjects.length > 0) return subjects[0];
+    }
+
+    // Create subject WITHOUT examDate/exam_date so it NEVER appears in Ulangan!
+    return addSubject({
+      name: dict.canonicalName !== "Mata Pelajaran" ? dict.canonicalName : (cleanName || "Umum"),
+      title: dict.canonicalName !== "Mata Pelajaran" ? dict.canonicalName : (cleanName || "Umum"),
+      color: activeColor || dict.defaultColor || "#3b82f6",
+      color_hex: activeColor || dict.defaultColor || "#3b82f6",
+      examDate: undefined,
+      exam_date: "",
+    });
+  };
+
   const handleConfirmAndSchedule = () => {
     const enabledUnits = extractedUnits.filter((u) => u.enabled);
     if (enabledUnits.length === 0) {
-      Alert.alert("No Topics Selected", "Please select at least one study unit to schedule.");
+      Alert.alert("Tidak Ada Tugas", "Pilih minimal 1 tugas untuk disimpan.");
       return;
     }
 
-    const newSubject = addSubject({
-      title: activeSubject || "New Subject",
-      exam_date: activeExamDate || new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
-      color_hex: activeColor || "#3b82f6",
-    });
+    const todayStr = toLocalDateStr();
+    const defaultSubject = resolveOrCreateTaskSubject(activeSubject || "Umum");
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    enabledUnits.forEach((u) => {
+      // Check if unit title has a [Subject] prefix from multi-subject text extraction
+      let itemTitle = u.title;
+      let targetSubject = defaultSubject;
+      const prefixMatch = itemTitle.match(/^\[([^\]]+)\]\s*(.+)$/);
+      if (prefixMatch) {
+        targetSubject = resolveOrCreateTaskSubject(prefixMatch[1]);
+        itemTitle = prefixMatch[2];
+      }
 
-    enabledUnits.forEach((u, index) => {
-      const studyUnit = addStudyUnit({
-        subject_id: newSubject.id,
-        title: u.title,
-        estimated_minutes: u.estimated_minutes,
-        cognitive_load: u.cognitive_load,
-      });
+      // Resolve deadline from explicit date hint, title date hint, or next class of that subject
+      let deadlineDate = addDaysLocal(todayStr, 1);
+      let deadlineMode: "nextClass" | "custom" = "nextClass";
 
-      const dayOffset = Math.floor(index / 2);
-      const blockDate = new Date(tomorrow);
-      blockDate.setDate(blockDate.getDate() + dayOffset);
+      const isNextClassToken =
+        !u.suggested_time ||
+        u.suggested_time === "Kelas Depan" ||
+        /pertemuan|kelas\s+depan|next\s+class/i.test(u.suggested_time);
 
-      const [hours, minutes] = (u.suggested_time || "10:00").split(":").map(Number);
-      blockDate.setHours(hours || 10, minutes || 0, 0, 0);
+      const suggestedHint =
+        !isNextClassToken && u.suggested_time
+          ? parseIndonesianDateHint(u.suggested_time, todayStr)
+          : null;
+      const titleHint = parseIndonesianDateHint(itemTitle, todayStr);
+      const matchedHint = suggestedHint || titleHint;
 
-      const endDate = new Date(blockDate);
-      endDate.setMinutes(endDate.getMinutes() + u.estimated_minutes);
+      if (matchedHint) {
+        deadlineDate = matchedHint.suggestedDate;
+        deadlineMode = "custom";
+      } else {
+        const nextRes = calculateNextClassDeadline(targetSubject.id, todayStr, timetableEntries, {
+          daysOff,
+          overrides,
+          afterNClasses: 1,
+        });
+        if (nextRes.found && nextRes.deadlineDate) {
+          deadlineDate = nextRes.deadlineDate;
+          deadlineMode = "nextClass";
+        } else if (!isNextClassToken && u.suggested_time && !u.suggested_time.includes(":")) {
+          deadlineDate = resolveDeadlineDate(u.suggested_time);
+          deadlineMode = "custom";
+        }
+      }
 
-      addBlock({
-        study_unit_id: studyUnit.id,
-        start_time: blockDate.toISOString(),
-        end_time: endDate.toISOString(),
-        block_type: "STUDY",
+      const lowerTitle = itemTitle.toLowerCase();
+      const taskType =
+        lowerTitle.includes("kuis") || lowerTitle.includes("quiz")
+          ? "quiz"
+          : lowerTitle.includes("proyek") || lowerTitle.includes("project") || lowerTitle.includes("makalah")
+          ? "project"
+          : "homework";
+
+      addTask({
+        subjectId: targetSubject.id,
+        title: itemTitle,
+        type: taskType,
+        givenDate: todayStr,
+        deadlineDate,
+        deadlineMode,
+        estimatedMinutes: u.estimated_minutes || suggestTaskDuration(itemTitle, taskType),
       });
     });
 
     Alert.alert(
-      "Ingestion Complete",
-      `Created course "${newSubject.title}" and scheduled ${enabledUnits.length} study sessions into your calendar!`,
+      "Tugas Berhasil Ditambahkan",
+      `${enabledUnits.length} tugas telah ditambahkan ke daftar Tugas kamu!`,
       [
         {
-          text: "View Calendar",
+          text: "Lihat Tugas",
           onPress: () => {
             setScanState("idle");
             setCapturedImage(null);
-            navigation.navigate("Calendar");
+            navigation.navigate("Tasks");
           },
         },
       ]
@@ -756,26 +902,26 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
           </View>
         )}
 
-        {/* ─── State 3: Extracted Units Review ─── */}
+        {/* ─── State 3: Extracted Tasks Review ─── */}
         {scanState === "completed" && (
           <View style={styles.completedContainer}>
             <View style={styles.reviewHeader}>
               <View style={[styles.reviewDot, { backgroundColor: activeColor }]} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.reviewSubject}>{activeSubject}</Text>
-                <Text style={styles.reviewExam}>Target Exam: {activeExamDate}</Text>
+                <Text style={styles.reviewSubject}>{activeSubject || "Tugas"}</Text>
+                <Text style={styles.reviewExam}>Kategori: Tugas & PR</Text>
                 <Text style={styles.reviewModel}>Engine: {activeModel}</Text>
               </View>
               <Pressable
                 style={styles.rescanBtn}
                 onPress={() => setScanState("idle")}
               >
-                <Text style={styles.rescanBtnText}>Rescan</Text>
+                <Text style={styles.rescanBtnText}>Pindai Ulang</Text>
               </Pressable>
             </View>
 
             <Text style={styles.unitsHeading}>
-              Topics ({extractedUnits.filter((u) => u.enabled).length} selected)
+              Daftar Tugas ({extractedUnits.filter((u) => u.enabled).length} dipilih)
             </Text>
 
             {extractedUnits.map((u) => (
@@ -794,11 +940,35 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.unitItemTitle}>{u.title}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
-                    <Ionicons name="time-outline" size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 4, flexWrap: "wrap", gap: 6 }}>
+                    <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
                     <Text style={styles.unitItemTime}>
-                      {u.estimated_minutes}m • Suggested: {u.suggested_time}
+                      {u.estimated_minutes} mnt
                     </Text>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        const options = ["Kelas Depan", "Hari Ini", "Besok", "Lusa", "Minggu Depan"];
+                        const curIdx = options.indexOf(u.suggested_time || "Kelas Depan");
+                        const nextOpt = options[(curIdx + 1) % options.length];
+                        setExtractedUnits((prev) =>
+                          prev.map((item) => (item.id === u.id ? { ...item, suggested_time: nextOpt } : item))
+                        );
+                      }}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        backgroundColor: colors.primaryLight,
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: radius.full,
+                      }}
+                    >
+                      <Ionicons name="calendar-outline" size={11} color={colors.primary} style={{ marginRight: 4 }} />
+                      <Text style={[styles.unitItemTime, { color: colors.primary, fontWeight: "700" }]}>
+                        Tenggat: {u.suggested_time || "Kelas Depan"} ↻
+                      </Text>
+                    </Pressable>
                   </View>
                 </View>
                 <View
@@ -820,9 +990,9 @@ export function AIScannerScreen({ navigation }: AIScannerScreenProps) {
               style={styles.scheduleButton}
               onPress={handleConfirmAndSchedule}
             >
-              <Ionicons name="calendar" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Ionicons name="checkbox-outline" size={16} color="#ffffff" style={{ marginRight: 6 }} />
               <Text style={styles.scheduleButtonText}>
-                Schedule {extractedUnits.filter((u) => u.enabled).length} Sessions
+                Simpan {extractedUnits.filter((u) => u.enabled).length} Tugas
               </Text>
             </Pressable>
           </View>

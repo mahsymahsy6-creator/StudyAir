@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     padding: spacing.md,
     borderBottomWidth: 3,
-    borderBottomColor: `${colors.primary}40`,
+    borderBottomColor: colors.blockBorder,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: radius.md,
-    backgroundColor: `${colors.danger}15`,
+    backgroundColor: colors.roseLight,
     alignItems: "center",
     justifyContent: "center",
   },

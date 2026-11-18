@@ -21,9 +21,13 @@ import {
   Teacher,
 } from "../types";
 import { INITIAL_SUBJECTS, INITIAL_STUDY_UNITS, INITIAL_BLOCKS } from "../mockData";
+import { createSerialQueue } from "./serialQueue";
+import { toLocalDateStr } from "./dateUtils";
+import { DEFAULT_CURRICULUM_SUBJECTS, ensureStandardSubjects } from "./subjectDictionary";
 
 const DB_NAME = "studyfly_persistent.db";
 const ASYNC_STORAGE_FALLBACK_KEY = "studyfly_persistent_mirror_v2";
+const writeQueue = createSerialQueue();
 
 export interface DatabaseState {
   subjects: Subject[];
@@ -66,6 +70,7 @@ export const DEFAULT_PERIOD_TIMES: PeriodTime[] = [
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 let isSQLiteReady = false;
+let initPromise: Promise<boolean> | null = null;
 
 /**
  * Migration helper to ensure columns exist in SQLite table
@@ -92,10 +97,12 @@ async function ensureColumnExists(
  */
 export async function initDatabase(): Promise<boolean> {
   if (isSQLiteReady && dbInstance) return true;
+  if (initPromise) return initPromise;
 
-  try {
-    const db = await SQLite.openDatabaseAsync(DB_NAME);
-    dbInstance = db;
+  initPromise = (async () => {
+    try {
+      const db = await SQLite.openDatabaseAsync(DB_NAME);
+      dbInstance = db;
 
     // Enable WAL mode for concurrency and durability
     await db.execAsync("PRAGMA journal_mode = WAL;");
@@ -292,13 +299,18 @@ export async function initDatabase(): Promise<boolean> {
     await ensureColumnExists(db, "timetable_entries", "room", "TEXT");
     await ensureColumnExists(db, "timetable_entries", "teacher", "TEXT");
 
-    isSQLiteReady = true;
-    return true;
-  } catch (err) {
-    console.warn("[Storage] SQLite initialization skipped or unavailable, falling back to AsyncStorage:", err);
-    isSQLiteReady = false;
-    return false;
-  }
+      isSQLiteReady = true;
+      return true;
+    } catch (err) {
+      console.warn("[Storage] SQLite initialization skipped or unavailable, falling back to AsyncStorage:", err);
+      isSQLiteReady = false;
+      return false;
+    } finally {
+      initPromise = null;
+    }
+  })();
+
+  return initPromise;
 }
 
 /**
@@ -307,6 +319,8 @@ export async function initDatabase(): Promise<boolean> {
  */
 export async function loadAllData(): Promise<DatabaseState> {
   const sqliteAvailable = await initDatabase();
+  let sqliteReadThrew = false;
+  let sqliteReadSucceeded = false;
 
   if (sqliteAvailable && dbInstance) {
     try {
@@ -574,7 +588,7 @@ export async function loadAllData(): Promise<DatabaseState> {
         }
 
         const loadedState: DatabaseState = {
-          subjects,
+          subjects: ensureStandardSubjects(subjects),
           periodTimes,
           timetableEntries,
           daysOff,
@@ -595,10 +609,12 @@ export async function loadAllData(): Promise<DatabaseState> {
         };
 
         // Keep mirror up-to-date
-        AsyncStorage.setItem(ASYNC_STORAGE_FALLBACK_KEY, JSON.stringify(loadedState)).catch(() => {});
+        await writeQueue.run(() => writeMirrorInternal(loadedState));
         return loadedState;
       }
+      sqliteReadSucceeded = true;
     } catch (e) {
+      sqliteReadThrew = true;
       console.warn("[Storage] Error reading from SQLite:", e);
     }
   }
@@ -609,6 +625,7 @@ export async function loadAllData(): Promise<DatabaseState> {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.subjects && parsed.subjects.length > 0) {
+        parsed.subjects = ensureStandardSubjects(parsed.subjects);
         if (parsed.tasks && Array.isArray(parsed.tasks)) {
           parsed.tasks = parsed.tasks.map((t: any) => ({
             ...t,
@@ -629,14 +646,7 @@ export async function loadAllData(): Promise<DatabaseState> {
 
   // First boot seed
   const initialState: DatabaseState = {
-    subjects: INITIAL_SUBJECTS.map((s) => ({
-      ...s,
-      name: s.title || "Subject",
-      color: s.color_hex || "#3b82f6",
-      aliases: [],
-      bringItems: [],
-      examDate: s.exam_date,
-    })),
+    subjects: DEFAULT_CURRICULUM_SUBJECTS,
     periodTimes: DEFAULT_PERIOD_TIMES,
     timetableEntries: [],
     daysOff: [],
@@ -653,331 +663,478 @@ export async function loadAllData(): Promise<DatabaseState> {
     schedulePrefs: DEFAULT_SCHEDULE_PREFS,
   };
 
-  if (sqliteAvailable && dbInstance) {
-    await persistFullStateToSQLite(initialState);
+  if (sqliteReadThrew) {
+    console.error(
+      "[Storage] SQLite read threw and AsyncStorage mirror is unusable; returning in-memory seed state without overwriting storage."
+    );
+    return initialState;
   }
-  AsyncStorage.setItem(ASYNC_STORAGE_FALLBACK_KEY, JSON.stringify(initialState)).catch(() => {});
+
+  if (sqliteReadSucceeded) {
+    await saveStateImmediately(initialState);
+  }
 
   return initialState;
 }
 
-let isPersistingToSQLite = false;
-let pendingStateToPersist: DatabaseState | null = null;
+// ─── Internal Unqueued Mirror Helpers ───
 
-async function _executePersistFullState(state: DatabaseState): Promise<void> {
-  if (!dbInstance || !isSQLiteReady) return;
-
-  await dbInstance.withTransactionAsync(async () => {
-      // Clear existing records
-      await dbInstance!.execAsync(`
-        DELETE FROM subjects;
-        DELETE FROM period_times;
-        DELETE FROM timetable_entries;
-        DELETE FROM days_off;
-        DELETE FROM overrides;
-        DELETE FROM tasks;
-        DELETE FROM study_units;
-        DELETE FROM scheduled_blocks;
-        DELETE FROM focus_logs;
-        DELETE FROM review_history;
-        DELETE FROM daily_stats;
-        DELETE FROM study_blocks;
-        DELETE FROM grades;
-        DELETE FROM teachers;
-      `);
-
-      // 1. Insert subjects
-      for (const s of state.subjects || []) {
-        const name = s.name || s.title || "Subject";
-        const color = s.color || s.color_hex || "#3b82f6";
-        const examDate = s.examDate || s.exam_date || null;
-        const aliases = JSON.stringify(s.aliases || []);
-        const bringItems = JSON.stringify(s.bringItems || []);
-
-        await dbInstance!.runAsync(
-          `INSERT OR REPLACE INTO subjects (id, name, title, color, color_hex, aliases, teacher, room, bring_items, exam_date, total_estimated_minutes, target_grade, credit_hours)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          s.id || `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          name,
-          name,
-          color,
-          color,
-          aliases,
-          s.teacher || null,
-          s.room || null,
-          bringItems,
-          examDate,
-          s.total_estimated_minutes || 0,
-          s.targetGrade != null ? s.targetGrade : 80,
-          s.creditHours != null ? s.creditHours : 2
-        );
-      }
-
-      // 2. Insert period times
-      for (const pt of state.periodTimes || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO period_times (period_number, start_time, end_time) VALUES (?, ?, ?)",
-          pt.periodNumber,
-          pt.start || "07:00",
-          pt.end || "07:45"
-        );
-      }
-
-      // 3. Insert timetable entries
-      for (const te of state.timetableEntries || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO timetable_entries (id, subject_id, weekday, period_number, week_pattern, kind, custom_label, start_time, end_time, room, teacher) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          te.id || `te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          te.subjectId || "",
-          te.weekday,
-          te.periodNumber,
-          te.weekPattern || "every",
-          te.kind || "class",
-          te.customLabel || null,
-          te.startTime || null,
-          te.endTime || null,
-          te.room || null,
-          te.teacher || null
-        );
-      }
-
-      // 4. Insert days off
-      for (const d of state.daysOff || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO days_off (date, reason) VALUES (?, ?)",
-          d.date,
-          d.reason || ""
-        );
-      }
-
-      // 5. Insert overrides
-      for (let i = 0; i < (state.overrides || []).length; i++) {
-        const o = state.overrides[i];
-        const safeEntryId = o.entryId || "";
-        const overrideId = (o as any).id || `${o.date}-${safeEntryId || 'p' + (o.periodNumber ?? i)}-${i}`;
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO overrides (id, date, entry_id, type, new_subject_id, period_number, custom_label) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          overrideId,
-          o.date || new Date().toISOString().slice(0, 10),
-          safeEntryId,
-          o.type || "added",
-          o.newSubjectId || null,
-          o.periodNumber != null ? o.periodNumber : null,
-          o.customLabel || null
-        );
-      }
-
-      // 6. Insert tasks
-      for (const t of state.tasks || []) {
-        const est = t.estimatedMinutes != null ? Number(t.estimatedMinutes) : 30;
-        await dbInstance!.runAsync(
-          `INSERT OR REPLACE INTO tasks (id, subject_id, title, notes, type, given_date, deadline_date, deadline_mode, estimated_minutes, status, completed_at, photo_uri)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          t.id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          t.subjectId || "",
-          t.title || "Tugas",
-          t.notes || null,
-          t.type || "homework",
-          t.givenDate || new Date().toISOString().slice(0, 10),
-          t.deadlineDate || new Date().toISOString().slice(0, 10),
-          t.deadlineMode || "nextClass",
-          !isNaN(est) && est > 0 ? est : 30,
-          t.status || "PENDING",
-          t.completedAt || null,
-          t.photoUri || null
-        );
-      }
-
-      // 7. Insert study units
-      for (const u of state.studyUnits || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO study_units (id, subject_id, title, estimated_minutes, cognitive_load, sort_order, is_completed, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          u.id || `unit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          u.subject_id || "",
-          u.title || "Materi",
-          u.estimated_minutes || 0,
-          u.cognitive_load || "low",
-          u.sort_order || 0,
-          u.is_completed ? 1 : 0,
-          u.completed_at || null
-        );
-      }
-
-      // 8. Insert scheduled blocks
-      for (const b of state.blocks || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO scheduled_blocks (id, study_unit_id, start_time, end_time, status, block_type, actual_duration_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          b.id || `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          b.study_unit_id || "",
-          b.start_time || new Date().toISOString(),
-          b.end_time || new Date().toISOString(),
-          b.status || "PLANNED",
-          b.block_type || "STUDY",
-          b.actual_duration_minutes || null
-        );
-      }
-
-      // 9. Insert focus logs
-      for (const l of state.focusLogs || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO focus_logs (id, scheduled_block_id, user_id, planned_minutes, actual_minutes, timer_mode, pomodoro_count, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          l.id || `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          l.scheduled_block_id || null,
-          l.user_id || "user-1",
-          l.planned_minutes || 0,
-          l.actual_minutes || 0,
-          l.timer_mode || "POMODORO",
-          l.pomodoro_count || 1,
-          l.started_at || new Date().toISOString(),
-          l.ended_at || null
-        );
-      }
-
-      // 10. Insert review history
-      for (const r of state.reviewHistory || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO review_history (id, study_unit_id, user_id, confidence_rating, review_date, next_review_date, interval_days, repetition_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          r.id || `review-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          r.study_unit_id || "",
-          r.user_id || "user-1",
-          r.confidence_rating || 3,
-          r.review_date || new Date().toISOString().slice(0, 10),
-          r.next_review_date || new Date().toISOString().slice(0, 10),
-          r.interval_days || 1,
-          r.repetition_number || 1,
-          r.created_at || new Date().toISOString()
-        );
-      }
-
-      // 11. Insert daily stats
-      for (const ds of state.dailyStats || []) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO daily_stats (date, planned_minutes, actual_minutes) VALUES (?, ?, ?)",
-          ds.date,
-          ds.planned_minutes,
-          ds.actual_minutes
-        );
-      }
-
-      // 12. Save settings
-      await dbInstance!.runAsync(
-        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('dismissed_warning_ids', ?)",
-        JSON.stringify(state.dismissedWarningIds)
-      );
-      await dbInstance!.runAsync(
-        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('gemini_api_key', ?)",
-        state.geminiApiKey || ""
-      );
-      if (state.appSettings) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('app_settings', ?)",
-          JSON.stringify(state.appSettings)
-        );
-      }
-      if (state.schedulePrefs) {
-        await dbInstance!.runAsync(
-          "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
-          "schedule_prefs",
-          JSON.stringify(state.schedulePrefs)
-        );
-      }
-
-      // 13. Insert study blocks
-      for (const sb of state.studyBlocks || []) {
-        await dbInstance!.runAsync(
-          `INSERT OR REPLACE INTO study_blocks (id, task_id, subject_id, date, start_time, end_time, duration_minutes, status, completed_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          sb.id || `sb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          sb.taskId || "",
-          sb.subjectId || "",
-          sb.date || new Date().toISOString().slice(0, 10),
-          sb.startTime || "15:00",
-          sb.endTime || "15:45",
-          sb.durationMinutes || 45,
-          sb.status || "SCHEDULED",
-          sb.completedAt || null,
-          sb.createdAt || new Date().toISOString()
-        );
-      }
-
-      // 14. Insert grades
-      if (state.grades) {
-        for (const g of state.grades) {
-          await dbInstance!.runAsync(
-            `INSERT OR REPLACE INTO grades (id, subject_id, title, score, max_score, weight, category, date, notes, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            g.id || `grade-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            g.subjectId || "",
-            g.title || "Penilaian",
-            g.score != null ? g.score : 0,
-            g.maxScore != null ? g.maxScore : 100,
-            g.weight != null ? g.weight : 1,
-            g.category || "exam",
-            g.date || new Date().toISOString().slice(0, 10),
-            g.notes || null,
-            g.createdAt || new Date().toISOString()
-          );
-        }
-      }
-
-      // 15. Insert teachers
-      if (state.teachers) {
-        for (const tc of state.teachers) {
-          await dbInstance!.runAsync(
-            `INSERT OR REPLACE INTO teachers (id, name, subject_ids, phone, email, room, notes, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            tc.id || `teacher-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            tc.name || "Guru",
-            JSON.stringify(tc.subjectIds || []),
-            tc.phone || null,
-            tc.email || null,
-            tc.room || null,
-            tc.notes || null,
-            new Date().toISOString()
-          );
-        }
-      }
-    });
+async function writeMirrorInternal(state: DatabaseState): Promise<void> {
+  try {
+    await AsyncStorage.setItem(
+      ASYNC_STORAGE_FALLBACK_KEY,
+      JSON.stringify({ ...state, geminiApiKey: "" })
+    );
+  } catch (err) {
+    console.error("[Storage] Error writing AsyncStorage mirror:", err);
+  }
 }
 
-/**
- * Persists full state into SQLite sequentially using a coalescing queue
- * to prevent concurrent transaction conflicts ("cannot commit - no transaction is active").
- */
-export async function persistFullStateToSQLite(state: DatabaseState): Promise<void> {
-  if (!dbInstance || !isSQLiteReady) return;
-
-  pendingStateToPersist = state;
-  if (isPersistingToSQLite) {
-    // Another transaction is already in progress; it will pick up the latest pendingStateToPersist upon completion.
-    return;
-  }
-
-  isPersistingToSQLite = true;
+async function updateMirrorPatchInternal(patch: Partial<DatabaseState>): Promise<void> {
   try {
-    while (pendingStateToPersist) {
-      const currentState = pendingStateToPersist;
-      pendingStateToPersist = null;
+    const raw = await AsyncStorage.getItem(ASYNC_STORAGE_FALLBACK_KEY);
+    if (raw) {
+      const state = JSON.parse(raw);
+      Object.assign(state, patch, { geminiApiKey: "" });
+      await AsyncStorage.setItem(ASYNC_STORAGE_FALLBACK_KEY, JSON.stringify(state));
+    }
+  } catch (err) {
+    console.error("[Storage] Error updating AsyncStorage mirror:", err);
+  }
+}
+
+export async function syncMirror(state: DatabaseState): Promise<void> {
+  return writeQueue.run(() => writeMirrorInternal(state));
+}
+
+// ─── Internal Unqueued Per-Table SQL Helpers (must be called inside withTransactionAsync) ───
+
+async function saveSubjectsTx(db: SQLite.SQLiteDatabase, subjects: Subject[]): Promise<void> {
+  await db.execAsync("DELETE FROM subjects;");
+  for (const s of subjects || []) {
+    const name = s.name || s.title || "Subject";
+    const color = s.color || s.color_hex || "#3b82f6";
+    const examDate = s.examDate || s.exam_date || null;
+    const aliases = JSON.stringify(s.aliases || []);
+    const bringItems = JSON.stringify(s.bringItems || []);
+
+    await db.runAsync(
+      `INSERT OR REPLACE INTO subjects (id, name, title, color, color_hex, aliases, teacher, room, bring_items, exam_date, total_estimated_minutes, target_grade, credit_hours)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      s.id || `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      name,
+      color,
+      color,
+      aliases,
+      s.teacher || null,
+      s.room || null,
+      bringItems,
+      examDate,
+      s.total_estimated_minutes || 0,
+      s.targetGrade != null ? s.targetGrade : 80,
+      s.creditHours != null ? s.creditHours : 2
+    );
+  }
+}
+
+async function savePeriodTimesTx(db: SQLite.SQLiteDatabase, periodTimes: PeriodTime[]): Promise<void> {
+  await db.execAsync("DELETE FROM period_times;");
+  for (const pt of periodTimes || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO period_times (period_number, start_time, end_time) VALUES (?, ?, ?)",
+      pt.periodNumber,
+      pt.start || "07:00",
+      pt.end || "07:45"
+    );
+  }
+}
+
+async function saveTimetableEntriesTx(db: SQLite.SQLiteDatabase, entries: TimetableEntry[]): Promise<void> {
+  await db.execAsync("DELETE FROM timetable_entries;");
+  for (const te of entries || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO timetable_entries (id, subject_id, weekday, period_number, week_pattern, kind, custom_label, start_time, end_time, room, teacher) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      te.id || `te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      te.subjectId || "",
+      te.weekday,
+      te.periodNumber,
+      te.weekPattern || "every",
+      te.kind || "class",
+      te.customLabel || null,
+      te.startTime || null,
+      te.endTime || null,
+      te.room || null,
+      te.teacher || null
+    );
+  }
+}
+
+async function saveDaysOffTx(db: SQLite.SQLiteDatabase, daysOff: DayOff[]): Promise<void> {
+  await db.execAsync("DELETE FROM days_off;");
+  for (const d of daysOff || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO days_off (date, reason) VALUES (?, ?)",
+      d.date,
+      d.reason || ""
+    );
+  }
+}
+
+async function saveOverridesTx(db: SQLite.SQLiteDatabase, overrides: Override[]): Promise<void> {
+  await db.execAsync("DELETE FROM overrides;");
+  for (let i = 0; i < (overrides || []).length; i++) {
+    const o = overrides[i];
+    const safeEntryId = o.entryId || "";
+    const overrideId = (o as any).id || `${o.date}-${safeEntryId || "p" + (o.periodNumber ?? i)}-${i}`;
+    await db.runAsync(
+      "INSERT OR REPLACE INTO overrides (id, date, entry_id, type, new_subject_id, period_number, custom_label) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      overrideId,
+      o.date || toLocalDateStr(),
+      safeEntryId,
+      o.type || "added",
+      o.newSubjectId || null,
+      o.periodNumber != null ? o.periodNumber : null,
+      o.customLabel || null
+    );
+  }
+}
+
+async function saveTasksTx(db: SQLite.SQLiteDatabase, tasks: Task[]): Promise<void> {
+  await db.execAsync("DELETE FROM tasks;");
+  for (const t of tasks || []) {
+    const est = t.estimatedMinutes != null ? Number(t.estimatedMinutes) : 30;
+    await db.runAsync(
+      `INSERT OR REPLACE INTO tasks (id, subject_id, title, notes, type, given_date, deadline_date, deadline_mode, estimated_minutes, status, completed_at, photo_uri)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      t.id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      t.subjectId || "",
+      t.title || "Tugas",
+      t.notes || null,
+      t.type || "homework",
+      t.givenDate || toLocalDateStr(),
+      t.deadlineDate || toLocalDateStr(),
+      t.deadlineMode || "nextClass",
+      !isNaN(est) && est > 0 ? est : 30,
+      t.status || "PENDING",
+      t.completedAt || null,
+      t.photoUri || null
+    );
+  }
+}
+
+async function saveStudyUnitsTx(db: SQLite.SQLiteDatabase, units: StudyUnit[]): Promise<void> {
+  await db.execAsync("DELETE FROM study_units;");
+  for (const u of units || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO study_units (id, subject_id, title, estimated_minutes, cognitive_load, sort_order, is_completed, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      u.id || `unit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      u.subject_id || "",
+      u.title || "Materi",
+      u.estimated_minutes || 0,
+      u.cognitive_load || "low",
+      u.sort_order || 0,
+      u.is_completed ? 1 : 0,
+      u.completed_at || null
+    );
+  }
+}
+
+async function saveScheduledBlocksTx(db: SQLite.SQLiteDatabase, blocks: ScheduledBlock[]): Promise<void> {
+  await db.execAsync("DELETE FROM scheduled_blocks;");
+  for (const b of blocks || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO scheduled_blocks (id, study_unit_id, start_time, end_time, status, block_type, actual_duration_minutes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      b.id || `block-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      b.study_unit_id || "",
+      b.start_time || new Date().toISOString(),
+      b.end_time || new Date().toISOString(),
+      b.status || "PLANNED",
+      b.block_type || "STUDY",
+      b.actual_duration_minutes || null
+    );
+  }
+}
+
+async function saveFocusLogsTx(db: SQLite.SQLiteDatabase, logs: FocusLog[]): Promise<void> {
+  await db.execAsync("DELETE FROM focus_logs;");
+  for (const l of logs || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO focus_logs (id, scheduled_block_id, user_id, planned_minutes, actual_minutes, timer_mode, pomodoro_count, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      l.id || `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      l.scheduled_block_id || null,
+      l.user_id || "user-1",
+      l.planned_minutes || 0,
+      l.actual_minutes || 0,
+      l.timer_mode || "POMODORO",
+      l.pomodoro_count || 1,
+      l.started_at || new Date().toISOString(),
+      l.ended_at || null
+    );
+  }
+}
+
+async function saveReviewHistoryTx(db: SQLite.SQLiteDatabase, reviews: ReviewHistory[]): Promise<void> {
+  await db.execAsync("DELETE FROM review_history;");
+  for (const r of reviews || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO review_history (id, study_unit_id, user_id, confidence_rating, review_date, next_review_date, interval_days, repetition_number, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      r.id || `review-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      r.study_unit_id || "",
+      r.user_id || "user-1",
+      r.confidence_rating || 3,
+      r.review_date || toLocalDateStr(),
+      r.next_review_date || toLocalDateStr(),
+      r.interval_days || 1,
+      r.repetition_number || 1,
+      r.created_at || new Date().toISOString()
+    );
+  }
+}
+
+async function saveDailyStatsTx(db: SQLite.SQLiteDatabase, stats: DailyStudyStats[]): Promise<void> {
+  await db.execAsync("DELETE FROM daily_stats;");
+  for (const ds of stats || []) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO daily_stats (date, planned_minutes, actual_minutes) VALUES (?, ?, ?)",
+      ds.date,
+      ds.planned_minutes,
+      ds.actual_minutes
+    );
+  }
+}
+
+async function saveAppSettingsBundleTx(
+  db: SQLite.SQLiteDatabase,
+  bundle: {
+    dismissedWarningIds?: string[];
+    geminiApiKey?: string;
+    appSettings?: AppSettings;
+    schedulePrefs?: SchedulePrefs;
+  }
+): Promise<void> {
+  if (bundle.dismissedWarningIds !== undefined) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('dismissed_warning_ids', ?)",
+      JSON.stringify(bundle.dismissedWarningIds)
+    );
+  }
+  if (bundle.geminiApiKey !== undefined) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('gemini_api_key', ?)",
+      ""
+    );
+  }
+  if (bundle.appSettings) {
+    await db.runAsync(
+      "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('app_settings', ?)",
+      JSON.stringify(bundle.appSettings)
+    );
+  }
+  if (bundle.schedulePrefs) {
+    await saveSchedulePrefsTx(db, bundle.schedulePrefs);
+  }
+}
+
+async function saveSchedulePrefsTx(db: SQLite.SQLiteDatabase, prefs: SchedulePrefs): Promise<void> {
+  await db.runAsync(
+    "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+    "schedule_prefs",
+    JSON.stringify(prefs)
+  );
+}
+
+async function saveStudyBlocksTx(db: SQLite.SQLiteDatabase, blocks: StudyBlock[]): Promise<void> {
+  await db.execAsync("DELETE FROM study_blocks;");
+  for (const sb of blocks || []) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO study_blocks (id, task_id, subject_id, date, start_time, end_time, duration_minutes, status, completed_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sb.id || `sb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      sb.taskId || "",
+      sb.subjectId || "",
+      sb.date || toLocalDateStr(),
+      sb.startTime || "15:00",
+      sb.endTime || "15:45",
+      sb.durationMinutes || 45,
+      sb.status || "SCHEDULED",
+      sb.completedAt || null,
+      sb.createdAt || new Date().toISOString()
+    );
+  }
+}
+
+async function saveGradesTx(db: SQLite.SQLiteDatabase, grades: Grade[]): Promise<void> {
+  await db.execAsync("DELETE FROM grades;");
+  for (const g of grades || []) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO grades (id, subject_id, title, score, max_score, weight, category, date, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      g.id || `grade-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      g.subjectId || "",
+      g.title || "Penilaian",
+      g.score != null ? g.score : 0,
+      g.maxScore != null ? g.maxScore : 100,
+      g.weight != null ? g.weight : 1,
+      g.category || "exam",
+      g.date || toLocalDateStr(),
+      g.notes || null,
+      g.createdAt || new Date().toISOString()
+    );
+  }
+}
+
+async function saveTeachersTx(db: SQLite.SQLiteDatabase, teachers: Teacher[]): Promise<void> {
+  await db.execAsync("DELETE FROM teachers;");
+  for (const tc of teachers || []) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO teachers (id, name, subject_ids, phone, email, room, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      tc.id || `teacher-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      tc.name || "Guru",
+      JSON.stringify(tc.subjectIds || []),
+      tc.phone || null,
+      tc.email || null,
+      tc.room || null,
+      tc.notes || null,
+      new Date().toISOString()
+    );
+  }
+}
+
+async function persistFullStateTx(db: SQLite.SQLiteDatabase, state: DatabaseState): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    await saveSubjectsTx(db, state.subjects || []);
+    await savePeriodTimesTx(db, state.periodTimes || []);
+    await saveTimetableEntriesTx(db, state.timetableEntries || []);
+    await saveDaysOffTx(db, state.daysOff || []);
+    await saveOverridesTx(db, state.overrides || []);
+    await saveTasksTx(db, state.tasks || []);
+    await saveStudyUnitsTx(db, state.studyUnits || []);
+    await saveScheduledBlocksTx(db, state.blocks || []);
+    await saveFocusLogsTx(db, state.focusLogs || []);
+    await saveReviewHistoryTx(db, state.reviewHistory || []);
+    await saveDailyStatsTx(db, state.dailyStats || []);
+    await saveAppSettingsBundleTx(db, {
+      dismissedWarningIds: state.dismissedWarningIds || [],
+      geminiApiKey: state.geminiApiKey || "",
+      appSettings: state.appSettings,
+      schedulePrefs: state.schedulePrefs,
+    });
+    await saveStudyBlocksTx(db, state.studyBlocks || []);
+    await saveGradesTx(db, state.grades || []);
+    await saveTeachersTx(db, state.teachers || []);
+  });
+}
+
+async function persistFullStateInternal(state: DatabaseState): Promise<void> {
+  const sqliteAvailable = await initDatabase();
+  if (!sqliteAvailable || !dbInstance) return;
+  try {
+    await persistFullStateTx(dbInstance, state);
+  } catch (err) {
+    console.error("[Storage] Error saving full state (all tables) to SQLite:", err);
+    throw err;
+  }
+}
+
+async function saveStateImmediatelyInternal(state: DatabaseState): Promise<void> {
+  await persistFullStateInternal(state);
+  await writeMirrorInternal(state);
+}
+
+async function runQueuedTableSave(
+  tableName: string,
+  txWork: (db: SQLite.SQLiteDatabase) => Promise<void>,
+  mirrorPatch: Partial<DatabaseState>
+): Promise<void> {
+  return writeQueue.run(async () => {
+    const sqliteAvailable = await initDatabase();
+    if (sqliteAvailable && dbInstance) {
       try {
-        await _executePersistFullState(currentState);
-      } catch (err: any) {
-        console.warn("[Storage] SQLite persist warning (will retry on next state update):", err?.message || err);
+        await dbInstance.withTransactionAsync(async () => {
+          await txWork(dbInstance!);
+        });
+      } catch (err) {
+        console.error(`[Storage] Error saving table ${tableName} to SQLite:`, err);
+        throw err;
       }
     }
-  } finally {
-    isPersistingToSQLite = false;
-  }
+    await updateMirrorPatchInternal(mirrorPatch);
+  });
+}
+
+// ─── Public Queued Save Functions ───
+
+export async function saveSubjects(subjects: Subject[]): Promise<void> {
+  return runQueuedTableSave("subjects", (db) => saveSubjectsTx(db, subjects), { subjects });
+}
+
+export async function savePeriodTimes(periodTimes: PeriodTime[]): Promise<void> {
+  return runQueuedTableSave("period_times", (db) => savePeriodTimesTx(db, periodTimes), { periodTimes });
+}
+
+export async function saveTimetableEntries(timetableEntries: TimetableEntry[]): Promise<void> {
+  return runQueuedTableSave("timetable_entries", (db) => saveTimetableEntriesTx(db, timetableEntries), { timetableEntries });
+}
+
+export async function saveDaysOff(daysOff: DayOff[]): Promise<void> {
+  return runQueuedTableSave("days_off", (db) => saveDaysOffTx(db, daysOff), { daysOff });
+}
+
+export async function saveOverrides(overrides: Override[]): Promise<void> {
+  return runQueuedTableSave("overrides", (db) => saveOverridesTx(db, overrides), { overrides });
+}
+
+export async function saveTasks(tasks: Task[]): Promise<void> {
+  return runQueuedTableSave("tasks", (db) => saveTasksTx(db, tasks), { tasks });
+}
+
+export async function saveStudyUnits(studyUnits: StudyUnit[]): Promise<void> {
+  return runQueuedTableSave("study_units", (db) => saveStudyUnitsTx(db, studyUnits), { studyUnits });
+}
+
+export async function saveScheduledBlocks(blocks: ScheduledBlock[]): Promise<void> {
+  return runQueuedTableSave("scheduled_blocks", (db) => saveScheduledBlocksTx(db, blocks), { blocks });
+}
+
+export async function saveFocusLogs(focusLogs: FocusLog[]): Promise<void> {
+  return runQueuedTableSave("focus_logs", (db) => saveFocusLogsTx(db, focusLogs), { focusLogs });
+}
+
+export async function saveReviewHistory(reviewHistory: ReviewHistory[]): Promise<void> {
+  return runQueuedTableSave("review_history", (db) => saveReviewHistoryTx(db, reviewHistory), { reviewHistory });
+}
+
+export async function saveDailyStats(dailyStats: DailyStudyStats[]): Promise<void> {
+  return runQueuedTableSave("daily_stats", (db) => saveDailyStatsTx(db, dailyStats), { dailyStats });
+}
+
+export async function saveAppSettings(appSettings: AppSettings): Promise<void> {
+  return runQueuedTableSave("app_settings", (db) => saveAppSettingsBundleTx(db, { appSettings }), { appSettings });
+}
+
+export async function saveGrades(grades: Grade[]): Promise<void> {
+  return runQueuedTableSave("grades", (db) => saveGradesTx(db, grades), { grades });
+}
+
+export async function saveTeachers(teachers: Teacher[]): Promise<void> {
+  return runQueuedTableSave("teachers", (db) => saveTeachersTx(db, teachers), { teachers });
 }
 
 /**
- * Saves current state immediately to both SQLite and AsyncStorage mirror.
+ * Persists full state into SQLite sequentially via the module-level serial queue
+ * inside a single atomic transaction.
+ */
+export async function persistFullStateToSQLite(state: DatabaseState): Promise<void> {
+  return writeQueue.run(() => persistFullStateInternal(state));
+}
+
+/**
+ * Saves current state immediately to both SQLite and AsyncStorage mirror via the serial queue.
  */
 export async function saveStateImmediately(state: DatabaseState): Promise<void> {
-  AsyncStorage.setItem(ASYNC_STORAGE_FALLBACK_KEY, JSON.stringify(state)).catch(() => {});
-
-  if (isSQLiteReady && dbInstance) {
-    await persistFullStateToSQLite(state);
-  }
+  return writeQueue.run(() => saveStateImmediatelyInternal(state));
 }
 
 /**
@@ -988,7 +1145,10 @@ export function exportBackupJSON(state: DatabaseState): BackupPayload {
     app: "StudyAir",
     version: "2.0.0",
     exportedAt: new Date().toISOString(),
-    data: state,
+    data: {
+      ...state,
+      geminiApiKey: "",
+    },
   };
 }
 
@@ -1045,12 +1205,25 @@ export async function importBackupJSON(jsonString: string): Promise<{ success: b
       dismissedWarningIds: Array.isArray(data.dismissedWarningIds) ? data.dismissedWarningIds : [],
       geminiApiKey: data.geminiApiKey || "",
       studyBlocks: Array.isArray(data.studyBlocks) ? data.studyBlocks : [],
-      schedulePrefs: data.schedulePrefs || DEFAULT_SCHEDULE_PREFS,
+      schedulePrefs: data.schedulePrefs
+        ? {
+            ...DEFAULT_SCHEDULE_PREFS,
+            ...data.schedulePrefs,
+            priorityWeights: {
+              ...DEFAULT_SCHEDULE_PREFS.priorityWeights,
+              ...(data.schedulePrefs.priorityWeights || {}),
+            },
+          }
+        : DEFAULT_SCHEDULE_PREFS,
+      appSettings: data.appSettings ? { ...DEFAULT_APP_SETTINGS, ...data.appSettings } : DEFAULT_APP_SETTINGS,
+      grades: Array.isArray(data.grades) ? data.grades : [],
+      teachers: Array.isArray(data.teachers) ? data.teachers : [],
     };
 
-    await saveStateImmediately(cleanState);
+    await writeQueue.run(() => saveStateImmediatelyInternal(cleanState));
     return { success: true, state: cleanState };
   } catch (e: any) {
+    console.error("[Storage] Error importing backup JSON into SQLite:", e);
     return { success: false, error: e?.message || "Failed to parse JSON backup file." };
   }
 }
@@ -1059,44 +1232,7 @@ export async function importBackupJSON(jsonString: string): Promise<{ success: b
  * Saves all study blocks into SQLite and updates the AsyncStorage mirror.
  */
 export async function saveStudyBlocks(blocks: StudyBlock[]): Promise<void> {
-  const sqliteAvailable = await initDatabase();
-  if (sqliteAvailable && dbInstance) {
-    try {
-      await dbInstance.withTransactionAsync(async () => {
-        await dbInstance!.execAsync("DELETE FROM study_blocks;");
-        for (const sb of blocks) {
-          await dbInstance!.runAsync(
-            `INSERT OR REPLACE INTO study_blocks (id, task_id, subject_id, date, start_time, end_time, duration_minutes, status, completed_at, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            sb.id || `sb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            sb.taskId || "",
-            sb.subjectId || "",
-            sb.date || new Date().toISOString().slice(0, 10),
-            sb.startTime || "15:00",
-            sb.endTime || "15:45",
-            sb.durationMinutes || 45,
-            sb.status || "SCHEDULED",
-            sb.completedAt || null,
-            sb.createdAt || new Date().toISOString()
-          );
-        }
-      });
-    } catch (err) {
-      console.warn("[Storage] Error saving study blocks to SQLite:", err);
-    }
-  }
-
-  // Update AsyncStorage mirror
-  try {
-    const raw = await AsyncStorage.getItem(ASYNC_STORAGE_FALLBACK_KEY);
-    if (raw) {
-      const state = JSON.parse(raw);
-      state.studyBlocks = blocks;
-      await AsyncStorage.setItem(ASYNC_STORAGE_FALLBACK_KEY, JSON.stringify(state));
-    }
-  } catch (err) {
-    console.warn("[Storage] Error updating AsyncStorage mirror with study blocks:", err);
-  }
+  return runQueuedTableSave("study_blocks", (db) => saveStudyBlocksTx(db, blocks), { studyBlocks: blocks });
 }
 
 /**
@@ -1145,29 +1281,7 @@ export async function getStudyBlocks(): Promise<StudyBlock[]> {
  * Saves schedule preferences into SQLite and updates the AsyncStorage mirror.
  */
 export async function saveSchedulePrefs(prefs: SchedulePrefs): Promise<void> {
-  const sqliteAvailable = await initDatabase();
-  if (sqliteAvailable && dbInstance) {
-    try {
-      await dbInstance.runAsync(
-        "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
-        "schedule_prefs",
-        JSON.stringify(prefs)
-      );
-    } catch (err) {
-      console.warn("[Storage] Error saving schedule prefs to SQLite:", err);
-    }
-  }
-
-  try {
-    const raw = await AsyncStorage.getItem(ASYNC_STORAGE_FALLBACK_KEY);
-    if (raw) {
-      const state = JSON.parse(raw);
-      state.schedulePrefs = prefs;
-      await AsyncStorage.setItem(ASYNC_STORAGE_FALLBACK_KEY, JSON.stringify(state));
-    }
-  } catch (err) {
-    console.warn("[Storage] Error updating AsyncStorage mirror with schedule prefs:", err);
-  }
+  return runQueuedTableSave("app_settings", (db) => saveSchedulePrefsTx(db, prefs), { schedulePrefs: prefs });
 }
 
 /**

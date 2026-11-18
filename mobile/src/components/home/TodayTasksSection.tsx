@@ -5,20 +5,20 @@ import {
   StyleSheet,
   Pressable,
   LayoutAnimation,
-  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { format, parseISO, differenceInCalendarDays, startOfDay } from "date-fns";
-import { colors, typography, touchTarget, tidySpacing, radius, spacing } from "../../theme";
+import { format, parseISO, differenceInCalendarDays, startOfDay, addDays } from "date-fns";
+import { colors, typography, touchTarget, radius, spacing } from "../../theme";
 import { useMobileStudyStore } from "../../store";
-import { Task, StudyBlock, Subject } from "../../types";
+import { Task, StudyBlock, Subject, DeadlineMode } from "../../types";
 import { t } from "../../lib/i18n";
 import { HapticFeedback } from "../../lib/haptics";
 import { formatLocaleDate } from "../../lib/dateUtils";
-import { Card } from "../common/Card";
+import { calculateNextClassDeadline } from "../../engine/deadlineEngine";
+import { BottomSheet } from "../common/BottomSheet";
 import { StatusPill } from "../common/StatusPill";
 import { PrimaryButton } from "../common/PrimaryButton";
-import { SecondaryButton } from "../common/SecondaryButton";
+import { DeadlinePickerStrip } from "../tasks/DeadlinePickerStrip";
 
 // ─── Pure Helpers for Today's Tasks (Tested & Exported) ───
 
@@ -109,13 +109,16 @@ export function TodayTasksSection({
     tasks,
     studyBlocks,
     subjects,
+    timetableEntries,
+    daysOff,
+    overrides,
     toggleTaskCompletion,
     updateTask,
     deleteTask,
   } = useMobileStudyStore();
 
-  const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
-  const todayDate = useMemo(() => new Date(), []);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const todayDate = useMemo(() => parseISO(todayStr), [todayStr]);
 
   // Filter segment tab
   const [filterMode, setFilterMode] = useState<FilterSegment>("all");
@@ -178,176 +181,115 @@ export function TodayTasksSection({
     }
   };
 
+  const handleQuickDeadline = (
+    task: Task,
+    mode: "today" | "tomorrow" | "lusa" | "nextClass" | "minus1" | "plus1"
+  ) => {
+    HapticFeedback.light();
+    let nextDate = task.deadlineDate || todayStr;
+    let nextMode = task.deadlineMode || "custom";
+
+    if (mode === "today") {
+      nextDate = todayStr;
+      nextMode = "custom";
+    } else if (mode === "tomorrow") {
+      nextDate = format(addDays(parseISO(todayStr), 1), "yyyy-MM-dd");
+      nextMode = "custom";
+    } else if (mode === "lusa") {
+      nextDate = format(addDays(parseISO(todayStr), 2), "yyyy-MM-dd");
+      nextMode = "custom";
+    } else if (mode === "nextClass") {
+      const res = calculateNextClassDeadline(task.subjectId, todayStr, timetableEntries, {
+        daysOff,
+        overrides,
+        afterNClasses: 1,
+      });
+      nextDate =
+        res.found && res.deadlineDate
+          ? res.deadlineDate
+          : format(addDays(parseISO(todayStr), 1), "yyyy-MM-dd");
+      nextMode = "nextClass";
+    } else if (mode === "minus1" || mode === "plus1") {
+      try {
+        const base = parseISO(task.deadlineDate || todayStr);
+        nextDate = format(addDays(base, mode === "plus1" ? 1 : -1), "yyyy-MM-dd");
+      } catch {
+        nextDate = todayStr;
+      }
+      nextMode = "custom";
+    }
+
+    updateTask(task.id, { deadlineDate: nextDate, deadlineMode: nextMode });
+    if (selectedTask && selectedTask.id === task.id) {
+      setSelectedTask({ ...selectedTask, deadlineDate: nextDate, deadlineMode: nextMode });
+    }
+  };
+
   const handleDeleteTask = (taskId: string) => {
     HapticFeedback.warning();
     deleteTask(taskId);
     setSelectedTask(null);
   };
 
-  const renderDeadlineBadge = (deadlineStr: string) => {
+  const renderDeadlineBadge = (deadlineStr: string, deadlineMode?: DeadlineMode) => {
     try {
       const deadline = startOfDay(parseISO(deadlineStr));
       const diff = differenceInCalendarDays(deadline, startOfDay(todayDate));
+      const shortDate = formatLocaleDate(deadline, "d MMM");
+      const classPrefix = deadlineMode === "nextClass" ? "🏫 " : "";
 
       if (diff < 0) {
-        return <StatusPill variant="red" label={t("deadline_terlambat", { days: Math.abs(diff) })} />;
+        return (
+          <StatusPill
+            variant="red"
+            label={`⚠️ ${t("deadline_terlambat", { days: Math.abs(diff) })} • ${shortDate}`}
+          />
+        );
       }
       if (diff === 0) {
-        return <StatusPill variant="red" label={t("deadline_hari_ini") || "Hari Ini"} />;
+        return <StatusPill variant="amber" label={`🔥 ${t("deadline_hari_ini") || "Hari Ini"}`} />;
       }
       if (diff === 1) {
-        return <StatusPill variant="amber" label={t("deadline_besok") || "Besok"} />;
+        return (
+          <StatusPill
+            variant="amber"
+            label={`${classPrefix}${t("deadline_besok") || "Besok"} • ${shortDate}`}
+          />
+        );
       }
-      return <StatusPill variant="gray" label={formatLocaleDate(deadline, "d MMM")} />;
+      return <StatusPill variant="gray" label={`${classPrefix}${shortDate} (${diff}h)`} />;
     } catch {
       return <StatusPill variant="gray" label={deadlineStr} />;
     }
   };
 
-  const renderTaskTypeBadge = (type: string) => {
-    if (type === "quiz") {
-      return (
-        <View style={styles.taskTypeBadge}>
-          <Ionicons name="help-circle-outline" size={11} color={colors.accent} />
-          <Text style={[styles.taskTypeText, { color: colors.accent }]}>Kuis</Text>
-        </View>
-      );
-    }
-    if (type === "project") {
-      return (
-        <View style={styles.taskTypeBadge}>
-          <Ionicons name="briefcase-outline" size={11} color={colors.amber} />
-          <Text style={[styles.taskTypeText, { color: colors.amber }]}>Proyek</Text>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.taskTypeBadge}>
-        <Ionicons name="pencil-outline" size={11} color={colors.primary} />
-        <Text style={[styles.taskTypeText, { color: colors.primary }]}>PR</Text>
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      {/* ─── 1. Section Header with Badge & Add CTA ─── */}
+      {/* ─── 1. Section Header & See All ─── */}
       <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.sectionTitle}>{t("tugas_pr_hari_ini") || "Tugas & PR Hari Ini"}</Text>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgeText}>{progress.total}</Text>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={styles.sectionTitle}>{t("tugas_pr_hari_ini") || "Tugas & PR Hari Ini"}</Text>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgeText}>{progress.total}</Text>
+            </View>
           </View>
+          <Text style={styles.headerSubtitle}>
+            {t("tasks_completed_sub", { completed: progress.completed, total: progress.total })}
+          </Text>
         </View>
-        <View style={styles.headerActions}>
-          <Pressable
-            style={styles.addQuickBtn}
-            onPress={() => onOpenAddTask(todayStr)}
-            hitSlop={touchTarget.min / 4}
-            accessibilityLabel="Tambah tugas untuk hari ini"
-          >
-            <Ionicons name="add" size={16} color={colors.primary} style={{ marginRight: 2 }} />
-            <Text style={styles.addQuickBtnText}>Tambah PR</Text>
-          </Pressable>
-          <Pressable
-            style={styles.seeAllBtn}
-            onPress={onOpenAllTasks}
-            hitSlop={touchTarget.min / 4}
-            accessibilityLabel="Lihat semua tugas"
-          >
-            <Text style={styles.seeAllText}>Semua</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
-          </Pressable>
-        </View>
+        <Pressable
+          style={styles.seeAllBtn}
+          onPress={onOpenAllTasks}
+          hitSlop={touchTarget.min / 4}
+          accessibilityLabel={t("filter_semua")}
+        >
+          <Text style={styles.seeAllText}>{t("filter_semua") || "Semua"}</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+        </Pressable>
       </View>
 
-      {/* ─── 2. Gamified Daily Progress Bar (O3 Space) ─── */}
-      {progress.total > 0 && (
-        <Card style={styles.progressCard}>
-          <View style={styles.progressMetaRow}>
-            <Text style={styles.progressLabelText}>
-              {t("tugas_selesai_count", {
-                completed: progress.completed,
-                total: progress.total,
-              }) || `${progress.completed} / ${progress.total} Selesai`}
-            </Text>
-            <Text style={styles.progressPercentText}>{progress.percentage}%</Text>
-          </View>
-
-          {/* Progress Bar Track */}
-          <View style={styles.progressBarTrack}>
-            <View
-              style={[
-                styles.progressBarFill,
-                {
-                  width: `${progress.percentage}%`,
-                  backgroundColor:
-                    progress.percentage === 100 ? colors.emerald : colors.accent,
-                },
-              ]}
-            />
-          </View>
-
-          {/* Dynamic Encouraging Status Micro-Copy */}
-          <Text style={styles.progressCaptionText}>
-            {progress.percentage === 100
-              ? t("progress_semua_tuntas") || "Luar biasa! Semua tugas hari ini sudah beres 🎉"
-              : progress.completed > 0
-              ? t("progress_sisa_tugas", { count: progress.pending }) ||
-                `Tinggal ${progress.pending} tugas lagi untuk hari ini. Semangat! 🔥`
-              : t("progress_siap_mulai") || "Ayo mulai cicil tugasmu hari ini! 💪"}
-          </Text>
-        </Card>
-      )}
-
-      {/* ─── 3. Segment Filter Tabs ─── */}
-      {progress.total > 0 && (
-        <View style={styles.filterSegmentRow}>
-          <Pressable
-            style={[styles.filterChip, filterMode === "all" && styles.filterChipActive]}
-            onPress={() => setFilterMode("all")}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                filterMode === "all" && styles.filterChipTextActive,
-              ]}
-            >
-              {t("filter_semua") || "Semua"} ({progress.total})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.filterChip, filterMode === "pending" && styles.filterChipActive]}
-            onPress={() => setFilterMode("pending")}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                filterMode === "pending" && styles.filterChipTextActive,
-              ]}
-            >
-              {t("filter_tertunda") || "Tertunda"} ({progress.pending})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.filterChip, filterMode === "completed" && styles.filterChipActive]}
-            onPress={() => setFilterMode("completed")}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                filterMode === "completed" && styles.filterChipTextActive,
-              ]}
-            >
-              {t("filter_selesai") || "Selesai"} ({progress.completed})
-            </Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* ─── 4. Task Cards List ─── */}
+      {/* ─── 2. Task Cards List ─── */}
       {displayedTasks.length > 0 ? (
         displayedTasks.map((task) => {
           const sub = subjectsMap.get(task.subjectId);
@@ -356,10 +298,12 @@ export function TodayTasksSection({
           const scheduledBlock = todayBlocksByTaskId.get(task.id);
 
           return (
-            <Card
+            <Pressable
               key={task.id}
               style={[styles.taskCard, isDone && styles.taskCardDone]}
               onPress={() => setSelectedTask(task)}
+              onLongPress={() => setSelectedTask(task)}
+              delayLongPress={400}
             >
               <View style={styles.taskCardContent}>
                 {/* 1-Tap Checkbox */}
@@ -370,25 +314,42 @@ export function TodayTasksSection({
                   accessibilityLabel={`Tandai ${isDone ? "belum selesai" : "selesai"} ${task.title}`}
                 >
                   <View style={[styles.checkbox, isDone && styles.checkboxActive]}>
-                    <Ionicons
-                      name={isDone ? "checkmark" : "square-outline"}
-                      size={isDone ? 15 : 18}
-                      color={isDone ? colors.textInverse : colors.textSecondary}
-                    />
+                    {isDone && (
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={colors.textInverse}
+                      />
+                    )}
                   </View>
                 </Pressable>
 
                 {/* Task Details Info */}
                 <View style={styles.taskInfoContainer}>
-                  {/* Subject & Type Header Row */}
+                  {/* Subject & Due Date Header Row */}
                   <View style={styles.taskMetaTopRow}>
                     <View style={styles.subjectGroup}>
                       <View style={[styles.subjectDot, { backgroundColor: subColor }]} />
                       <Text style={styles.subjectNameText} numberOfLines={1}>
-                        {sub?.name || "Umum"}
+                        {sub?.name || "Umum"} • {t(task.type as any) || "PR"}
                       </Text>
                     </View>
-                    {renderTaskTypeBadge(task.type)}
+                    <View style={styles.taskMetaRight}>
+                      {isDone ? (
+                        <StatusPill variant="green" label={t("selesai") || "Selesai"} />
+                      ) : (
+                        renderDeadlineBadge(task.deadlineDate, task.deadlineMode)
+                      )}
+                      <Pressable
+                        style={styles.taskMenuBtn}
+                        onPress={() => setSelectedTask(task)}
+                        hitSlop={8}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("opsi_lainnya") || "Opsi tugas"}
+                      >
+                        <Ionicons name="ellipsis-horizontal" size={16} color={colors.textSecondary} />
+                      </Pressable>
+                    </View>
                   </View>
 
                   {/* Task Title */}
@@ -409,16 +370,10 @@ export function TodayTasksSection({
                   {/* Metadata Chips & Quick Focus Action Row */}
                   <View style={styles.taskBottomRow}>
                     <View style={styles.taskPillsRow}>
-                      {isDone ? (
-                        <StatusPill variant="green" label={t("selesai") || "Selesai"} />
-                      ) : (
-                        renderDeadlineBadge(task.deadlineDate)
-                      )}
-
                       {task.estimatedMinutes ? (
                         <View style={styles.durationChip}>
                           <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
-                          <Text style={styles.durationChipText}>{task.estimatedMinutes}m</Text>
+                          <Text style={styles.durationChipText}>{task.estimatedMinutes} {t("menit_singkat") || "mnt"}</Text>
                         </View>
                       ) : null}
 
@@ -432,27 +387,27 @@ export function TodayTasksSection({
                       ) : null}
                     </View>
 
-                    {/* Direct 1-Tap Focus Launcher Button */}
+                    {/* Subtle Focus Action */}
                     {!isDone && (
                       <Pressable
-                        style={styles.directFocusBtn}
+                        style={styles.directFocusBtnSubtle}
                         onPress={() => onStartFocus(task, scheduledBlock)}
                         hitSlop={touchTarget.min / 4}
                         accessibilityLabel={`Mulai fokus untuk ${task.title}`}
                       >
-                        <Ionicons name="play" size={12} color={colors.textInverse} style={{ marginRight: 3 }} />
-                        <Text style={styles.directFocusText}>{t("fokus_tugas") || "Fokus"}</Text>
+                        <Ionicons name="play-outline" size={12} color={colors.textSecondary} style={{ marginRight: 3 }} />
+                        <Text style={styles.directFocusTextSubtle}>{t("fokus_tugas") || "Fokus"}</Text>
                       </Pressable>
                     )}
                   </View>
                 </View>
               </View>
-            </Card>
+            </Pressable>
           );
         })
       ) : (
         /* Empty State */
-        <Card style={styles.emptyCard}>
+        <View style={styles.emptyCard}>
           <Ionicons
             name={filterMode === "completed" ? "time-outline" : "checkmark-done-circle-outline"}
             size={36}
@@ -478,125 +433,127 @@ export function TodayTasksSection({
               onPress={() => onOpenAddTask(todayStr)}
             />
           </View>
-        </Card>
+        </View>
       )}
 
-      {/* ─── 5. Task Quick Detail & Edit Modal ─── */}
-      {selectedTask && (
-        <Modal
-          visible={selectedTask !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSelectedTask(null)}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setSelectedTask(null)}>
-            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.modalHeaderTitle}>{t("detail_tugas") || "Rincian Tugas"}</Text>
-                  <Text style={styles.modalSubjectSub}>
-                    {subjectsMap.get(selectedTask.subjectId)?.name || "Umum"}
-                  </Text>
-                </View>
-                <Pressable
-                  style={styles.modalCloseBtn}
-                  onPress={() => setSelectedTask(null)}
-                  hitSlop={touchTarget.min / 4}
-                >
-                  <Ionicons name="close" size={20} color={colors.textSecondary} />
-                </Pressable>
+      {/* ─── 3. Task Quick Detail & Edit Sheet ─── */}
+      <BottomSheet
+        visible={selectedTask !== null}
+        onClose={() => setSelectedTask(null)}
+        title={selectedTask?.title || ""}
+      >
+        {selectedTask && (
+          <View>
+            <Text style={styles.modalSubjectSub}>
+              {subjectsMap.get(selectedTask.subjectId)?.name || "Umum"}
+            </Text>
+            {selectedTask.notes ? (
+              <View style={styles.modalNotesBox}>
+                <Text style={styles.modalNotesText}>{selectedTask.notes}</Text>
               </View>
+            ) : null}
 
-              {/* Task Title & Notes */}
-              <Text style={styles.modalTaskTitle}>{selectedTask.title}</Text>
-              {selectedTask.notes ? (
-                <View style={styles.modalNotesBox}>
-                  <Text style={styles.modalNotesText}>{selectedTask.notes}</Text>
-                </View>
-              ) : null}
+            {/* Deadline Presets & 14-Day Calendar Strip */}
+            <Text style={styles.modalSectionLabel}>Tenggat Waktu (Deadline)</Text>
+            <View style={{ marginBottom: spacing.md }}>
+              <DeadlinePickerStrip
+                selectedDate={selectedTask.deadlineDate || todayStr}
+                deadlineMode={selectedTask.deadlineMode || "custom"}
+                subjectId={selectedTask.subjectId}
+                subjectName={subjectsMap.get(selectedTask.subjectId)?.name}
+                subjectColor={subjectsMap.get(selectedTask.subjectId)?.color}
+                timetableEntries={timetableEntries}
+                daysOff={daysOff}
+                overrides={overrides}
+                todayStr={todayStr}
+                compact
+                onSelectDeadline={(dateStr, mode) => {
+                  updateTask(selectedTask.id, { deadlineDate: dateStr, deadlineMode: mode });
+                  setSelectedTask({ ...selectedTask, deadlineDate: dateStr, deadlineMode: mode });
+                }}
+              />
+            </View>
 
-              {/* Duration Presets Quick Change */}
-              <Text style={styles.modalSectionLabel}>{t("ubah_durasi") || "Ubah Estimasi"}</Text>
-              <View style={styles.durationPresetsRow}>
-                {[15, 30, 45, 60, 90].map((mins) => {
-                  const isSelected = (selectedTask.estimatedMinutes || 30) === mins;
-                  return (
-                    <Pressable
-                      key={mins}
+            {/* Duration Presets Quick Change */}
+            <Text style={styles.modalSectionLabel}>{t("ubah_durasi") || "Ubah Estimasi"}</Text>
+            <View style={styles.durationPresetsRow}>
+              {[15, 30, 45, 60, 90].map((mins) => {
+                const isSelected = (selectedTask.estimatedMinutes || 30) === mins;
+                return (
+                  <Pressable
+                    key={mins}
+                    style={[
+                      styles.presetChip,
+                      isSelected && styles.presetChipActive,
+                    ]}
+                    onPress={() => handleQuickEstimate(selectedTask.id, mins)}
+                  >
+                    <Text
                       style={[
-                        styles.presetChip,
-                        isSelected && styles.presetChipActive,
+                        styles.presetChipText,
+                        isSelected && styles.presetChipTextActive,
                       ]}
-                      onPress={() => handleQuickEstimate(selectedTask.id, mins)}
                     >
-                      <Text
-                        style={[
-                          styles.presetChipText,
-                          isSelected && styles.presetChipTextActive,
-                        ]}
-                      >
-                        {mins}m
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      {mins}m
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-              {/* Action Buttons */}
-              <View style={styles.modalActionsRow}>
-                {selectedTask.status !== "COMPLETED" && (
-                  <View style={{ flex: 1 }}>
-                    <PrimaryButton
-                      label="Mulai Fokus Tugas Ini"
-                      icon="play"
-                      onPress={() => {
-                        const block = todayBlocksByTaskId.get(selectedTask.id);
-                        setSelectedTask(null);
-                        onStartFocus(selectedTask, block);
-                      }}
-                    />
-                  </View>
-                )}
-                <Pressable
-                  style={styles.modalDeleteBtn}
-                  onPress={() => handleDeleteTask(selectedTask.id)}
-                  hitSlop={touchTarget.min / 4}
-                  accessibilityLabel="Hapus tugas"
-                >
-                  <Ionicons name="trash-outline" size={20} color={colors.rose} />
-                </Pressable>
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
+            {/* Action Buttons */}
+            <View style={styles.modalActionsRow}>
+              {selectedTask.status !== "COMPLETED" && (
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton
+                    label="Mulai Fokus Tugas Ini"
+                    icon="play"
+                    onPress={() => {
+                      const block = todayBlocksByTaskId.get(selectedTask.id);
+                      setSelectedTask(null);
+                      onStartFocus(selectedTask, block);
+                    }}
+                  />
+                </View>
+              )}
+              <Pressable
+                style={styles.modalDeleteBtn}
+                onPress={() => handleDeleteTask(selectedTask.id)}
+                hitSlop={touchTarget.min / 4}
+                accessibilityLabel="Hapus tugas"
+              >
+                <Ionicons name="trash-outline" size={20} color={colors.rose} />
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </BottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: spacing.sm,
+    marginTop: 0,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm + 2,
   },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs + 2,
+  headerSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   sectionTitle: {
-    fontSize: typography.fontSizes.body + 1,
+    fontSize: typography.fontSizes.section,
     fontWeight: typography.fontWeights.bold,
     color: colors.text,
   },
   badgePill: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 7,
     paddingVertical: 1,
     borderRadius: radius.full,
@@ -608,101 +565,32 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.bold,
     color: colors.textSecondary,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  addQuickBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radius.full,
-  },
-  addQuickBtnText: {
-    fontSize: 11,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.primary,
-  },
   seeAllBtn: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  seeAllText: {
-    fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.semibold,
-    color: colors.textSecondary,
-    marginRight: 2,
-  },
-  progressCard: {
-    padding: spacing.sm + 4,
-    borderRadius: radius.card,
-    marginBottom: spacing.sm,
-  },
-  progressMetaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  progressLabelText: {
-    fontSize: typography.fontSizes.caption,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-  },
-  progressPercentText: {
-    fontSize: 11,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.accent,
-  },
-  progressBarTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.surfaceHover,
-    overflow: "hidden",
-    marginBottom: 6,
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  progressCaptionText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    lineHeight: 16,
-  },
-  filterSegmentRow: {
-    flexDirection: "row",
-    gap: spacing.xs + 2,
-    marginBottom: spacing.sm,
-  },
-  filterChip: {
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
   },
-  filterChipActive: {
-    backgroundColor: colors.surfaceHover,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
+  seeAllText: {
     fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: typography.fontWeights.medium,
-  },
-  filterChipTextActive: {
-    color: colors.primary,
     fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+    marginRight: 2,
   },
+  // Plain divided rows: the parent hero Card already provides the box.
   taskCard: {
-    padding: spacing.sm + 2,
-    marginBottom: spacing.xs + 2,
-    borderRadius: radius.card,
+    paddingVertical: spacing.sm + 4,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
+  lateText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.danger,
   },
   taskCardDone: {
     opacity: 0.65,
@@ -712,14 +600,14 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   checkboxTouch: {
-    marginRight: spacing.sm,
+    marginRight: spacing.sm + 2,
     paddingTop: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.borderLight,
@@ -744,6 +632,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    minWidth: 0,
+    marginRight: spacing.xs,
   },
   subjectDot: {
     width: 6,
@@ -752,23 +642,24 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   subjectNameText: {
+    flexShrink: 1,
     fontSize: 11,
     fontWeight: typography.fontWeights.semibold,
     color: colors.textMuted,
     textTransform: "uppercase",
   },
-  taskTypeBadge: {
+  taskMetaRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radius.full,
-    backgroundColor: colors.surfaceSubtle,
+    gap: 6,
+    flexShrink: 0,
   },
-  taskTypeText: {
-    fontSize: 10,
-    fontWeight: typography.fontWeights.bold,
+  taskMenuBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   taskTitleText: {
     fontSize: typography.fontSizes.body,
@@ -828,22 +719,27 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: typography.fontWeights.semibold,
   },
-  directFocusBtn: {
+  directFocusBtnSubtle: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: radius.full,
   },
-  directFocusText: {
+  directFocusTextSubtle: {
     fontSize: 11,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.textInverse,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.textSecondary,
   },
   emptyCard: {
     alignItems: "center",
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
   },
   emptyTitle: {
     fontSize: typography.fontSizes.body,
@@ -858,46 +754,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
-
-  // Detail Modal
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.65)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.cardLarge,
-    borderTopRightRadius: radius.cardLarge,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    padding: spacing.lg,
-  },
-  modalHeaderRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: spacing.xs,
-  },
-  modalHeaderTitle: {
-    fontSize: typography.fontSizes.body,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-  },
   modalSubjectSub: {
     fontSize: 11,
     color: colors.textMuted,
     textTransform: "uppercase",
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    padding: spacing.xs,
-  },
-  modalTaskTitle: {
-    fontSize: 17,
-    fontWeight: typography.fontWeights.bold,
-    color: colors.text,
-    marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
   modalNotesBox: {

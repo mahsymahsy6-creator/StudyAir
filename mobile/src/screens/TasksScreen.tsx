@@ -11,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { parseISO, differenceInCalendarDays, startOfDay, format, addDays } from "date-fns";
 import { colors, typography, spacing, radius, touchTarget, tidySpacing } from "../theme";
 import { useMobileStudyStore } from "../store";
-import { Task, StudyBlock, Subject } from "../types";
+import { Task, StudyBlock, Subject, DeadlineMode } from "../types";
 import { t } from "../lib/i18n";
 import { HapticFeedback } from "../lib/haptics";
 import { soundFX } from "../lib/sound";
@@ -23,9 +23,12 @@ import { Banner } from "../components/common/Banner";
 import { EmptyState } from "../components/common/EmptyState";
 import { PrimaryButton } from "../components/common/PrimaryButton";
 import { Snackbar } from "../components/common/Snackbar";
+import { BottomSheet } from "../components/common/BottomSheet";
 import { CreateScheduleSheet } from "../components/schedule/CreateScheduleSheet";
 import { AddTaskSheet } from "../components/tasks/AddTaskSheet";
+import { DeadlinePickerStrip } from "../components/tasks/DeadlinePickerStrip";
 import { buildSchedule, extractBusyBlocksFromTimetable } from "../engine/schedulerEngine";
+import { calculateNextClassDeadline } from "../engine/deadlineEngine";
 
 export interface PartitionedTasks {
   scheduled: Task[];
@@ -110,10 +113,11 @@ export type TaskFilterTab = "all" | "scheduled" | "unscheduled" | "completed";
 export interface TasksScreenProps {
   onBack?: () => void;
   onOpenSettings?: () => void;
+  onOpenStreak?: () => void;
   onStartFocusForTask?: (task: Task) => void;
 }
 
-export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: TasksScreenProps) {
+export function TasksScreen({ onBack, onOpenSettings, onOpenStreak, onStartFocusForTask }: TasksScreenProps) {
   const {
     tasks,
     studyBlocks,
@@ -124,22 +128,29 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
     overrides,
     schedulePrefs,
     toggleTaskCompletion,
+    updateTask,
     deleteTask,
-    addTask,
+    deleteCompletedTasks,
+    restoreTasks,
+    applySchedule,
     streakState,
   } = useMobileStudyStore();
 
   const [activeFilter, setActiveFilter] = useState<TaskFilterTab>("all");
+  const [completedExpanded, setCompletedExpanded] = useState(false);
   const [createScheduleVisible, setCreateScheduleVisible] = useState(false);
   const [addTaskVisible, setAddTaskVisible] = useState(false);
 
+  // Long-press menu target
+  const [menuTask, setMenuTask] = useState<Task | null>(null);
+
   // Undo deletion state
-  const [lastDeletedTask, setLastDeletedTask] = useState<Task | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<Task[]>([]);
   const [undoVisible, setUndoVisible] = useState(false);
   const undoTimerRef = useRef<any>(null);
 
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const todayStr = useMemo(() => format(new Date(), "yyyy-MM-dd"), []);
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const today = useMemo(() => startOfDay(parseISO(todayStr)), [todayStr]);
 
   const subjectsMap = useMemo(() => {
     const map = new Map<string, Subject>();
@@ -191,45 +202,137 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
     toggleTaskCompletion(id);
   };
 
-  const handleDeleteWithUndo = (task: Task) => {
-    HapticFeedback.light();
-    setLastDeletedTask(task);
-    deleteTask(task.id);
+  const showUndo = (removed: Task[]) => {
+    if (removed.length === 0) return;
+    setLastDeleted(removed);
     setUndoVisible(true);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     undoTimerRef.current = setTimeout(() => {
       setUndoVisible(false);
-      setLastDeletedTask(null);
+      setLastDeleted([]);
     }, 5000);
+  };
+
+  const handleOpenMenu = (task: Task) => {
+    HapticFeedback.heavy();
+    setMenuTask(task);
+  };
+
+  const handleMenuDeadline = (
+    mode: "today" | "tomorrow" | "lusa" | "nextClass" | "minus1" | "plus1"
+  ) => {
+    if (!menuTask) return;
+    HapticFeedback.light();
+    let nextDate = menuTask.deadlineDate || todayStr;
+    let nextMode = menuTask.deadlineMode || "custom";
+
+    if (mode === "today") {
+      nextDate = todayStr;
+      nextMode = "custom";
+    } else if (mode === "tomorrow") {
+      nextDate = format(addDays(today, 1), "yyyy-MM-dd");
+      nextMode = "custom";
+    } else if (mode === "lusa") {
+      nextDate = format(addDays(today, 2), "yyyy-MM-dd");
+      nextMode = "custom";
+    } else if (mode === "nextClass") {
+      const res = calculateNextClassDeadline(menuTask.subjectId, todayStr, timetableEntries, {
+        daysOff,
+        overrides,
+        afterNClasses: 1,
+      });
+      nextDate =
+        res.found && res.deadlineDate
+          ? res.deadlineDate
+          : format(addDays(today, 1), "yyyy-MM-dd");
+      nextMode = "nextClass";
+    } else if (mode === "minus1" || mode === "plus1") {
+      try {
+        const base = parseISO(menuTask.deadlineDate || todayStr);
+        nextDate = format(addDays(base, mode === "plus1" ? 1 : -1), "yyyy-MM-dd");
+      } catch {
+        nextDate = todayStr;
+      }
+      nextMode = "custom";
+    }
+
+    updateTask(menuTask.id, { deadlineDate: nextDate, deadlineMode: nextMode });
+    setMenuTask({ ...menuTask, deadlineDate: nextDate, deadlineMode: nextMode });
+  };
+
+  const handleMenuToggle = () => {
+    if (menuTask) handleToggle(menuTask.id);
+    setMenuTask(null);
+  };
+
+  const handleMenuFocus = () => {
+    if (menuTask && onStartFocusForTask) onStartFocusForTask(menuTask);
+    setMenuTask(null);
+  };
+
+  const handleMenuDelete = () => {
+    if (!menuTask) return;
+    HapticFeedback.light();
+    deleteTask(menuTask.id);
+    showUndo([menuTask]);
+    setMenuTask(null);
+  };
+
+  const handleMenuDeleteCompleted = () => {
+    HapticFeedback.light();
+    showUndo(deleteCompletedTasks());
+    setMenuTask(null);
   };
 
   const handleUndoDelete = () => {
     HapticFeedback.success();
-    if (lastDeletedTask) {
-      addTask(lastDeletedTask);
-      setLastDeletedTask(null);
-      setUndoVisible(false);
-    }
+    restoreTasks(lastDeleted);
+    setLastDeleted([]);
+    setUndoVisible(false);
   };
 
-  const renderDeadlineBadge = (deadlineStr: string) => {
+  const renderDeadlineBadge = (
+    deadlineStr: string,
+    isUnallocated: boolean = false,
+    deadlineMode?: DeadlineMode
+  ) => {
     try {
       const deadline = startOfDay(parseISO(deadlineStr));
       const diff = differenceInCalendarDays(deadline, today);
+      const shortDate = formatLocaleDate(deadline, "d MMM");
+      const classPrefix = deadlineMode === "nextClass" ? "🏫 " : "";
 
       if (diff < 0) {
-        return <StatusPill variant="red" label={t("deadline_terlambat", { days: Math.abs(diff) })} />;
+        return (
+          <StatusPill
+            variant="red"
+            label={`⚠️ ${t("deadline_terlambat", { days: Math.abs(diff) })} • ${shortDate}`}
+          />
+        );
+      }
+      if (isUnallocated) {
+        return <StatusPill variant="red" label={`⚠️ ${t("tidak_muat") || "Tidak Muat"} • ${shortDate}`} />;
       }
       if (diff === 0) {
-        return <StatusPill variant="amber" label={t("deadline_hari_ini") || "Hari Ini"} />;
+        return <StatusPill variant="amber" label={`🔥 ${t("deadline_hari_ini") || "Hari Ini"}`} />;
       }
       if (diff === 1) {
-        return <StatusPill variant="blue" label={t("deadline_besok") || "Besok"} />;
+        return (
+          <StatusPill
+            variant="blue"
+            label={`${classPrefix}${t("deadline_besok") || "Besok"} • ${shortDate}`}
+          />
+        );
       }
       if (diff <= 3) {
-        return <StatusPill variant="blue" label={t("deadline_hari_lagi", { days: diff })} />;
+        return (
+          <StatusPill
+            variant="blue"
+            label={`${classPrefix}${t("deadline_hari_lagi", { days: diff })} • ${shortDate}`}
+          />
+        );
       }
-      return <StatusPill variant="gray" label={formatLocaleDate(deadline, "d MMM")} />;
+      return <StatusPill variant="gray" label={`${classPrefix}${shortDate} (${diff}h)`} />;
     } catch {
       return <StatusPill variant="gray" label={deadlineStr} />;
     }
@@ -251,6 +354,7 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
     const nextBlock = getNextBlockForTask(task.id, studyBlocks, todayStr);
     const blockTimeStr = formatNextBlockTime(nextBlock, todayStr);
     const isUnallocated = unallocatedIds.includes(task.id);
+    const taskTypeLabel = t(task.type as any) || "PR";
 
     return (
       <Card
@@ -258,7 +362,13 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         style={[styles.taskCard, isCompleted && styles.completedCard]}
         accentColor={isCompleted ? colors.borderLight : subColor}
       >
-        <View style={styles.taskCardBody}>
+        <Pressable
+          style={styles.taskCardBody}
+          onPress={() => handleOpenMenu(task)}
+          onLongPress={() => handleOpenMenu(task)}
+          delayLongPress={400}
+          accessibilityHint={t("task_menu_hint")}
+        >
           <View style={styles.taskTopRow}>
             {/* Completion Checkbox */}
             <Pressable
@@ -272,11 +382,10 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               </View>
             </Pressable>
 
-            {/* Subject and Deadline */}
+            {/* Subject and Task Type */}
             <View style={styles.subjectRow}>
-              <View style={[styles.subjectDot, { backgroundColor: subColor }]} />
               <Text style={styles.subjectNameText} numberOfLines={1}>
-                {sub?.name || sub?.title || "Umum"}
+                {sub?.name || sub?.title || "Umum"} • {taskTypeLabel}
               </Text>
             </View>
 
@@ -284,8 +393,17 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               {isCompleted ? (
                 <StatusPill variant="green" label={t("tab_selesai") || "Selesai"} />
               ) : (
-                renderDeadlineBadge(task.deadlineDate)
+                renderDeadlineBadge(task.deadlineDate, isUnallocated, task.deadlineMode)
               )}
+              <Pressable
+                style={styles.taskMenuBtn}
+                onPress={() => handleOpenMenu(task)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t("opsi_lainnya") || "Opsi tugas"}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color={colors.textSecondary} />
+              </Pressable>
             </View>
           </View>
 
@@ -309,18 +427,30 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
             <View style={styles.taskFooterLeft}>
               {blockTimeStr ? (
                 <View style={styles.blockBadge}>
-                  <Ionicons name="time-outline" size={13} color={colors.primary} />
+                  <Ionicons name="calendar-outline" size={13} color={colors.primary} />
                   <Text style={styles.blockBadgeText}>{blockTimeStr}</Text>
                 </View>
-              ) : isUnallocated ? (
-                <StatusPill variant="red" label="Jadwal Penuh" />
               ) : (
                 <View style={styles.durationBadge}>
                   <Ionicons name="hourglass-outline" size={12} color={colors.textSecondary} />
                   <Text style={styles.durationBadgeText}>
-                    {task.estimatedMinutes || 30} mnt
+                    {task.estimatedMinutes || 30} {t("menit_singkat") || "mnt"}
                   </Text>
                 </View>
+              )}
+
+              {!blockTimeStr && !isCompleted && (
+                <Pressable
+                  style={styles.quickScheduleChip}
+                  onPress={() => {
+                    HapticFeedback.light();
+                    setCreateScheduleVisible(true);
+                  }}
+                  hitSlop={6}
+                >
+                  <Ionicons name="sparkles-outline" size={11} color={colors.primary} />
+                  <Text style={styles.quickScheduleChipText}>Jadwalkan</Text>
+                </Pressable>
               )}
             </View>
 
@@ -331,25 +461,15 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
                   style={styles.focusActionBtn}
                   onPress={() => onStartFocusForTask(task)}
                   hitSlop={touchTarget.min / 4}
-                  accessibilityLabel="Mulai fokus tugas ini"
+                  accessibilityLabel={t("fokus_tugas")}
                 >
-                  <Ionicons name="play" size={13} color={colors.primary} />
-                  <Text style={styles.focusActionText}>Mulai Fokus</Text>
+                  <Ionicons name="play-outline" size={13} color={colors.textSecondary} />
+                  <Text style={styles.focusActionText}>{t("fokus_tugas") || "Fokus"}</Text>
                 </Pressable>
               )}
-
-              {/* Delete button */}
-              <Pressable
-                style={styles.deleteBtn}
-                onPress={() => handleDeleteWithUndo(task)}
-                hitSlop={touchTarget.min / 4}
-                accessibilityLabel="Hapus tugas"
-              >
-                <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
-              </Pressable>
             </View>
           </View>
-        </View>
+        </Pressable>
       </Card>
     );
   };
@@ -359,24 +479,41 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
       {/* ─── Screen Header ─── */}
       <ScreenHeader
         title={t("tabTasks") || "Tugas"}
-        streakText={streakState.currentStreak > 0 ? `${streakState.currentStreak} hari` : undefined}
+        streakText={t("streak_days_badge", { count: streakState?.currentStreak || 0 })}
+        isStreakAtRisk={streakState?.isAtRisk}
+        onStreakPress={onOpenStreak}
         onBack={onBack}
         actions={[
           {
-            icon: "add",
-            onPress: () => setAddTaskVisible(true),
-            accessibilityLabel: "Tambah Tugas Baru",
+            icon: "sparkles-outline",
+            onPress: () => {
+              HapticFeedback.light();
+              setCreateScheduleVisible(true);
+            },
+            badge:
+              unscheduled.length + unallocated.length > 0
+                ? unscheduled.length + unallocated.length
+                : undefined,
+            accessibilityLabel: t("buat_jadwal_title") || "Susun Jadwal Belajar",
           },
+          ...(onOpenSettings
+            ? [
+                {
+                  icon: "settings-outline" as const,
+                  onPress: () => {
+                    HapticFeedback.light();
+                    onOpenSettings();
+                  },
+                  accessibilityLabel: t("settings") || "Pengaturan",
+                },
+              ]
+            : []),
         ]}
       />
 
       {/* ─── O3 Space Segmented Filter Pills ─── */}
       <View style={styles.filterPillsContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterPillsScroll}
-        >
+        <View style={styles.filterPillsScroll}>
           {/* Semua */}
           <Pressable
             style={[styles.filterPill, activeFilter === "all" && styles.filterPillActive]}
@@ -386,14 +523,12 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               setActiveFilter("all");
             }}
           >
-            <Text style={[styles.filterPillText, activeFilter === "all" && styles.filterPillTextActive]}>
+            <Text numberOfLines={1} style={[styles.filterPillText, activeFilter === "all" && styles.filterPillTextActive]}>
               {t("tab_semua") || "Semua"}
             </Text>
-            <View style={[styles.filterPillBadge, activeFilter === "all" && styles.filterPillBadgeActive]}>
-              <Text style={[styles.filterPillBadgeText, activeFilter === "all" && styles.filterPillBadgeTextActive]}>
-                {tasks.length}
-              </Text>
-            </View>
+            <Text style={[styles.filterPillBadgeText, activeFilter === "all" && styles.filterPillBadgeTextActive]}>
+              {tasks.length}
+            </Text>
           </Pressable>
 
           {/* Terjadwal */}
@@ -405,14 +540,12 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               setActiveFilter("scheduled");
             }}
           >
-            <Text style={[styles.filterPillText, activeFilter === "scheduled" && styles.filterPillTextActive]}>
+            <Text numberOfLines={1} style={[styles.filterPillText, activeFilter === "scheduled" && styles.filterPillTextActive]}>
               {t("tab_terjadwal") || "Terjadwal"}
             </Text>
-            <View style={[styles.filterPillBadge, activeFilter === "scheduled" && styles.filterPillBadgeActive]}>
-              <Text style={[styles.filterPillBadgeText, activeFilter === "scheduled" && styles.filterPillBadgeTextActive]}>
-                {scheduled.length}
-              </Text>
-            </View>
+            <Text style={[styles.filterPillBadgeText, activeFilter === "scheduled" && styles.filterPillBadgeTextActive]}>
+              {scheduled.length}
+            </Text>
           </Pressable>
 
           {/* Belum Dijadwalkan */}
@@ -424,14 +557,12 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               setActiveFilter("unscheduled");
             }}
           >
-            <Text style={[styles.filterPillText, activeFilter === "unscheduled" && styles.filterPillTextActive]}>
-              {t("tab_belum_dijadwalkan") || "Belum Dijadwalkan"}
+            <Text numberOfLines={1} style={[styles.filterPillText, activeFilter === "unscheduled" && styles.filterPillTextActive]}>
+              {t("tab_belum_dijadwalkan") || "Belum"}
             </Text>
-            <View style={[styles.filterPillBadge, activeFilter === "unscheduled" && styles.filterPillBadgeActive]}>
-              <Text style={[styles.filterPillBadgeText, activeFilter === "unscheduled" && styles.filterPillBadgeTextActive]}>
-                {unscheduled.length + unallocated.length}
-              </Text>
-            </View>
+            <Text style={[styles.filterPillBadgeText, activeFilter === "unscheduled" && styles.filterPillBadgeTextActive]}>
+              {unscheduled.length + unallocated.length}
+            </Text>
           </Pressable>
 
           {/* Selesai */}
@@ -443,16 +574,14 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               setActiveFilter("completed");
             }}
           >
-            <Text style={[styles.filterPillText, activeFilter === "completed" && styles.filterPillTextActive]}>
+            <Text numberOfLines={1} style={[styles.filterPillText, activeFilter === "completed" && styles.filterPillTextActive]}>
               {t("tab_selesai") || "Selesai"}
             </Text>
-            <View style={[styles.filterPillBadge, activeFilter === "completed" && styles.filterPillBadgeActive]}>
-              <Text style={[styles.filterPillBadgeText, activeFilter === "completed" && styles.filterPillBadgeTextActive]}>
-                {completed.length}
-              </Text>
-            </View>
+            <Text style={[styles.filterPillBadgeText, activeFilter === "completed" && styles.filterPillBadgeTextActive]}>
+              {completed.length}
+            </Text>
           </Pressable>
-        </ScrollView>
+        </View>
       </View>
 
       <ScrollView
@@ -460,21 +589,42 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Smart AI Scheduler Action Banner ─── */}
-        {needsSchedule && activeFilter !== "completed" && (
-          <View style={styles.bannerContainer}>
-            <Banner
-              icon="sparkles"
-              text={
-                unallocated.length > 0
-                  ? "Beberapa tugas tidak muat dalam waktu luang belajarmu."
-                  : `Ada ${unscheduled.length} tugas yang belum dialokasikan ke jadwal.`
-              }
-              buttonText={t("susun_jadwal_sekarang") || "✨ Susun Jadwal"}
-              variant="action"
-              onPress={() => setCreateScheduleVisible(true)}
-              style={styles.banner}
-            />
+        {/* ─── Penjadwalan Tugas Banner (Restored & Upgraded) ─── */}
+        {tasks.length > 0 && needsSchedule && (
+          <View style={styles.scheduleBanner}>
+            <View style={styles.scheduleBannerLeft}>
+              <View style={styles.scheduleBannerIconWrap}>
+                <Ionicons
+                  name={unallocated.length > 0 ? "warning-outline" : "sparkles"}
+                  size={18}
+                  color={unallocated.length > 0 ? colors.warning : colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scheduleBannerTitle}>
+                  {unallocated.length > 0
+                    ? `${unallocated.length} tugas bentrok dengan tenggat`
+                    : `${unscheduled.length} tugas belum punya blok belajar`}
+                </Text>
+                <Text style={styles.scheduleBannerSub}>
+                  {unallocated.length > 0
+                    ? "Periksa dan sesuaikan tenggat atau susun ulang jadwal otomatis."
+                    : "Susun jadwal otomatis agar semua PR selesai sebelum tenggat."}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              style={styles.scheduleBannerBtn}
+              onPress={() => {
+                HapticFeedback.medium();
+                setCreateScheduleVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Susun Jadwal Otomatis"
+            >
+              <Ionicons name="sparkles" size={14} color={colors.textInverse} />
+              <Text style={styles.scheduleBannerBtnText}>Susun Jadwal</Text>
+            </Pressable>
           </View>
         )}
 
@@ -508,6 +658,34 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
               subMessage="Pilih kategori filter lain atau tambah tugas baru."
             />
           </View>
+        ) : activeFilter === "all" ? (
+          <View style={styles.taskListContainer}>
+            {[...scheduled, ...unscheduled, ...unallocated].map((task) => renderTaskCard(task))}
+            {completed.length > 0 && (
+              <View>
+                <Pressable
+                  style={styles.completedSectionHeader}
+                  onPress={() => {
+                    HapticFeedback.light();
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setCompletedExpanded((prev) => !prev);
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Ionicons
+                    name={completedExpanded ? "chevron-down" : "chevron-forward"}
+                    size={15}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.completedSectionTitle}>
+                    {t("tasks_done_section", { count: completed.length })}
+                  </Text>
+                </Pressable>
+                {completedExpanded &&
+                  completed.map((task) => renderTaskCard(task))}
+              </View>
+            )}
+          </View>
         ) : (
           <View style={styles.taskListContainer}>
             {displayTasks.map((task) => renderTaskCard(task))}
@@ -526,10 +704,136 @@ export function TasksScreen({ onBack, onOpenSettings, onStartFocusForTask }: Tas
         onClose={() => setAddTaskVisible(false)}
       />
 
+      {/* ─── Long-Press / Tap Task Detail & Deadline Editor Sheet ─── */}
+      <BottomSheet
+        visible={menuTask !== null}
+        onClose={() => setMenuTask(null)}
+        title={menuTask?.title || ""}
+        subtitle={menuTask ? subjectsMap.get(menuTask.subjectId)?.name || "Umum" : undefined}
+      >
+        {menuTask && (
+          <View style={styles.menuList}>
+            {/* Rich 14-Day Calendar & Smart Presets Deadline Picker */}
+            <View style={{ paddingHorizontal: spacing.xs, paddingBottom: spacing.sm }}>
+              <Text style={styles.menuSectionLabel}>Tenggat Waktu (Deadline)</Text>
+              <DeadlinePickerStrip
+                selectedDate={menuTask.deadlineDate || todayStr}
+                deadlineMode={menuTask.deadlineMode || "custom"}
+                subjectId={menuTask.subjectId}
+                subjectName={subjectsMap.get(menuTask.subjectId)?.name}
+                subjectColor={subjectsMap.get(menuTask.subjectId)?.color}
+                timetableEntries={timetableEntries}
+                daysOff={daysOff}
+                overrides={overrides}
+                todayStr={todayStr}
+                compact
+                onSelectDeadline={(dateStr, mode) => {
+                  updateTask(menuTask.id, { deadlineDate: dateStr, deadlineMode: mode });
+                  setMenuTask({ ...menuTask, deadlineDate: dateStr, deadlineMode: mode });
+                }}
+              />
+            </View>
+
+            {/* Duration Presets Editor */}
+            <View style={{ paddingHorizontal: spacing.xs, paddingBottom: spacing.sm }}>
+              <Text style={styles.menuSectionLabel}>Estimasi Durasi Belajar</Text>
+              <View style={styles.durationChipRow}>
+                {[15, 30, 45, 60, 90].map((mins) => {
+                  const isSelected = (menuTask.estimatedMinutes || 30) === mins;
+                  return (
+                    <Pressable
+                      key={mins}
+                      onPress={() => {
+                        HapticFeedback.light();
+                        updateTask(menuTask.id, { estimatedMinutes: mins });
+                        setMenuTask({ ...menuTask, estimatedMinutes: mins });
+                      }}
+                      style={[
+                        styles.durationEditChip,
+                        isSelected && styles.durationEditChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.durationEditChipText,
+                          isSelected && styles.durationEditChipTextActive,
+                        ]}
+                      >
+                        {mins} mnt
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 1-Tap Auto-Schedule Study Block for This Task */}
+            {menuTask.status !== "COMPLETED" && (
+              <Pressable
+                style={styles.menuRowHighlight}
+                onPress={() => {
+                  HapticFeedback.medium();
+                  const pendingTasks = tasks.filter((t) => t.status === "PENDING");
+                  const result = buildSchedule({
+                    tasks: pendingTasks,
+                    busyBlocks,
+                    prefs: schedulePrefs,
+                    referenceDate: todayStr,
+                  });
+                  if (result.blocks.length > 0) {
+                    applySchedule(result.blocks);
+                  }
+                  setMenuTask(null);
+                }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="sparkles" size={18} color={colors.primary} />
+                <Text style={[styles.menuRowText, { color: colors.primary }]}>
+                  Jadwalkan Blok Belajar Otomatis
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable style={styles.menuRow} onPress={handleMenuToggle} accessibilityRole="button">
+              <Ionicons
+                name={menuTask.status === "COMPLETED" ? "arrow-undo-outline" : "checkmark-circle-outline"}
+                size={20}
+                color={colors.text}
+              />
+              <Text style={styles.menuRowText}>
+                {menuTask.status === "COMPLETED" ? t("task_menu_mark_undone") : t("task_menu_mark_done")}
+              </Text>
+            </Pressable>
+            {menuTask.status !== "COMPLETED" && onStartFocusForTask && (
+              <Pressable style={styles.menuRow} onPress={handleMenuFocus} accessibilityRole="button">
+                <Ionicons name="play-outline" size={20} color={colors.text} />
+                <Text style={styles.menuRowText}>{t("fokus_tugas")}</Text>
+              </Pressable>
+            )}
+            <Pressable style={styles.menuRow} onPress={handleMenuDelete} accessibilityRole="button">
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text style={[styles.menuRowText, styles.menuRowDanger]}>{t("task_menu_delete")}</Text>
+            </Pressable>
+            {completed.length > 0 && (
+              <Pressable style={styles.menuRow} onPress={handleMenuDeleteCompleted} accessibilityRole="button">
+                <Ionicons name="checkmark-done-outline" size={20} color={colors.danger} />
+                <Text style={[styles.menuRowText, styles.menuRowDanger]}>
+                  {t("task_menu_delete_completed", { count: completed.length })}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+      </BottomSheet>
+
       {/* ─── Undo Deletion Snackbar ─── */}
       <Snackbar
         visible={undoVisible}
-        message={t("tugas_dihapus") || "Tugas dihapus"}
+        message={
+          lastDeleted.length > 1
+            ? t("tasks_deleted_count", { count: lastDeleted.length })
+            : t("tugas_dihapus") || "Tugas dihapus"
+        }
         actionLabel={t("urungkan") || "Urungkan"}
         onActionPress={handleUndoDelete}
         onDismiss={() => setUndoVisible(false)}
@@ -551,26 +855,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   filterPillsScroll: {
+    flexDirection: "row",
     paddingHorizontal: tidySpacing.screen,
-    gap: spacing.sm,
+    gap: 6,
   },
   filterPill: {
-    flexDirection: "row",
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "column",
     alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: radius.full,
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRadius: radius.md,
     backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    gap: 6,
+    gap: 1,
   },
   filterPillActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   filterPillText: {
-    fontSize: typography.fontSizes.body,
+    fontSize: 12,
     fontWeight: typography.fontWeights.medium,
     color: colors.textSecondary,
   },
@@ -579,7 +887,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeights.bold,
   },
   filterPillBadge: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: radius.full,
     backgroundColor: colors.surface,
@@ -588,12 +896,25 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.25)",
   },
   filterPillBadgeText: {
-    fontSize: typography.fontSizes.caption,
+    fontSize: 11,
     fontWeight: typography.fontWeights.bold,
-    color: colors.textSecondary,
+    color: colors.textMuted,
   },
   filterPillBadgeTextActive: {
     color: colors.textInverse,
+  },
+  completedSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  completedSectionTitle: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -602,12 +923,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: tidySpacing.screen,
     paddingTop: spacing.md,
     paddingBottom: spacing.xxl * 2,
-  },
-  bannerContainer: {
-    marginBottom: spacing.md,
-  },
-  banner: {
-    marginBottom: 0,
   },
   taskListContainer: {
     gap: spacing.sm,
@@ -639,7 +954,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 6,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
@@ -653,14 +968,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-  },
-  subjectDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    minWidth: 0,
+    marginRight: spacing.xs,
   },
   subjectNameText: {
+    flexShrink: 1,
     fontSize: typography.fontSizes.caption,
     color: colors.textSecondary,
     fontWeight: typography.fontWeights.medium,
@@ -668,6 +980,15 @@ const styles = StyleSheet.create({
   topRightPills: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
+  },
+  taskMenuBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   taskTitleText: {
     fontSize: typography.fontSizes.body,
@@ -736,7 +1057,9 @@ const styles = StyleSheet.create({
   focusActionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: radius.sm,
@@ -744,11 +1067,140 @@ const styles = StyleSheet.create({
   },
   focusActionText: {
     fontSize: typography.fontSizes.caption,
-    color: colors.primary,
-    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeights.semibold,
   },
-  deleteBtn: {
-    padding: 6,
+  lateText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.danger,
+  },
+  menuList: {
+    gap: spacing.xs,
+  },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    minHeight: touchTarget.min,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+  },
+  menuRowText: {
+    fontSize: typography.fontSizes.body,
+    fontWeight: typography.fontWeights.semibold,
+    color: colors.text,
+  },
+  menuRowDanger: {
+    color: colors.danger,
+  },
+  menuRowHighlight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    minHeight: touchTarget.min,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    marginBottom: 4,
+  },
+  menuSectionLabel: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  durationChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  durationEditChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surfaceSubtle,
+  },
+  durationEditChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  durationEditChipText: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.medium,
+    color: colors.textSecondary,
+  },
+  durationEditChipTextActive: {
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
+  },
+  scheduleBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  scheduleBannerLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  scheduleBannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scheduleBannerTitle: {
+    fontSize: typography.fontSizes.caption,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.text,
+  },
+  scheduleBannerSub: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  scheduleBannerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.full,
+    gap: 4,
+  },
+  scheduleBannerBtnText: {
+    fontSize: 12,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.textInverse,
+  },
+  quickScheduleChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+    gap: 3,
+  },
+  quickScheduleChipText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeights.bold,
+    color: colors.primary,
   },
   emptyContainer: {
     paddingTop: spacing.xxl,

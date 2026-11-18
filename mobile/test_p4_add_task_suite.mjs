@@ -150,6 +150,34 @@ test("detects 'minggu depan' and suggests +7 calendar days", () => {
   assert.strictEqual(hint.matchedPhrase, "minggu depan");
 });
 
+test("detects 'hari ini' and 'malam ini' as same day (+0d)", () => {
+  const hint = parseIndonesianDateHint("PR Kimia dikumpul hari ini", "2026-11-02");
+  assert.ok(hint);
+  assert.strictEqual(hint.suggestedDate, "2026-11-02");
+});
+
+test("detects standalone weekday without 'hari' prefix and prioritizes 'dikumpul' clause", () => {
+  // 2026-11-02 is Monday -> Kamis is 2026-11-05
+  const hint1 = parseIndonesianDateHint("PR Matematika dikumpul Kamis", "2026-11-02");
+  assert.ok(hint1);
+  assert.strictEqual(hint1.suggestedDate, "2026-11-05");
+
+  // Prioritizes 'dikumpul hari Jumat' over leading 'Besok'
+  const hint2 = parseIndonesianDateHint("Besok PR Matematika hal 45 dikumpul hari Jumat", "2026-11-02");
+  assert.ok(hint2);
+  assert.strictEqual(hint2.suggestedDate, "2026-11-06");
+});
+
+test("detects 'N hari lagi' and 'DD Month' without 'tgl' prefix", () => {
+  const hintRel = parseIndonesianDateHint("Tugas Sejarah 3 hari lagi", "2026-11-02");
+  assert.ok(hintRel);
+  assert.strictEqual(hintRel.suggestedDate, "2026-11-05");
+
+  const hintMonth = parseIndonesianDateHint("Makalah Biologi 12 November", "2026-11-02");
+  assert.ok(hintMonth);
+  assert.strictEqual(hintMonth.suggestedDate, "2026-11-12");
+});
+
 test("returns null when no date keywords are in the text", () => {
   const hint = parseIndonesianDateHint("Latihan soal matriks tanpa tenggat", "2026-10-30");
   assert.strictEqual(hint, null);

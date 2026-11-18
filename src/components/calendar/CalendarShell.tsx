@@ -108,13 +108,20 @@ export function CalendarShell({
   if (!isMounted) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-border/30 px-6 py-3">
-          <div className="h-8 w-48 rounded-lg bg-muted/30 animate-pulse" />
-          <div className="h-8 w-24 rounded-lg bg-muted/30 animate-pulse" />
+        <div className="flex items-center justify-between border-b border-border px-6 py-3">
+          <div className="h-8 w-48 skeleton" />
+          <div className="flex gap-2">
+            <div className="h-8 w-20 skeleton" />
+            <div className="h-8 w-16 skeleton" />
+          </div>
         </div>
-        <div className="flex-1 p-6 space-y-4">
-          <div className="h-16 rounded-xl bg-muted/20 animate-pulse" />
-          <div className="h-64 rounded-xl bg-muted/15 animate-pulse" />
+        <div className="flex-1 p-6 space-y-3">
+          <div className="h-16 skeleton" />
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <div key={i} className="h-48 skeleton" />
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -128,14 +135,14 @@ export function CalendarShell({
     >
       <div className="flex h-full flex-col bg-background">
         {/* ─── Unified Clean Toolbar ─── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/30 bg-card/25 backdrop-blur-md px-4 sm:px-6 py-2.5 select-none">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/40 px-4 sm:px-6 py-2.5 select-none">
           {/* Left: Navigation and Date */}
           <div className="flex items-center gap-2 sm:gap-3">
             <h1 suppressHydrationWarning className="text-sm sm:text-base font-semibold tracking-tight text-foreground mr-1">
               {dateLabel}
             </h1>
 
-            <div className="flex items-center rounded-lg border border-border/40 bg-muted/20 p-0.5">
+            <div className="flex items-center rounded-lg border border-border bg-muted/20 p-0.5">
               <Button
                 variant="ghost"
                 size="icon"
@@ -160,7 +167,7 @@ export function CalendarShell({
               variant="outline"
               size="sm"
               onClick={goToToday}
-              className="h-8 rounded-lg px-2.5 text-xs font-medium border-border/40 hover:bg-muted/30"
+              className="h-8 rounded-lg px-2.5 text-xs font-medium border-border hover:bg-muted"
             >
               Today
             </Button>
@@ -172,7 +179,7 @@ export function CalendarShell({
               value={viewMode}
               onValueChange={(v) => setViewMode(v as "day" | "week")}
             >
-              <TabsList className="h-8 rounded-lg bg-muted/30 p-0.5 border border-border/30">
+              <TabsList className="h-8 rounded-lg bg-muted/40 p-0.5 border border-border">
                 <TabsTrigger value="day" className="h-7 rounded-md px-3 text-xs font-medium">
                   Day
                 </TabsTrigger>
@@ -182,18 +189,18 @@ export function CalendarShell({
               </TabsList>
             </Tabs>
 
-            <div className="h-4 w-[1px] bg-border/40 mx-1 hidden sm:block" />
+            <div className="h-4 w-[1px] bg-border mx-1 hidden sm:block" />
 
             {/* AI Photo Scan Action */}
             {onOpenAIPhoto && (
               <Button
                 size="sm"
                 onClick={onOpenAIPhoto}
-                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm hover:from-violet-500 hover:to-indigo-500 border border-violet-400/20 transition-all"
-                title="Scan syllabus, timetable, or notes with AI"
+                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-150"
+                title="Scan syllabus with AI"
               >
                 <Camera className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">AI Photo Scan</span>
+                <span className="hidden sm:inline">Scan Photo</span>
               </Button>
             )}
 
@@ -203,11 +210,11 @@ export function CalendarShell({
                 size="sm"
                 variant="outline"
                 onClick={onOpenAICopilot}
-                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium border-border/40 hover:bg-muted/30"
-                title="AI Schedule Copilot & Rebalancer"
+                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-medium border-border hover:bg-muted"
+                title="AI Schedule Assistant"
               >
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                <span className="hidden lg:inline">AI Copilot</span>
+                <span className="hidden lg:inline">AI Assist</span>
               </Button>
             )}
 
@@ -216,10 +223,10 @@ export function CalendarShell({
               <Button
                 size="sm"
                 onClick={onOpenSchedule}
-                className="h-8 gap-1.5 rounded-lg px-3 text-xs font-medium shadow-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                className="h-8 gap-1.5 rounded-lg px-3 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Schedule
+                + Session
               </Button>
             )}
 
@@ -229,7 +236,7 @@ export function CalendarShell({
                 size="sm"
                 variant="outline"
                 onClick={onAutoReschedule}
-                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs border-border/40 hover:bg-muted/30"
+                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs border-border hover:bg-muted"
               >
                 <Sparkles className="h-3.5 w-3.5 text-amber-300" />
                 <span className="hidden md:inline">Auto-Schedule</span>
@@ -242,7 +249,7 @@ export function CalendarShell({
                 size="sm"
                 variant="ghost"
                 onClick={onResetSchedule}
-                title="Reset baseline schedule"
+                title="Reset schedule"
                 className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -256,7 +263,7 @@ export function CalendarShell({
                 size="sm"
                 variant="ghost"
                 onClick={onClearSchedule}
-                title="Clear calendar blocks"
+                title="Clear all sessions"
                 className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="h-3.5 w-3.5" />

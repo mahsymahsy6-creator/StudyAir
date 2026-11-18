@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
+import { AppState, AppStateStatus, Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import {
@@ -33,12 +34,25 @@ import { INITIAL_SUBJECTS, INITIAL_STUDY_UNITS, INITIAL_BLOCKS } from "./mockDat
 import { getNextReviewDate } from "./engine/sm2";
 import { analyzeCognitiveLoad } from "./engine/cognitive-load";
 import { format, parseISO, addDays, subDays, isBefore } from "date-fns";
-import { recalculateDynamicTaskDeadlines } from "./engine/deadlineEngine";
+import { calculateNextClassDeadline, recalculateDynamicTaskDeadlines } from "./engine/deadlineEngine";
+import { parseIndonesianDateHint } from "./engine/dateHintParser";
 import { setLanguage } from "./lib/i18n";
-import { applyTheme } from "./theme";
+import { applyTheme, getActiveTheme, THEMES, THEME_FAST_CACHE_KEY } from "./theme";
 import { getSecureGeminiKey, setSecureGeminiKey } from "./services/secureStoreService";
-import { calculateStreak, StreakState, StreakMilestone } from "./lib/studyStreakEngine";
+import {
+  calculateStreak,
+  StreakState,
+  StreakMilestone,
+  MAX_STREAK_FREEZES,
+  evaluate3DayStreakFreezeAward,
+  evaluateDailyLuckyFreezeDrop,
+  autoProtectMissedYesterday,
+  deriveStudyDay,
+} from "./lib/studyStreakEngine";
+import { soundFX } from "./lib/sound";
+import { HapticFeedback } from "./lib/haptics";
 import { createExamStudyPlan } from "./lib/examEngine";
+import { ensureStandardSubjects } from "./lib/subjectDictionary";
 import {
   scheduleEveningPreviewNotification,
   scheduleMorningAlertNotification,
@@ -48,6 +62,7 @@ import {
   initDatabase,
   loadAllData,
   saveStateImmediately,
+  saveAppSettings,
   exportBackupJSON,
   importBackupJSON,
   DatabaseState,
@@ -142,6 +157,8 @@ interface MobileStudyContextType {
   addTask: (data: Omit<Task, "id" | "status" | "completedAt">) => Task;
   updateTask: (id: string, data: Partial<Task>) => void;
   deleteTask: (id: string) => void;
+  deleteCompletedTasks: () => Task[];
+  restoreTasks: (tasks: Task[]) => void;
   toggleTaskCompletion: (id: string) => void;
 
   // Actions - v2 Study Blocks & Schedule Prefs
@@ -229,6 +246,9 @@ interface MobileStudyContextType {
   simulateStreakDays: (days: number) => void;
   addMockStudyToday: (minutes?: number) => void;
   clearTodayStudySessions: () => void;
+  useStreakFreezeToday: () => boolean;
+  useStreakFreezeForDate: (dateStr: string) => boolean;
+  addStreakFreeze: (delta?: number) => void;
 
   // School Planner: Grades & Teachers
   grades: Grade[];
@@ -248,7 +268,12 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   const [geminiApiKey, setGeminiApiKey] = useState<string>(
     process.env.EXPO_PUBLIC_GEMINI_API_KEY || ""
   );
-  const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => ({
+    ...DEFAULT_APP_SETTINGS,
+    theme: getActiveTheme().id,
+  }));
+  const appSettingsRef = useRef<AppSettings>(appSettings);
+  appSettingsRef.current = appSettings;
   const [subjects, setSubjects] = useState<Subject[]>(INITIAL_SUBJECTS);
   const [periodTimes, setPeriodTimes] = useState<PeriodTime[]>(DEFAULT_PERIOD_TIMES);
   const [timetableEntries, setTimetableEntries] = useState<TimetableEntry[]>([]);
@@ -277,9 +302,23 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
+        // Fast-path theme load before heavy SQLite 14-table initialization
+        try {
+          const fastTheme = await AsyncStorage.getItem(THEME_FAST_CACHE_KEY);
+          if (fastTheme && fastTheme in THEMES) {
+            const validTheme = fastTheme as AppSettings["theme"];
+            applyTheme(validTheme);
+            setAppSettings((prev) =>
+              prev.theme === validTheme ? prev : { ...prev, theme: validTheme }
+            );
+          }
+        } catch {
+          // ignore fast theme read error
+        }
+
         const loaded = await loadAllData();
         if (loaded) {
-          if (loaded.subjects) setSubjects(loaded.subjects);
+          if (loaded.subjects) setSubjects(ensureStandardSubjects(loaded.subjects));
           if (loaded.periodTimes && loaded.periodTimes.length > 0) {
             setPeriodTimes(loaded.periodTimes);
           }
@@ -297,14 +336,17 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
           if (loaded.reviewHistory) setReviewHistory(loaded.reviewHistory);
           if (loaded.dailyStats) setDailyStats(loaded.dailyStats);
           if (loaded.dismissedWarningIds) setDismissedWarningIds(loaded.dismissedWarningIds);
-          if (loaded.geminiApiKey) setGeminiApiKey(loaded.geminiApiKey);
           if (loaded.appSettings) {
-            setAppSettings(loaded.appSettings);
+            setAppSettings({
+              ...loaded.appSettings,
+              developerModeEnabled: false, // Mode Pengembang is ALWAYS hidden by default on normal app launch
+            });
             if (loaded.appSettings.language) {
               setLanguage(loaded.appSettings.language);
             }
             if (loaded.appSettings.theme) {
               applyTheme(loaded.appSettings.theme);
+              AsyncStorage.setItem(THEME_FAST_CACHE_KEY, loaded.appSettings.theme).catch(() => {});
             }
           }
         }
@@ -313,6 +355,15 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         const secureKey = await getSecureGeminiKey();
         if (secureKey) {
           setGeminiApiKey(secureKey);
+        } else if (loaded?.geminiApiKey) {
+          if (Platform.OS !== "web") {
+            const saved = await setSecureGeminiKey(loaded.geminiApiKey);
+            if (!saved) {
+              // shortcut: key lost on next launch if SecureStore write fails, add retry if users report it
+              console.error("[Store] Failed to migrate Gemini API key to SecureStore");
+            }
+          }
+          setGeminiApiKey(loaded.geminiApiKey);
         }
 
         // Load persistent exam events
@@ -335,6 +386,34 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Persist to SQLite database & mirror whenever state changes (debounced by 150ms)
+  const pendingSaveRef = useRef<DatabaseState | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPendingSave = useCallback(() => {
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const pending = pendingSaveRef.current;
+    if (pending !== null) {
+      pendingSaveRef.current = null;
+      saveStateImmediately(pending).catch((e) => console.error("[Store] save failed", e));
+    }
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState: AppStateStatus) => {
+      if (nextState === "background" || nextState === "inactive") {
+        flushPendingSave();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      flushPendingSave();
+    };
+  }, [flushPendingSave]);
+
   useEffect(() => {
     if (!isLoaded) return;
     const stateToSave: DatabaseState = {
@@ -351,17 +430,31 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       dailyStats,
       dismissedWarningIds,
       geminiApiKey,
-      appSettings,
+      appSettings: { ...appSettingsRef.current, developerModeEnabled: false },
       studyBlocks,
       schedulePrefs,
       grades,
       teachers,
     };
-    const timer = setTimeout(() => {
-      saveStateImmediately(stateToSave);
+    pendingSaveRef.current = stateToSave;
+    if (saveTimerRef.current !== null) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      const pending = pendingSaveRef.current;
+      if (pending !== null) {
+        pendingSaveRef.current = null;
+        saveStateImmediately(pending).catch((e) => console.error("[Store] save failed", e));
+      }
     }, 150);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (saveTimerRef.current !== null) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
   }, [
     isLoaded,
     subjects,
@@ -377,12 +470,27 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     dailyStats,
     dismissedWarningIds,
     geminiApiKey,
-    appSettings,
     studyBlocks,
     schedulePrefs,
     grades,
     teachers,
   ]);
+
+  // Lightweight single-table save for appSettings (avoids rewriting all 14 SQLite tables on theme/language tap)
+  useEffect(() => {
+    if (!isLoaded) return;
+    const settingsToPersist: AppSettings = {
+      ...appSettings,
+      developerModeEnabled: false, // Mode Pengembang is ALWAYS hidden by default on normal app launch
+    };
+    if (pendingSaveRef.current) {
+      pendingSaveRef.current = { ...pendingSaveRef.current, appSettings: settingsToPersist };
+    }
+    const timer = setTimeout(() => {
+      saveAppSettings(settingsToPersist).catch((e) => console.error("[Store] appSettings save failed", e));
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [isLoaded, appSettings]);
 
   // Compute enriched blocks with subject and study unit details
   const blocksWithDetails = useMemo(() => {
@@ -417,6 +525,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       countEveryDay: appSettings.streakCountEveryDay,
       minFocusMinutes: appSettings.streakMinFocusMinutes,
       savedBestStreak: appSettings.bestStreak,
+      streakFrozenDates: appSettings.streakFrozenDates,
     });
   }, [
     tasks,
@@ -428,6 +537,7 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     appSettings.streakCountEveryDay,
     appSettings.streakMinFocusMinutes,
     appSettings.bestStreak,
+    appSettings.streakFrozenDates,
   ]);
 
   const streakState: StreakState = useMemo(() => {
@@ -464,6 +574,142 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     }
   }, [streakState.activeMilestone, appSettings.lastCelebratedMilestone]);
 
+  // ─── Streak Freezing Engine Effects ───
+  // 1. Award 1 freeze every 3 days in a row (at 3, 6, 9... days)
+  useEffect(() => {
+    if (streakState.currentStreak >= 3) {
+      const award = evaluate3DayStreakFreezeAward(
+        streakState.currentStreak,
+        appSettings.last3DayStreakFreezeAwarded || 0,
+        appSettings.streakFreezeCount ?? 1
+      );
+      if (award.shouldAward) {
+        setAppSettings((prev) => ({
+          ...prev,
+          last3DayStreakFreezeAwarded: award.newAwardedStreak,
+          streakFreezeCount: award.newFreezeCount,
+        }));
+        soundFX.playFlameIgnite?.();
+        HapticFeedback.celebration?.();
+      }
+    }
+  }, [streakState.currentStreak, appSettings.last3DayStreakFreezeAwarded, appSettings.streakFreezeCount]);
+
+  // 2. Chance of getting 1 streak freeze when completing a study day (35% probability)
+  const currentTodayDateStr = format(new Date(), "yyyy-MM-dd");
+  useEffect(() => {
+    if (streakState.todayStudied) {
+      const drop = evaluateDailyLuckyFreezeDrop(
+        streakState.todayStudied,
+        appSettings.lastDailyFreezeCheckDate || "",
+        currentTodayDateStr,
+        appSettings.streakFreezeCount ?? 1
+      );
+      if (drop.newCheckDate !== appSettings.lastDailyFreezeCheckDate) {
+        setAppSettings((prev) => ({
+          ...prev,
+          lastDailyFreezeCheckDate: drop.newCheckDate,
+          streakFreezeCount: drop.newFreezeCount,
+        }));
+        if (drop.won) {
+          soundFX.playStreakMilestone?.();
+          HapticFeedback.streakSparkle?.();
+        }
+      }
+    }
+  }, [
+    streakState.todayStudied,
+    appSettings.lastDailyFreezeCheckDate,
+    appSettings.streakFreezeCount,
+    currentTodayDateStr,
+  ]);
+
+  // 3. Auto-protect missed yesterday if student has available freeze
+  useEffect(() => {
+    const yesterdayDate = subDays(new Date(), 1);
+    const yesterdayStr = format(yesterdayDate, "yyyy-MM-dd");
+    const yesterdayDay = deriveStudyDay(yesterdayStr, {
+      tasks,
+      focusLogs,
+      studyUnits,
+      studyBlocks,
+      timetableEntries,
+      daysOff,
+      countEveryDay: appSettings.streakCountEveryDay,
+      streakFrozenDates: appSettings.streakFrozenDates,
+    });
+
+    const protect = autoProtectMissedYesterday({
+      yesterdayStr,
+      yesterdayRequired: yesterdayDay.isRequiredDay,
+      yesterdayStudied: yesterdayDay.hasStudied,
+      frozenDates: appSettings.streakFrozenDates || [],
+      freezeCount: appSettings.streakFreezeCount ?? 1,
+    });
+
+    if (protect.consumed) {
+      setAppSettings((prev) => ({
+        ...prev,
+        streakFrozenDates: protect.newFrozenDates,
+        streakFreezeCount: protect.newFreezeCount,
+      }));
+      soundFX.playFlameIgnite?.();
+    }
+  }, [
+    tasks,
+    focusLogs,
+    studyUnits,
+    studyBlocks,
+    timetableEntries,
+    daysOff,
+    appSettings.streakCountEveryDay,
+    appSettings.streakFrozenDates,
+    appSettings.streakFreezeCount,
+  ]);
+
+  const useStreakFreezeToday = (): boolean => {
+    const todayDateStr = format(new Date(), "yyyy-MM-dd");
+    const currentCount = appSettings.streakFreezeCount ?? 1;
+    const existingFrozen = appSettings.streakFrozenDates || [];
+    if (currentCount <= 0 || existingFrozen.includes(todayDateStr)) {
+      return false;
+    }
+    setAppSettings((prev) => ({
+      ...prev,
+      streakFreezeCount: Math.max(0, currentCount - 1),
+      streakFrozenDates: [...existingFrozen, todayDateStr],
+    }));
+    soundFX.playFlameIgnite?.();
+    HapticFeedback.streakSparkle?.();
+    return true;
+  };
+
+  const useStreakFreezeForDate = (dateStr: string): boolean => {
+    const currentCount = appSettings.streakFreezeCount ?? 1;
+    const existingFrozen = appSettings.streakFrozenDates || [];
+    if (currentCount <= 0 || existingFrozen.includes(dateStr)) {
+      return false;
+    }
+    setAppSettings((prev) => ({
+      ...prev,
+      streakFreezeCount: Math.max(0, currentCount - 1),
+      streakFrozenDates: [...existingFrozen, dateStr],
+    }));
+    soundFX.playFlameIgnite?.();
+    HapticFeedback.streakSparkle?.();
+    return true;
+  };
+
+  const addStreakFreeze = (delta: number = 1) => {
+    setAppSettings((prev) => ({
+      ...prev,
+      streakFreezeCount: Math.min(
+        MAX_STREAK_FREEZES,
+        Math.max(0, (prev.streakFreezeCount ?? 1) + delta)
+      ),
+    }));
+  };
+
   const triggerCelebration = (milestone: StreakMilestone) => {
     setActiveCelebrationMilestone(milestone);
   };
@@ -479,6 +725,8 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       ...prev,
       bestStreak: 0,
       lastCelebratedMilestone: 0,
+      streakFrozenDates: [],
+      last3DayStreakFreezeAwarded: 0,
     }));
   };
 
@@ -801,6 +1049,19 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     return recalculateDeadlinesInternal(tasks, daysOff, overrides);
   };
 
+  // Automatically keep dynamic task deadlines ('nextClass' / 'afterNClasses') in sync whenever timetable/holidays change
+  useEffect(() => {
+    if (!isLoaded) return;
+    setTasks((prev) => {
+      const { updatedTasks, changedCount } = recalculateDynamicTaskDeadlines(
+        prev,
+        timetableEntries,
+        { daysOff, overrides }
+      );
+      return changedCount > 0 ? (updatedTasks as Task[]) : prev;
+    });
+  }, [isLoaded, timetableEntries, daysOff, overrides]);
+
   const addDayOff = (data: DayOff) => {
     setDaysOff((prev) => {
       const next = [...prev.filter((d) => d.date !== data.date), data].sort((a, b) =>
@@ -914,8 +1175,45 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
 
   // ─── Actions: Tasks ───
   const addTask = (data: Omit<Task, "id" | "status" | "completedAt">): Task => {
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    const givenDate = data.givenDate || todayStr;
+    let deadlineDate = data.deadlineDate;
+    let deadlineMode = data.deadlineMode || "nextClass";
+
+    if (!deadlineDate) {
+      const hint =
+        parseIndonesianDateHint(data.title || "", givenDate) ||
+        (data.notes ? parseIndonesianDateHint(data.notes, givenDate) : null);
+      if (hint?.suggestedDate) {
+        deadlineDate = hint.suggestedDate;
+        deadlineMode = "custom";
+      } else {
+        const nextRes = calculateNextClassDeadline(data.subjectId, givenDate, timetableEntries, {
+          daysOff,
+          overrides,
+          afterNClasses: deadlineMode === "afterNClasses" ? 2 : 1,
+        });
+        deadlineDate =
+          nextRes.found && nextRes.deadlineDate
+            ? nextRes.deadlineDate
+            : format(addDays(parseISO(givenDate), 1), "yyyy-MM-dd");
+      }
+    } else if (deadlineMode === "nextClass" || deadlineMode === "afterNClasses") {
+      const nextRes = calculateNextClassDeadline(data.subjectId, givenDate, timetableEntries, {
+        daysOff,
+        overrides,
+        afterNClasses: deadlineMode === "afterNClasses" ? 2 : 1,
+      });
+      if (nextRes.found && nextRes.deadlineDate) {
+        deadlineDate = nextRes.deadlineDate;
+      }
+    }
+
     const newTask: Task = {
       ...data,
+      givenDate,
+      deadlineDate,
+      deadlineMode,
       id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       estimatedMinutes: clampEstimate(data.estimatedMinutes),
       status: "PENDING",
@@ -932,6 +1230,25 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         if (data.estimatedMinutes !== undefined) {
           updated.estimatedMinutes = clampEstimate(data.estimatedMinutes);
         }
+        if (
+          !data.deadlineDate &&
+          (data.subjectId !== undefined || data.deadlineMode !== undefined) &&
+          (updated.deadlineMode === "nextClass" || updated.deadlineMode === "afterNClasses")
+        ) {
+          const nextRes = calculateNextClassDeadline(
+            updated.subjectId,
+            updated.givenDate || format(new Date(), "yyyy-MM-dd"),
+            timetableEntries,
+            {
+              daysOff,
+              overrides,
+              afterNClasses: updated.deadlineMode === "afterNClasses" ? 2 : 1,
+            }
+          );
+          if (nextRes.found && nextRes.deadlineDate) {
+            updated.deadlineDate = nextRes.deadlineDate;
+          }
+        }
         return updated;
       })
     );
@@ -939,6 +1256,20 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
 
   const deleteTask = (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const deleteCompletedTasks = (): Task[] => {
+    const removed = tasks.filter((t) => t.status === "COMPLETED");
+    setTasks((prev) => prev.filter((t) => t.status !== "COMPLETED"));
+    return removed;
+  };
+
+  // Undo path: puts deleted tasks back unchanged (same id, status, completedAt).
+  const restoreTasks = (restored: Task[]) => {
+    setTasks((prev) => {
+      const ids = new Set(prev.map((t) => t.id));
+      return [...prev, ...restored.filter((t) => !ids.has(t.id))];
+    });
   };
 
   const toggleTaskCompletion = (id: string) => {
@@ -1188,21 +1519,6 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
     setReviewHistory([]);
     setDailyStats([]);
     setDismissedWarningIds([]);
-    saveStateImmediately({
-      subjects: [],
-      periodTimes: DEFAULT_PERIOD_TIMES,
-      timetableEntries: [],
-      daysOff: [],
-      overrides: [],
-      tasks: [],
-      studyUnits: [],
-      blocks: [],
-      focusLogs: [],
-      reviewHistory: [],
-      dailyStats: [],
-      dismissedWarningIds: [],
-      geminiApiKey,
-    });
   };
 
   const dismissWarning = (warningId: string) => {
@@ -1423,6 +1739,11 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       dailyStats,
       dismissedWarningIds,
       geminiApiKey,
+      appSettings,
+      studyBlocks,
+      schedulePrefs,
+      grades,
+      teachers,
     };
     const payload = exportBackupJSON(currentState);
     const jsonString = JSON.stringify(payload, null, 2);
@@ -1469,7 +1790,19 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
       setReviewHistory(res.state.reviewHistory || []);
       setDailyStats(res.state.dailyStats || []);
       setDismissedWarningIds(res.state.dismissedWarningIds || []);
-      if (res.state.geminiApiKey) setGeminiApiKey(res.state.geminiApiKey);
+      setStudyBlocks(res.state.studyBlocks || []);
+      setSchedulePrefs(res.state.schedulePrefs || DEFAULT_SCHEDULE_PREFS);
+      const nextAppSettings = res.state.appSettings || DEFAULT_APP_SETTINGS;
+      setAppSettings(nextAppSettings);
+      if (nextAppSettings.language) {
+        setLanguage(nextAppSettings.language);
+      }
+      if (nextAppSettings.theme) {
+        applyTheme(nextAppSettings.theme);
+      }
+      setGrades(res.state.grades || []);
+      setTeachers(res.state.teachers || []);
+      if (res.state.geminiApiKey) handleSetGeminiApiKey(res.state.geminiApiKey);
 
       return {
         success: true,
@@ -1483,16 +1816,14 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
   };
 
   const updateAppSettings = (partial: Partial<AppSettings>) => {
-    setAppSettings((prev) => {
-      const updated = { ...prev, ...partial };
-      if (partial.language) {
-        setLanguage(partial.language);
-      }
-      if (partial.theme) {
-        applyTheme(partial.theme);
-      }
-      return updated;
-    });
+    if (partial.language) {
+      setLanguage(partial.language);
+    }
+    if (partial.theme) {
+      applyTheme(partial.theme);
+      AsyncStorage.setItem(THEME_FAST_CACHE_KEY, partial.theme).catch(() => {});
+    }
+    setAppSettings((prev) => ({ ...prev, ...partial }));
   };
 
   const incrementDailyScanCount = () => {
@@ -1617,6 +1948,8 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         addTask,
         updateTask,
         deleteTask,
+        deleteCompletedTasks,
+        restoreTasks,
         toggleTaskCompletion,
         studyBlocks,
         schedulePrefs,
@@ -1671,6 +2004,9 @@ export function MobileStudyProvider({ children }: { children: ReactNode }) {
         simulateStreakDays,
         addMockStudyToday,
         clearTodayStudySessions,
+        useStreakFreezeToday,
+        useStreakFreezeForDate,
+        addStreakFreeze,
         grades,
         teachers,
         addGrade,

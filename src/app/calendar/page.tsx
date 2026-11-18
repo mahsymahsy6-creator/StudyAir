@@ -1,14 +1,49 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useStudyStore } from "@/stores/studyStore";
 import { useTimerStore } from "@/stores/timerStore";
 import { CalendarShell } from "@/components/calendar/CalendarShell";
-import { CreateScheduleDialog } from "@/components/calendar/CreateScheduleDialog";
-import { FocusSessionModal } from "@/components/focus/FocusSessionModal";
-import { CompletionDialog } from "@/components/review/CompletionDialog";
-import { AIPhotoScheduleDialog } from "@/components/ai/AIPhotoScheduleDialog";
-import { AICopilotDialog } from "@/components/ai/AICopilotDialog";
+
+const CreateScheduleDialog = dynamic(
+  () =>
+    import("@/components/calendar/CreateScheduleDialog").then(
+      (m) => m.CreateScheduleDialog
+    ),
+  { ssr: false }
+);
+
+const FocusSessionModal = dynamic(
+  () =>
+    import("@/components/focus/FocusSessionModal").then(
+      (m) => m.FocusSessionModal
+    ),
+  { ssr: false }
+);
+
+const CompletionDialog = dynamic(
+  () =>
+    import("@/components/review/CompletionDialog").then(
+      (m) => m.CompletionDialog
+    ),
+  { ssr: false }
+);
+
+const AIPhotoScheduleDialog = dynamic(
+  () =>
+    import("@/components/ai/AIPhotoScheduleDialog").then(
+      (m) => m.AIPhotoScheduleDialog
+    ),
+  { ssr: false }
+);
+
+const AICopilotDialog = dynamic(
+  () =>
+    import("@/components/ai/AICopilotDialog").then((m) => m.AICopilotDialog),
+  { ssr: false }
+);
+
 import { CognitiveLoadWarningBanner } from "@/components/shared/CognitiveLoadWarningBanner";
 import { CognitiveLoadBadge } from "@/components/shared/CognitiveLoadBadge";
 import {
@@ -204,7 +239,7 @@ export default function CalendarPage() {
         onOpenChange={(open) => !open && setSelectedBlock(null)}
       >
         {selectedBlock && (
-          <DialogContent className="max-w-md border-border/40 bg-card">
+          <DialogContent className="max-w-md border border-border bg-card">
             <DialogHeader>
               <div className="flex items-center gap-2">
                 <div
@@ -216,7 +251,7 @@ export default function CalendarPage() {
                 </span>
                 <Badge
                   variant="outline"
-                  className="ml-auto text-[10px] uppercase"
+                  className="ml-auto text-[10px] uppercase border-border"
                 >
                   {selectedBlock.block_type}
                 </Badge>
@@ -234,7 +269,7 @@ export default function CalendarPage() {
             </DialogHeader>
 
             <div className="space-y-3 py-2 text-sm">
-              <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/30 p-3">
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/20 p-3">
                 <div className="flex items-center gap-2 text-xs">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>

@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "StudyAir",
+    "slug": "studyair-mobile",
+    "version": "2.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#090d16",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.studyair.mobile",
+      "buildNumber": "2.0.1"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#090d16"
+      },
+      "package": "com.studyair.mobile",
+      "versionCode": 4
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#090d16"
+      }
+    },
+    "plugins": [
+      "expo-sharing",
+      "expo-sqlite",
+      "expo-status-bar",
+      "expo-secure-store",
+      "./plugins/withStudyAirAndroid"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4d6bc88b-16f8-410b-a690-f5364373ea80"
+      }
+    },
+    "owner": "mahsy"
+  }
+}
