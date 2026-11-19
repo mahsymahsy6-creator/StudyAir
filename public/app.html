@@ -1,35 +1,232 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <title>StudyAir</title>
-    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+    <title>StudyAir — Aplikasi Web Pelajar</title>
+    <link rel="icon" href="/favicon.ico"/>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
+    <meta name="theme-color" content="#090d16" />
+    <!-- The `react-native-web` recommended style reset -->
     <style id="expo-reset">
-      /* These styles make the body full-height */
-      html,
-      body {
+      html, body {
         height: 100%;
+        margin: 0;
+        padding: 0;
+        background-color: #060910;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: #f1f5f9;
+        -webkit-font-smoothing: antialiased;
       }
-      /* These styles disable body scrolling if you are using <ScrollView> */
       body {
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
-      /* These styles make the root element full-height */
+      
+      /* Desktop Top Navigation Bar */
+      .desktop-shell-header {
+        display: none;
+      }
+      
+      @media (min-width: 768px) {
+        body {
+          background: radial-gradient(circle at 50% 15%, #0f172a 0%, #060910 85%);
+        }
+        .desktop-shell-header {
+          display: flex;
+          height: 52px;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 24px;
+          background: rgba(10, 15, 29, 0.88);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          z-index: 1000;
+          flex-shrink: 0;
+        }
+        .desktop-shell-header a {
+          color: inherit;
+          text-decoration: none;
+        }
+        .shell-brand {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-weight: 800;
+          font-size: 15px;
+          letter-spacing: -0.02em;
+        }
+        .shell-brand img {
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+        .shell-version-badge {
+          background: rgba(56, 189, 248, 0.15);
+          color: #38bdf8;
+          border: 1px solid rgba(56, 189, 248, 0.3);
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 12px;
+          margin-left: 6px;
+        }
+        .shell-center-pill {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 11px;
+          color: #94a3b8;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 5px 14px;
+          border-radius: 20px;
+        }
+        .shell-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .shell-btn {
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #e2e8f0;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 6px 14px;
+          border-radius: 12px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.15s ease;
+        }
+        .shell-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+          color: #ffffff;
+        }
+        .shell-btn-primary {
+          background: #0284c7;
+          border-color: #38bdf8;
+          color: #ffffff;
+        }
+        .shell-btn-primary:hover {
+          background: #0369a1;
+        }
+        
+        /* Centered Mobile Container on Desktop */
+        .app-viewport-wrapper {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          overflow: hidden;
+        }
+        
+        .app-phone-stage {
+          width: 100%;
+          max-width: 430px;
+          height: 100%;
+          max-height: 920px;
+          background: #090d16;
+          border-radius: 36px;
+          box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.12);
+          overflow: hidden;
+          display: flex;
+          position: relative;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Fullscreen Mode override */
+        body.is-fullscreen .app-viewport-wrapper {
+          padding: 0;
+        }
+        body.is-fullscreen .app-phone-stage {
+          max-width: 100%;
+          max-height: 100%;
+          border-radius: 0;
+          box-shadow: none;
+          border: none;
+        }
+      }
+
+      /* Mobile view (fullscreen native) */
+      @media (max-width: 767px) {
+        .app-viewport-wrapper {
+          flex: 1;
+          display: flex;
+          width: 100%;
+          height: 100%;
+        }
+        .app-phone-stage {
+          width: 100%;
+          height: 100%;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+      }
+
       #root {
         display: flex;
         height: 100%;
+        width: 100%;
         flex: 1;
       }
     </style>
-  <link rel="icon" href="/favicon.ico"/></head>
-
+  </head>
   <body>
-    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
-    <noscript> You need to enable JavaScript to run this app. </noscript>
-    <!-- The root element for your Expo app. -->
-    <div id="root"></div>
-  <script src="/_expo/static/js/web/AppEntry-0f03efede671262b673845ec16dda4b8.js" defer></script>
-</body>
+    <header class="desktop-shell-header">
+      <div class="shell-brand">
+        <a href="/" style="display:flex;align-items:center;gap:10px;">
+          <img src="/studyair-icon.svg" alt="StudyAir Logo" />
+          <span>Study<span style="color:#38bdf8;">Air</span> Web</span>
+        </a>
+        <span class="shell-version-badge">v2.0.1</span>
+      </div>
+
+      <div class="shell-center-pill">
+        <span style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;"></span>
+        <span>Aplikasi Berjalan Langsung di Browser</span>
+      </div>
+
+      <div class="shell-actions">
+        <button id="toggle-frame-btn" class="shell-btn" title="Toggle Mode Tampilan">
+          <span id="frame-btn-text">⛶ Mode Layar Penuh</span>
+        </button>
+        <a href="/download" class="shell-btn shell-btn-primary">
+          <span>⬇️ Unduh APK</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="app-viewport-wrapper">
+      <div class="app-phone-stage" id="phone-stage">
+        <div id="root"></div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        var btn = document.getElementById('toggle-frame-btn');
+        var text = document.getElementById('frame-btn-text');
+        if (btn) {
+          btn.addEventListener('click', function() {
+            var isFs = document.body.classList.toggle('is-fullscreen');
+            if (isFs) {
+              text.textContent = '📱 Mode Bingkai Ponsel';
+            } else {
+              text.textContent = '⛶ Mode Layar Penuh';
+            }
+          });
+        }
+      })();
+    </script>
+    <script src="/_expo/static/js/web/AppEntry-0f03efede671262b673845ec16dda4b8.js" defer></script>
+  </body>
 </html>

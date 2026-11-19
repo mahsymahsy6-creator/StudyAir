@@ -57,6 +57,22 @@ const nextConfig: NextConfig = {
           "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk",
         permanent: false,
       },
+      // Harmonize legacy v1 routes to authentic StudyAir v2 Web App
+      {
+        source: "/calendar",
+        destination: "/app",
+        permanent: false,
+      },
+      {
+        source: "/dashboard",
+        destination: "/app",
+        permanent: false,
+      },
+      {
+        source: "/subjects",
+        destination: "/app",
+        permanent: false,
+      },
     ];
   },
 };

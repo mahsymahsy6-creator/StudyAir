@@ -4,6 +4,31 @@ This document records architectural, functional, and product decisions made for 
 
 ---
 
+### 2026-11-19: Comprehensive Web Experience & Desktop Shell Redesign (Obsidian Slate Aesthetic)
+- **Decision**: Redesigned and elevated the entire StudyAir web platform (`studyair.vercel.app`):
+  1. **Global Navigation & Layout (`Navbar.tsx`, `Footer.tsx`, `BottomNav.tsx`)**:
+     - Modern glassmorphism header with live status pulses, version indicator `v2.0.1`, segmented pill navigation (Beranda, Aplikasi Web with "Coba di Browser", Fitur Unggulan, Unduh APK, Trailer 9:16), GitHub repository integration, and "Buka Web App" primary CTA.
+     - New universal 4-column footer (`Footer.tsx`) with brand mission, Indonesian curriculum standards, open-source attribution, and navigation shortcuts.
+     - Mobile floating bottom navigation bar (`BottomNav.tsx`) auto-hiding during `/app` full-screen usage.
+  2. **World-Class Indonesian Homepage (`src/app/page.tsx`)**:
+     - Asymmetric Hero headline with real interactive smartphone preview stage running the live StudyAir web application.
+     - "Sebelum vs Sesudah StudyAir" relatable problem-versus-solution comparison.
+     - Detailed 4 Pillars showcase under `#fitur` (Algoritma Buat Jadwal 10 Detik, Jadwal 10 JP & Susun Manual, Naga Streak & Auto-Freeze Shield, Nilai Rapor & Target SNBP/TKA).
+     - Target student personas (Siswa SMA Pejuang SNBP, Siswa SMP Fase Adaptasi, Siswa Aktif OSIS/Ekskul).
+     - 6-item interactive FAQ accordion and pre-footer CTA banner.
+  3. **Smart Platform-Aware Download Hub (`src/app/download/page.tsx`)**:
+     - Client-side device detection auto-tailoring experience for Android (direct 1-tap download prompt), Desktop (highlighting large vector QR code), and iOS (Safari Add to Home Screen instructions).
+     - Release v2.0.1 verification card, SHA-256 integrity indicator, live `/api/version` checker, visual 4-step APK installation guide, and expandable changelog history.
+  4. **Desktop Companion Shell for `/app` (`public/app.html`)**:
+     - Solved wide-screen desktop stretching by rendering `/app` inside an elegant 430px smartphone frame with subtle titanium borders, deep ambient shadow, radial gradient backdrop, and desktop toolbar with 1-click "Mode Layar Penuh" toggle.
+     - Preserved 100% full-screen native edge-to-edge experience on mobile viewports (<768px).
+  5. **Legacy Route Harmonization (`next.config.ts`)**:
+     - Cleaned up obsolete v1 mock pages by redirecting `/calendar`, `/dashboard`, and `/subjects` directly to `/app`.
+- **Rationale**: Fulfills the user request "/plan design the web, all of it" with a polished, cohesive, production-grade web experience adhering to anti-slop taste standards.
+- **Attribution**: Builder (per user request).
+
+---
+
 ### 2026-11-18: StudyAir Web App Unified Deployment with Interactive Device Showcase & Native Web App Delivery (`/app`)
 - **Decision**: Delivered the authentic StudyAir application to the web platform, integrating the full React Native Web bundle directly into the Next.js cloud deployment:
   1. **Full StudyAir Web Application (`/app`)**:

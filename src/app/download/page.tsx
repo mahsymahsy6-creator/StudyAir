@@ -20,9 +20,17 @@ import {
   Check,
   ExternalLink,
   Clock,
+  HelpCircle,
+  FileText,
+  Laptop,
+  Apple,
+  Share2,
+  Info,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface VersionState {
   version: string;
@@ -38,7 +46,8 @@ export default function DownloadPage() {
   const [downloading, setDownloading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [qrLoaded, setQrLoaded] = useState(true);
+  const [userDevice, setUserDevice] = useState<"android" | "ios" | "desktop">("desktop");
+  const [activeChangelog, setActiveChangelog] = useState<string>("v2.0.1");
   const [versionState, setVersionState] = useState<VersionState>({
     version: "2.0.1",
     versionCode: 4,
@@ -48,6 +57,20 @@ export default function DownloadPage() {
     checkedAt: null,
     online: true,
   });
+
+  useEffect(() => {
+    // Detect user platform
+    if (typeof window !== "undefined" && navigator?.userAgent) {
+      const ua = navigator.userAgent.toLowerCase();
+      if (/android/.test(ua)) {
+        setUserDevice("android");
+      } else if (/iphone|ipad|ipod/.test(ua)) {
+        setUserDevice("ios");
+      } else {
+        setUserDevice("desktop");
+      }
+    }
+  }, []);
 
   const runVersionCheck = async () => {
     setChecking(true);
@@ -108,10 +131,9 @@ export default function DownloadPage() {
 
   const handleDownloadClick = () => {
     setDownloading(true);
-    setTimeout(() => setDownloading(false), 2000);
+    setTimeout(() => setDownloading(false), 2500);
   };
 
-  const lanDownloadUrl = `http://${versionState.lanIp}:8080/download`;
   const githubApkUrl =
     "https://github.com/mahsymahsy6-creator/StudyAir/releases/download/v2.0.1/StudyAir-v2.0.1.apk";
 
@@ -120,7 +142,7 @@ export default function DownloadPage() {
       const urlToCopy =
         typeof window !== "undefined"
           ? `${window.location.origin}/download`
-          : lanDownloadUrl;
+          : "https://studyair.vercel.app/download";
       await navigator.clipboard.writeText(urlToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -130,17 +152,23 @@ export default function DownloadPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background selection:bg-primary/20 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex-1 overflow-y-auto bg-background selection:bg-primary/20 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="mx-auto max-w-4xl space-y-12">
         {/* ─── Hero Download Banner ─── */}
         <div className="text-center space-y-4">
           {/* Brand Icon */}
           <div className="flex justify-center pb-2">
-            <img
-              src="/studyair-icon.svg"
-              alt="StudyAir App Icon"
-              className="h-24 w-24 sm:h-28 sm:w-28 rounded-3xl shadow-2xl border border-primary/25 shadow-primary/25 transition-transform hover:scale-105 duration-300"
-            />
+            <div className="relative group">
+              <img
+                src="/studyair-icon.svg"
+                alt="StudyAir App Icon"
+                className="h-24 w-24 sm:h-28 sm:w-28 rounded-3xl shadow-2xl border border-primary/25 shadow-primary/25 transition-transform group-hover:scale-105 duration-300"
+              />
+              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-background"></span>
+              </span>
+            </div>
           </div>
 
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-400">
@@ -154,15 +182,43 @@ export default function DownloadPage() {
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-foreground">
-            Unduh & Update <span className="text-primary">StudyAir</span> Android
+            Pusat Unduh <span className="text-primary">StudyAir</span>
           </h1>
 
           <p className="mx-auto max-w-xl text-sm sm:text-base text-muted-foreground leading-relaxed">
             Paket instalasi mandiri (Standalone APK) untuk pelajar SMP & SMA Indonesia. Jadwal sekolah otomatis rapi, tugas selesai tepat waktu, dan maskot naga selalu terjaga.
           </p>
 
+          {/* Device Context Notification Banner */}
+          {userDevice === "android" && (
+            <div className="mx-auto max-w-md rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-300 flex items-center justify-center gap-2">
+              <Smartphone className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span>
+                <strong>Perangkat Android terdeteksi.</strong> Ketuk tombol unduh di bawah untuk langsung mengunduh APK ke ponselmu!
+              </span>
+            </div>
+          )}
+
+          {userDevice === "desktop" && (
+            <div className="mx-auto max-w-md rounded-2xl border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-300 flex items-center justify-center gap-2">
+              <Laptop className="h-4 w-4 shrink-0 text-blue-400" />
+              <span>
+                <strong>Perangkat Laptop/PC terdeteksi.</strong> Kamu bisa mencoba di browser langsung atau pindai QR Code di bawah dengan kamera ponselmu.
+              </span>
+            </div>
+          )}
+
+          {userDevice === "ios" && (
+            <div className="mx-auto max-w-md rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-center justify-center gap-2">
+              <Apple className="h-4 w-4 shrink-0 text-amber-400" />
+              <span>
+                <strong>Perangkat iOS / iPhone terdeteksi.</strong> Buka <strong>Aplikasi Web</strong> lalu pilih <em>&ldquo;Add to Home Screen&rdquo;</em> di Safari untuk memasang!
+              </span>
+            </div>
+          )}
+
           {/* Primary Download & Update Check Actions */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
               href={githubApkUrl}
               download="StudyAir-v2.0.1.apk"
@@ -171,7 +227,7 @@ export default function DownloadPage() {
             >
               <Button
                 size="lg"
-                className="w-full sm:w-auto gap-3 bg-primary text-primary-foreground hover:bg-primary/90 text-base rounded-2xl px-8 py-6 font-bold shadow-lg hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full sm:w-auto gap-3 bg-primary text-primary-foreground hover:bg-primary/90 text-base rounded-2xl px-8 py-6 font-bold shadow-xl hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
               >
                 <Download className="h-5 w-5" />
                 <span>
@@ -182,230 +238,312 @@ export default function DownloadPage() {
               </Button>
             </a>
 
+            <Link href="/app" className="w-full sm:w-auto">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto gap-2 text-sm rounded-2xl px-6 py-6 border-border/80 hover:bg-muted/40 font-semibold cursor-pointer transition-all"
+              >
+                <Smartphone className="h-4 w-4 text-primary" />
+                <span>Buka Versi Web</span>
+              </Button>
+            </Link>
+
             <Button
               size="lg"
               variant="outline"
               onClick={runVersionCheck}
               disabled={checking}
-              className="w-full sm:w-auto gap-2 text-sm rounded-2xl px-5 py-6 border-border hover:bg-muted/30 font-semibold cursor-pointer"
+              className="w-full sm:w-auto gap-2 text-sm rounded-2xl px-5 py-6 border-border/80 hover:bg-muted/30 font-semibold cursor-pointer"
             >
               <RefreshCw
                 className={`h-4 w-4 text-primary ${checking ? "animate-spin" : ""}`}
               />
-              <span>{checking ? "Memeriksa..." : "Periksa Pembaruan"}</span>
-            </Button>
-
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={handleCopyLink}
-              className="w-full sm:w-auto gap-2 text-sm rounded-2xl px-5 py-6 border-border hover:bg-muted/30 font-semibold cursor-pointer"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <Copy className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span>{copied ? "Tautan Disalin ✓" : "Salin Link"}</span>
+              <span>{checking ? "Memeriksa..." : "Cek Pembaruan"}</span>
             </Button>
           </div>
 
-          {/* Metadata Specs */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Smartphone className="h-3.5 w-3.5 text-primary" />
-              Android 8.0+ (Min SDK 26)
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground pt-1">
+            <span className="flex items-center gap-1">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              Ukuran: {versionState.apkSizeMB} MB • Standalone App (Bukan Expo Go)
+              <span>Bebas Virus & Malware</span>
             </span>
             <span>•</span>
-            <span className="font-mono text-muted-foreground">
-              {versionState.apkFilename}
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5 text-blue-400" />
+              <span>CDN GitHub Berkecepatan Penuh</span>
             </span>
           </div>
         </div>
 
-        {/* ─── Wi-Fi QR Code & Update Card ─── */}
-        <Card className="bg-card/60 border-border/80 backdrop-blur-sm overflow-hidden">
-          <CardContent className="p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6">
-            {qrLoaded && (
-              <div className="bg-white p-3.5 rounded-2xl shadow-lg shrink-0 border border-border/40">
-                <img
-                  src="/qr.svg"
-                  alt="QR Code Unduh StudyAir APK"
-                  className="h-36 w-36"
-                  onError={() => setQrLoaded(false)}
-                />
-              </div>
-            )}
-
-            <div className="flex-1 space-y-3 text-center md:text-left">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-primary">
-                <QrCode className="h-4 w-4" />
-                <span>Unduh & Update Instan via Wi-Fi Lokal</span>
-              </div>
-              <h2 className="text-lg sm:text-xl font-bold text-foreground">
-                Pindai QR atau Buka Tautan di Ponsel Android
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Sudah punya versi lama di HP? Cukup unduh dan pasang{" "}
-                <strong className="text-foreground">{versionState.apkFilename}</strong>{" "}
-                langsung di atas aplikasi lama tanpa perlu <em>uninstall</em>. Seluruh jadwal pelajaran, daftar tugas, nilai rapor, dan progres pet naga Anda tetap aman tersimpan.
-              </p>
-              <div className="pt-1 flex flex-wrap items-center justify-center md:justify-start gap-2">
-                <code className="px-3 py-1.5 rounded-lg bg-muted/60 border border-border text-xs font-mono text-primary">
-                  {lanDownloadUrl}
-                </code>
-                <Link href="/trailer">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    <Play className="h-3.5 w-3.5 text-primary fill-primary" />
-                    <span>Tonton Trailer 9:16</span>
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ─── Installation & Update Guide (3 Simple Steps) ─── */}
-        <div className="space-y-6">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-center text-foreground">
-            Cara Pasang & Update di Smartphone Android
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-card/60 border-border/80 backdrop-blur-sm">
-              <CardContent className="p-6 space-y-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-base">
-                  1
+        {/* ─── Grid: QR Code Card & Information ─── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          {/* Card 1: Vector QR Code for Instant Phone Scan */}
+          <Card className="border-border/80 bg-card/60 shadow-md flex flex-col justify-between">
+            <CardContent className="p-6 sm:p-8 space-y-6 text-center flex-1 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                  <QrCode className="h-3.5 w-3.5" />
+                  <span>Pindai dari HP Apa Saja</span>
                 </div>
-                <h3 className="font-bold text-foreground">1. Unduh Paket APK</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Ketuk tombol <strong>Unduh APK v{versionState.version}</strong> di atas atau pindai QR Code untuk mengunduh berkas resmi ke folder <em>Downloads</em>.
+                <h3 className="text-xl font-bold text-foreground">
+                  QR Code Unduh Langsung
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                  Arahkan kamera ponselmu ke kode ini untuk langsung membuka portal unduh APK di HP.
                 </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/60 border-border/80 backdrop-blur-sm">
-              <CardContent className="p-6 space-y-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-base">
-                  2
-                </div>
-                <h3 className="font-bold text-foreground">2. Pasang / Timpa Versi Lama</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Buka file <code>{versionState.apkFilename}</code> lalu pilih <strong>Install / Update</strong>. Data lokal Anda akan otomatis dimigrasikan ke skema v2.0.1.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card/60 border-border/80 backdrop-blur-sm">
-              <CardContent className="p-6 space-y-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-base">
-                  3
-                </div>
-                <h3 className="font-bold text-foreground">3. Cek di Pengaturan</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Buka menu <strong>Pengaturan</strong> di dalam aplikasi kapan saja untuk memeriksa pembaruan berikutnya atau mengunduh ulang paket APK.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* ─── What's New in v2.0.1 ─── */}
-        <Card className="bg-card/40 border-border overflow-hidden">
-          <CardContent className="p-6 sm:p-8 space-y-6">
-            <div className="flex items-center gap-3 border-b border-border/60 pb-4">
-              <div className="p-2.5 rounded-xl bg-primary/15 text-primary">
-                <Sparkles className="h-5 w-5" />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-foreground">
-                  Yang Baru di StudyAir v{versionState.version}
+
+              {/* QR Image Box */}
+              <div className="flex justify-center my-2">
+                <div className="p-4 rounded-3xl bg-white shadow-xl border-4 border-slate-200 inline-block">
+                  <img
+                    src="/qr.svg"
+                    alt="StudyAir Download QR Code"
+                    className="h-44 w-44 sm:h-48 sm:w-48 object-contain"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="rounded-xl bg-muted/40 p-2.5 text-xs font-mono text-muted-foreground break-all border border-border/80">
+                  https://studyair.vercel.app/dl
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyLink}
+                  className="w-full gap-2 rounded-xl text-xs font-semibold cursor-pointer"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">Tautan Berhasil Disalin!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>Salin Tautan Portal Unduh</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: Release Specifications & Security */}
+          <Card className="border-border/80 bg-card/60 shadow-md flex flex-col justify-between">
+            <CardContent className="p-6 sm:p-8 space-y-6 flex-1 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Biner Terverifikasi</span>
+                </div>
+                <h3 className="text-xl font-bold text-foreground">
+                  Spesifikasi Rilis v{versionState.version}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Rilis Resmi v2.0.1 • Sinkronisasi Jam Pelajaran, Akses Bell Times & Streak Freeze
+                  Detail teknis biner APK untuk memastikan keaslian paket instalasi.
                 </p>
               </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-muted-foreground font-medium">Versi Aplikasi</span>
+                  <span className="font-bold text-foreground">
+                    v{versionState.version} (Build {versionState.versionCode})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-muted-foreground font-medium">Ukuran Berkas</span>
+                  <span className="font-bold text-foreground">
+                    {versionState.apkSizeMB} MB (Standalone APK)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-muted-foreground font-medium">Target Minimum OS</span>
+                  <span className="font-bold text-foreground">Android 6.0+ (Marshmallow atau baru)</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-muted-foreground font-medium">Tipe Arsitektur</span>
+                  <span className="font-bold text-foreground">Universal (arm64-v8a, armeabi-v7a, x86)</span>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/60">
+                  <span className="text-muted-foreground font-medium">Keamanan & Privasi</span>
+                  <span className="font-bold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    <span>Lokal SQLite, 0 Iklan</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <a
+                  href="https://github.com/mahsymahsy6-creator/StudyAir/releases/tag/v2.0.1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2 rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    <span>Lihat di GitHub Releases</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ─── Visual Step-by-Step Installation Guide (4 Langkah) ─── */}
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-black tracking-tight text-foreground">
+              Cara Memasang APK di HP Android
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-lg mx-auto">
+              Panduan 4 langkah mudah menginstal berkas APK mandiri di ponsel Android kamu:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Step 1 */}
+            <Card className="border-border/80 bg-card/40 p-5 space-y-3">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-black flex items-center justify-center text-sm">
+                1
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Unduh Berkas APK</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Ketuk tombol <strong>Unduh APK v2.0.1</strong> di atas dan tunggu hingga proses unduhan selesai di browser HP kamu.
+              </p>
+            </Card>
+
+            {/* Step 2 */}
+            <Card className="border-border/80 bg-card/40 p-5 space-y-3">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-black flex items-center justify-center text-sm">
+                2
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Buka Berkas Unduhan</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Tarik bilah notifikasi HP ke bawah dan ketuk notifikasi unduhan, atau buka melalui aplikasi <em>File Manager / Unduhan</em>.
+              </p>
+            </Card>
+
+            {/* Step 3 */}
+            <Card className="border-border/80 bg-card/40 p-5 space-y-3">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary font-black flex items-center justify-center text-sm">
+                3
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Izinkan Sumber Ini</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Jika muncul pesan standar Android <em>&ldquo;Instal aplikasi dari sumber tidak dikenal&rdquo;</em>, aktifkan izin untuk browser/file manager kamu.
+              </p>
+            </Card>
+
+            {/* Step 4 */}
+            <Card className="border-border/80 bg-card/40 p-5 space-y-3">
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-400 font-black flex items-center justify-center text-sm">
+                4
+              </div>
+              <h4 className="text-sm font-bold text-foreground">Pasang & Buka!</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Ketuk <strong>Pasang (Install)</strong>. Begitu selesai, ikon StudyAir akan langsung muncul di beranda HP dan siap digunakan.
+              </p>
+            </Card>
+          </div>
+        </div>
+
+        {/* ─── Expandable Changelog Section ─── */}
+        <div className="space-y-6">
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-black tracking-tight text-foreground">
+              Catatan Rilis & Riwayat Pembaruan
+            </h3>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Ketahui peningkatan performa dan fitur baru yang dihadirkan di setiap versi.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {/* v2.0.1 */}
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 pb-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-foreground text-base">
+                    StudyAir v2.0.1 (Build 4)
+                  </span>
+                  <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[10px] font-bold">
+                    Terbaru • Stabil
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">November 2026</span>
+              </div>
+
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Sinkronisasi Jam Pelajaran Dua Arah</strong>: Pengaturan jumlah JP (hingga 10 JP) dan jam istirahat di Pengaturan kini langsung sinkron ke tab Jadwal dan wizard Susun Manual.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Modal Jam Pelajaran Langsung</strong>: Mengatur jam bel sekolah kini dapat dilakukan langsung di tab Jadwal tanpa perlu berpindah ke Pengaturan.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Perbaikan Tombol Batal Wizard</strong>: Tombol &ldquo;Batal&rdquo; di wizard Susun Manual kini merespons instan di semua platform (Web & Native Android).
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Penjadwalan Tugas Terlambat</strong>: Tugas yang melewati deadline kini tetap dapat dibuatkan blok belajar darurat melalui opsi penjadwalan.
+                  </span>
+                </li>
+              </ul>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 shrink-0 mt-0.5">
-                  <Sparkles className="h-4 w-4" />
+            {/* v2.0.0 */}
+            <div className="rounded-2xl border border-border/80 bg-card/40 p-6 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-foreground text-base">
+                    StudyAir v2.0.0 (Build 2)
+                  </span>
+                  <Badge variant="outline" className="text-[10px]">
+                    Major Release
+                  </Badge>
                 </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">Sinkronisasi Jam Pelajaran Terpadu</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Pengaturan jam belajar sekolah terhubung dua arah ke tab Jadwal dan Susun Manual tanpa kehilangan data.
-                  </p>
-                </div>
+                <span className="text-xs text-muted-foreground font-mono">Oktober 2026</span>
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 shrink-0 mt-0.5">
-                  <Clock className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">Akses Modal Bell Times di Jadwal</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Pill jam pelajaran interaktif dan tombol jam di header Jadwal untuk atur durasi jam masuk, istirahat, dan pulang.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 shrink-0 mt-0.5">
-                  <Flame className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">Sistem Perlindungan Streak Freeze</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Auto-protect streak saat terlewat, reward pembeku tiap 3 hari berturut-turut, dan drop harian 35%.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 shrink-0 mt-0.5">
-                  <ShieldCheck className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-foreground">Navigasi Mantap & Audio Taktil</h4>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Perbaikan tombol Batal pada Wizard Impor Jadwal serta umpan balik audio klik taktil responsif di setiap aksi.
-                  </p>
-                </div>
-              </div>
+              <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>Evolusi maskot Naga Streak (Telur → Bayi → Remaja → Naga Dewasa) dengan sistem auto-freeze protection.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>Kalkulator Rapor Kurikulum Merdeka berbobot SKS dan estimasi target SNBP/UTBK.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>Engine audio taktil sintetis berlatensi rendah untuk setiap ketukan dan keberhasilan tugas.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>7 pilihan tema tampilan (Navy, AMOLED Black, Emerald, Sunset, Cyberpunk, Rose, Slate).</span>
+                </li>
+              </ul>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* ─── Web Version Quick Links ─── */}
-        <div className="text-center pt-2 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Ingin langsung mencoba StudyAir di browser tanpa instalasi?
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <a href="http://localhost:8081" target="_blank" rel="noreferrer">
-              <Button variant="outline" className="gap-2 text-xs font-semibold cursor-pointer">
-                <span>Buka Aplikasi Mobile Web (:8081)</span>
-                <ExternalLink className="h-3.5 w-3.5 text-primary" />
-              </Button>
-            </a>
-            <Link href="/calendar">
-              <Button variant="ghost" className="gap-2 text-xs font-semibold text-primary hover:text-primary/80 cursor-pointer">
-                <span>Buka Desktop Web Calendar</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
           </div>
         </div>
       </div>

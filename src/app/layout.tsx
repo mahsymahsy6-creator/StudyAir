@@ -3,12 +3,24 @@ import { Suspense } from "react";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/layout/Navbar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { Footer } from "@/components/layout/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "StudyAir — Adaptive Study Scheduler",
+  title: "StudyAir — Jadwal Belajar Pintar Pelajar SMP & SMA",
   description:
-    "Smart study scheduling with spaced repetition, time-blocking calendar, and focus sessions. Master your syllabus before exam day.",
+    "Aplikasi penjadwal belajar otomatis untuk pelajar Indonesia. Sinkronisasi jadwal 10 JP, naga streak pelindung kebiasaan belajar, dan kalkulator nilai rapor Kurikulum Merdeka.",
+  keywords: [
+    "StudyAir",
+    "Jadwal Belajar",
+    "Kurikulum Merdeka",
+    "Pelajar Indonesia",
+    "Jadwal Sekolah 10 JP",
+    "Streak Belajar",
+    "Kalkulator Rapor",
+    "Aplikasi Pelajar SMP SMA",
+  ],
+  authors: [{ name: "StudyAir Team" }],
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -43,7 +55,7 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en"
+      lang="id"
       className="h-full antialiased font-sans"
       suppressHydrationWarning
     >
@@ -61,6 +73,7 @@ export default function RootLayout({
               {children}
             </Suspense>
           </main>
+          <Footer />
           <BottomNav />
         </Providers>
       </body>
